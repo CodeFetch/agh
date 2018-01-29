@@ -1,5 +1,6 @@
 #ifndef __xmpp_h__
 #define __xmpp_h__
+#include "agh.h"
 
 struct xmpp_state {
 	int x;
@@ -15,5 +16,4 @@ struct agh_thread xmpp_thread_ops = {
 	.agh_thread_main = xmpp_thread_start,
 	.agh_thread_deinit = xmpp_thread_deinit
 };
-
 #endif

@@ -25,7 +25,6 @@ struct agh_state {
 struct agh_thread {
 	/* core data */
 	GThread *current_thread;
-	GAsyncQueue *comm_asyncqueue;
 	char *thread_name;
 
 	/* callbacks */
