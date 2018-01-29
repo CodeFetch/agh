@@ -2,7 +2,7 @@
 G_MESSAGES_DEBUG=all
 export G_MESSAGES_DEBUG
 
-gcc -Wall -Wextra -ggdb \
+gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
 xmpp.c \
 callbacks.c \
