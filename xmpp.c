@@ -7,6 +7,8 @@ void xmpp_thread_init(gpointer data) {
 	struct xmpp_state *xstate;
 
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
+
+	/* XXX proper error checking! */
 	if (!ct->thread_data) {
 		g_print("%s: failure while allocating thread data.\n",ct->thread_name);
 		return;
