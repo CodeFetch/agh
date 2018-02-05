@@ -2,9 +2,6 @@
 #define __agh_h__
 #include <glib.h>
 
-/* Exit statuses */
-#define OUT_OF_MEMORY 2
-
 /* Data structures */
 struct agh_state {
 	GMainLoop *agh_mainloop;
