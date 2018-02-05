@@ -61,13 +61,11 @@ struct agh_state * agh_state_setup(void) {
 
 void agh_sources_setup(struct agh_state *mstate) {
 	/* Intercepts UNIX signals. This is useful at least to exit the main loop gracefully. SIGINT is also delivered on ctrl+c event. */
-	g_print("AGH CORE: intercepting SIGINT signal\n");
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 
 	/* Emit some "ticks" on the screen: just to know what's happening. */
-	g_print("AGH CORE: heartbeat init\n");
 	mstate->agh_timeout_tick = g_timeout_source_new_seconds(3);
 	g_source_set_callback(mstate->agh_timeout_tick, agh_timeout_cb_dispatch, mstate, NULL);
 	mstate->agh_timeout_tick_tag = g_source_attach(mstate->agh_timeout_tick, mstate->ctx);
