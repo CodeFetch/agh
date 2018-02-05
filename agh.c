@@ -44,13 +44,8 @@ int main(void) {
 struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
 
-	/* XXX: proper error checking? */
+	/* Note: glib will terminate the application should memory allocation fail. */
 	mstate = g_malloc0(sizeof *mstate);
-
-	if (!mstate) {
-		g_print("AGH CORE: Memory allocation failure. Exiting.\n");
-		exit(OUT_OF_MEMORY);
-	}
 
 	/* Set up the main event loop */
 	mstate->ctx = g_main_context_new();

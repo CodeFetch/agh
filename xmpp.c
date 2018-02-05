@@ -6,13 +6,8 @@ void xmpp_thread_init(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate;
 
+	/* Should a memory allocation failure occur, glib will terminate the application. */
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
-
-	/* XXX proper error checking! */
-	if (!ct->thread_data) {
-		g_print("%s: failure while allocating thread data.\n",ct->thread_name);
-		return;
-	}
 
 	xstate = ct->thread_data;
 	xstate->xmpp_gmaincontext = g_main_context_new();
