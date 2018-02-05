@@ -12,6 +12,6 @@ int agh_unix_signals_cb_dispatch(gpointer data) {
 
 int agh_timeout_cb_dispatch(gpointer data) {
 	struct agh_state *mstate = data;
-	g_print("TICK\n");
+	g_print("AGH CORE: TICK\n");
 	return TRUE;
 }

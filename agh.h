@@ -8,6 +8,7 @@
 /* Data structures */
 struct agh_state {
 	GMainLoop *agh_mainloop;
+	GMainContext *ctx;
 
 	/* UNIX Signals stuff */
 	GSource *agh_main_unix_signals;
@@ -26,6 +27,10 @@ struct agh_thread {
 	/* core data */
 	GThread *current_thread;
 	char *thread_name;
+	GMainContext *agh_maincontext;
+	GMainLoop *agh_mainloop;
+	GAsyncQueue *comm;
+	gboolean on_stack;
 
 	/* callbacks */
 	void (*agh_thread_init)(gpointer data);
