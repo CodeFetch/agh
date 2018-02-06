@@ -159,10 +159,13 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	ct->agh_maincontext = NULL;
 	ct->agh_mainloop = NULL;
 
+	/* don't get confused, this was only to remind us to check how things go when stopping the usage of on-stack control thread structures */
 	if (!ct->on_stack ) {
 		g_print("** WARNING: AGH thread control structure for %s isn't on stack and has not been freed. Freeing it now, but this needs to be looked at.\n",ct->thread_name);
 		g_free(ct);
 	}
+
+	g_queue_remove(mstate->agh_threads, ct);
 }
 
 void agh_threads_start_single(gpointer data, gpointer user_data) {
