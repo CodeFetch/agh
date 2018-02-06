@@ -3,10 +3,6 @@
 #include "agh.h"
 
 struct xmpp_state {
-	GMainLoop *xmpp_gmainloop;
-	GMainContext *xmpp_gmaincontext;
-	GSource *xmpp_gtimeout;
-	guint xmpp_gtimeout_tag;
 	gint testval;
 };
 

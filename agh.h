@@ -18,15 +18,32 @@ struct agh_state {
 
 	/* queue of threads */
 	GQueue *agh_threads;
+
+	/* handlers */
+	GQueue *agh_handlers;
 };
 
 struct agh_thread {
-	/* core data */
+	/* glib thread data */
 	GThread *current_thread;
+
+	/* used to help users distinguish threads; maybe we can avoid using this ? */
 	char *thread_name;
+
+	/* Expose AGH main loop and context: useful for threads to cause the core to exit; arguably a good choice. */
 	GMainContext *agh_maincontext;
 	GMainLoop *agh_mainloop;
+
+	/*
+	 * Communication related data; here we include also the GMainLoop related stuff, because we actually need that. or this is the case now.
+	*/
+	GMainLoop *evl;
+	GMainContext *evl_ctx;
 	GAsyncQueue *comm;
+	GSource *comm_timeout;
+	guint comm_timeout_tag;
+
+	/* to be removed at some point */
 	gboolean on_stack;
 
 	/* callbacks */
@@ -36,6 +53,7 @@ struct agh_thread {
 
 	/* thread data */
 	void *thread_data;
+	GQueue *handlers;
 };
 
 /* Function prototypes */

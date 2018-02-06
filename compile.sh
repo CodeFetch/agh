@@ -8,5 +8,7 @@ gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
 xmpp.c \
 callbacks.c \
+aghservices.c \
+messages.c \
 `pkg-config --cflags --libs glib-2.0` -DG_DISABLE_DEPRECATED \
 -o agh
