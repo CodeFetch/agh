@@ -165,7 +165,9 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 		g_free(ct);
 	}
 
+	/* XXX: a better way to do this? */
 	g_queue_remove(mstate->agh_threads, ct);
+	return;
 }
 
 void agh_threads_start_single(gpointer data, gpointer user_data) {

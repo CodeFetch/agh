@@ -61,36 +61,29 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	return;
 }
 
-void handlers_init(GQueue *handlers, gpointer data) {
-	g_queue_foreach(handlers, handlers_init_single, data);
+void handlers_init(GQueue *handlers) {
+	g_queue_foreach(handlers, handlers_init_single, NULL);
 	return;
 }
 
 void handlers_init_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
-	gpointer handler_data = user_data;
 
-	h->handler_initialize(handler_data);
+	h->handler_initialize(h);
 	return;
 }
 
 void handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
-	gpointer handler_data = user_data;
 
-	h->handler_finalize(handler_data);
+	h->handler_finalize(h);
+
+	/* XXX: a better way to do this? */
+	g_queue_remove(h->handlers_queue, h);
 	return;
 }
 
-/*
- * This function is not meant to be caleld from inside other handlers related functions.
-*/
-void handler_unregister(GQueue *handlers, struct handler *h, gpointer data) {
-	h->handler_finalize(data);
-	g_queue_remove(handlers, h);
+void handlers_finalize(GQueue *handlers) {
+	g_queue_foreach(handlers, handlers_finalize_single, NULL);
 	return;
-}
-
-void handlers_finalize(GQueue *handlers, gpointer data) {
-	g_queue_foreach(handlers, handlers_finalize_single, data);
 }

@@ -52,7 +52,7 @@ struct agh_thread {
 	void (*agh_thread_deinit)(gpointer data);
 
 	/* thread data */
-	void *thread_data;
+	gpointer thread_data;
 	GQueue *handlers;
 };
 
