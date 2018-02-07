@@ -174,6 +174,7 @@ void agh_threads_start_single(gpointer data, gpointer user_data) {
 
 	g_print(ct->thread_name);
 	ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
+	return;
 }
 
 void agh_threads_stop_single(gpointer data, gpointer user_data) {

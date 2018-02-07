@@ -35,3 +35,62 @@ void agh_threads_test_sendmsg(gpointer data, gpointer user_data) {
 	g_async_queue_push(ct->comm, testm);
 	return;
 }
+
+GQueue *handlers_setup(void) {
+	return g_queue_new();
+}
+
+void handlers_teardown(GQueue *handlers) {
+	guint num_handlers;
+
+	num_handlers = g_queue_get_length(handlers);
+	if (num_handlers) {
+		g_print("handlers: %d handlers are still registered, this is going to leak memory!\n",num_handlers);
+	}
+	g_queue_free(handlers);
+	return;
+}
+
+void handler_register(GQueue *handlers, struct handler *h) {
+	if ((!h) || (!handlers)) {
+		g_print("handlers: tried to register a NULL handler, or to add an handler to a NULL queue.\n");
+	}
+	else {
+		g_queue_push_head(handlers, h);
+	}
+	return;
+}
+
+void handlers_init(GQueue *handlers, gpointer data) {
+	g_queue_foreach(handlers, handlers_init_single, data);
+	return;
+}
+
+void handlers_init_single(gpointer data, gpointer user_data) {
+	struct handler *h = data;
+	gpointer handler_data = user_data;
+
+	h->handler_initialize(handler_data);
+	return;
+}
+
+void handlers_finalize_single(gpointer data, gpointer user_data) {
+	struct handler *h = data;
+	gpointer handler_data = user_data;
+
+	h->handler_finalize(handler_data);
+	return;
+}
+
+/*
+ * This function is not meant to be caleld from inside other handlers related functions.
+*/
+void handler_unregister(GQueue *handlers, struct handler *h, gpointer data) {
+	h->handler_finalize(data);
+	g_queue_remove(handlers, h);
+	return;
+}
+
+void handlers_finalize(GQueue *handlers, gpointer data) {
+	g_queue_foreach(handlers, handlers_finalize_single, data);
+}
