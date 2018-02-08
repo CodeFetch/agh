@@ -24,18 +24,16 @@ void agh_threads_test_sendmsg(gpointer data, gpointer user_data) {
 	struct agh_message *testm;
 	struct test_csp *mycsp;
 	static unsigned int testval = 0;
-	GQueue *tq;
 
 	testm = msg_alloc(sizeof(struct test_csp));
+	msg_prepare(testm, mstate->agh_comm, ct->comm);
 	mycsp = testm->csp;
 	mycsp->num = testval;
 	testval++;
 
 	g_print("AGH CORE: sending message %d\n", mycsp->num);
 
-	tq = g_queue_new();
-	g_queue_push_head(tq, testm);
-	g_async_queue_push(ct->comm, tq);
+	msg_send(testm);
 	return;
 }
 

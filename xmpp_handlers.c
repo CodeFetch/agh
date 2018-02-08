@@ -19,6 +19,8 @@ gpointer xmpp_test_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct test_csp *mycsp = m->csp;
 
-	g_print("XMPP test handler: message handled (%d).",mycsp->num);
-	return NULL;
+	g_print("Crashing in a moment...\n");
+	g_print("XMPP test handler: handling message (%d).\n",mycsp->num);
+	mycsp->num++;
+	return m;;
 }

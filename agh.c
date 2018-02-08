@@ -8,12 +8,20 @@
 #include "agh.h"
 #include "xmpp.h"
 #include "callbacks.h"
+#include "aghservices.h"
+// XXX test only
+#include "xmpp_handlers.h"
 
 int main(void) {
 
 	/* AGH state */
 	struct agh_state *mstate;
 	mstate = agh_state_setup();
+
+	mstate->agh_handlers = handlers_setup();
+
+	// XXX register some handlers here, test only
+	handler_register(mstate->agh_handlers, &xmpp_test_handler);
 
 	agh_sources_setup(mstate);
 
@@ -24,6 +32,8 @@ int main(void) {
 	agh_threads_prepare(mstate);
 
 	agh_threads_start(mstate);
+
+	g_queue_foreach(mstate->agh_threads, agh_threads_test_sendmsg, mstate);
 
 	g_print("AGH CORE: Entering main loop...\n");
 
@@ -53,17 +63,17 @@ struct agh_state * agh_state_setup(void) {
 
 	return mstate;
 }
-
 void agh_sources_setup(struct agh_state *mstate) {
 	/* Intercepts UNIX signals. This is useful at least to exit the main loop gracefully. SIGINT is also delivered on ctrl+c event. */
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 
-	/* Emit some "ticks" on the screen: just to know what's happening. */
-	mstate->agh_timeout_tick = g_timeout_source_new_seconds(2);
-	g_source_set_callback(mstate->agh_timeout_tick, agh_timeout_cb_dispatch, mstate, NULL);
-	mstate->agh_timeout_tick_tag = g_source_attach(mstate->agh_timeout_tick, mstate->ctx);
+	/* Communications with other threads */
+	aghservices_core_messaging_setup(mstate);
+
+	/* queue for communicating with other threads. */
+	mstate->agh_comm = g_async_queue_new();
 }
 
 void agh_sources_teardown(struct agh_state *mstate) {
@@ -71,10 +81,7 @@ void agh_sources_teardown(struct agh_state *mstate) {
 	g_source_destroy(mstate->agh_main_unix_signals);
 	mstate->agh_main_unix_signals_tag = 0;
 	g_print("AGH CORE: SIGINT will not be handled from now on.\n");
-
-	/* tick timer */
-	g_source_destroy(mstate->agh_timeout_tick);
-	mstate->agh_timeout_tick_tag = 0;
+	// XXX remember to stop messaging!
 }
 
 void agh_state_teardown(struct agh_state *mstate) {

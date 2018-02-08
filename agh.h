@@ -12,15 +12,16 @@ struct agh_state {
 	guint agh_main_unix_signals_tag;
 	gboolean sigint_received;
 
-	/* tick */
-	GSource *agh_timeout_tick;
-	guint agh_timeout_tick_tag;
-
 	/* queue of threads */
 	GQueue *agh_threads;
 
 	/* handlers */
 	GQueue *agh_handlers;
+
+	/* even core needs to receive messages */
+	GAsyncQueue *agh_comm;
+	GSource *comm_timeout;
+	guint comm_timeout_tag;
 };
 
 struct agh_thread {
