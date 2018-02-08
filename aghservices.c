@@ -55,7 +55,7 @@ gboolean aghservices_receive_messages(gpointer data) {
 		num_answers = g_queue_get_length(handlers_answers);
 		for (i=num_answers;i>0;i--) {
 			m = g_queue_pop_head(handlers_answers);
-			aghservices_handle_message(ct->handlers, m);
+			aghservices_handle_message(ct->handlers, m, ct->comm);
 			g_print("Deallocating message...\n");
 			msg_dealloc(m);
 		}
@@ -72,7 +72,7 @@ gboolean aghservices_receive_messages(gpointer data) {
 	return TRUE;
 }
 
-void aghservices_handle_message(GQueue *handlers, struct agh_message *m) {
+void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQueue *src_comm) {
 	guint num_handlers;
 	GQueue *answers;
 	struct handler *h;
@@ -91,8 +91,10 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m) {
 		for (i=0;i<num_handlers;i++) {
 			h = g_queue_peek_nth(handlers, i);
 			answer = h->handle(h, m);
-			if (answer)
+			if (answer) {
+				msg_prepare(answer, src_comm, m->src_comm);
 				g_queue_push_tail(answers, answer);
+			}
 		}
 
 		/* queue back messages to sender */
@@ -102,8 +104,6 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m) {
 		else {
 			g_async_queue_push(m->src_comm, answers);
 		}
-
-		return;
 	}
 
 	return;
@@ -122,7 +122,7 @@ gboolean aghservices_core_receive_messages(gpointer data) {
 		num_answers = g_queue_get_length(handlers_answers);
 		for (i=num_answers;i>0;i--) {
 			m = g_queue_pop_head(handlers_answers);
-			aghservices_handle_message(mstate->agh_handlers, m);
+			aghservices_handle_message(mstate->agh_handlers, m, mstate->agh_comm);
 			g_print("Deallocating message...\n");
 			msg_dealloc(m);
 		}

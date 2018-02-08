@@ -4,7 +4,7 @@
 
 void aghservices_messaging_setup(struct agh_thread *ct, GQueue *handlers);
 gboolean aghservices_receive_messages(gpointer data);
-void aghservices_handle_message(GQueue *handlers, struct agh_message *m);
+void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQueue *src_comm);
 void aghservices_core_messaging_setup(struct agh_state *mstate);
 gboolean aghservices_core_receive_messages(gpointer data);
 #endif
