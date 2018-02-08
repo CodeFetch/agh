@@ -2,6 +2,8 @@
 #include "agh.h"
 #include "xmpp.h"
 #include "aghservices.h"
+#include "callbacks.h"
+#include "xmpp_handlers.h"
 
 void xmpp_thread_init(gpointer data) {
 	struct agh_thread *ct = data;
@@ -12,7 +14,11 @@ void xmpp_thread_init(gpointer data) {
 
 	xstate = ct->thread_data;
 
-	aghservices_messaging_setup(ct);
+	ct->handlers = handlers_setup();
+
+	handler_register(ct->handlers, &xmpp_test_handler);
+
+	aghservices_messaging_setup(ct, ct->handlers);
 
 	return;
 }
@@ -30,7 +36,12 @@ gpointer xmpp_thread_start(gpointer data) {
 
 void xmpp_thread_deinit(gpointer data) {
 	struct agh_thread *ct = data;
+	struct xmpp_state *xstate = ct->thread_data;
+
 	g_print("XMPP deinit.\n");
+
+	handlers_finalize(ct->handlers);
+	handlers_teardown(ct->handlers);
 	g_free(ct->thread_data);
 	return;
 }

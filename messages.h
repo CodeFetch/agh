@@ -1,10 +1,12 @@
 #ifndef __messages_h__
 #define __messages_h__
 #include <glib.h>
+#include "agh.h"
 
 struct agh_message {
 	gsize len;
-	void *csp;
+	struct agh_thread *src_ct;
+	gpointer csp;
 };
 
 struct agh_message *msg_alloc(gsize len);

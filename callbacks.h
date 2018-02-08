@@ -11,9 +11,10 @@ struct test_csp {
 
 struct handler {
 	gboolean enabled;
+	gboolean on_stack;
 
 	void (*handler_initialize)(gpointer data);
-	void (*handle)(void);
+	gpointer (*handle)(gpointer data, gpointer hmessage);
 	void (*handler_finalize)(gpointer data);
 
 	/* A pointer to the hanler queue. Handlers should avoid accessing their queue still if at all possible. */
@@ -34,4 +35,5 @@ void handlers_init_single(gpointer data, gpointer user_data);
 void handlers_finalize(GQueue *handlers);
 void handlers_finalize_single(gpointer data, gpointer user_data);
 void handlers_teardown(GQueue *handlers);
+struct agh_message *handlers_dispatch_single(gpointer data, gpointer user_data);
 #endif

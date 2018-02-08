@@ -10,5 +10,6 @@ xmpp.c \
 callbacks.c \
 aghservices.c \
 messages.c \
+xmpp_handlers.c \
 `pkg-config --cflags --libs glib-2.0` -DG_DISABLE_DEPRECATED \
 -o agh

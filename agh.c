@@ -61,7 +61,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 
 	/* Emit some "ticks" on the screen: just to know what's happening. */
-	mstate->agh_timeout_tick = g_timeout_source_new_seconds(3);
+	mstate->agh_timeout_tick = g_timeout_source_new_seconds(2);
 	g_source_set_callback(mstate->agh_timeout_tick, agh_timeout_cb_dispatch, mstate, NULL);
 	mstate->agh_timeout_tick_tag = g_source_attach(mstate->agh_timeout_tick, mstate->ctx);
 }
@@ -146,6 +146,7 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	ct->agh_maincontext = mstate->ctx;
 	ct->agh_mainloop = mstate->agh_mainloop;
 	ct->comm = g_async_queue_new();
+	ct->handlers = NULL;
 	ct->agh_thread_init(ct);
 }
 
@@ -191,8 +192,4 @@ void agh_threads_destroied_check(gpointer data) {
 	struct agh_thread *ct = data;
 
 	return;
-}
-
-void agh_send_event(struct agh_thread *ct, gint priority, GSource *s) {
-	g_print("%s thread: event committed to core.\n",ct->thread_name);
 }
