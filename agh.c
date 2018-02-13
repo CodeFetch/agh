@@ -14,8 +14,8 @@
 
 int main(void) {
 
-	/* AGH state */
 	struct agh_state *mstate;
+
 	mstate = agh_state_setup();
 
 	mstate->agh_handlers = handlers_setup();
@@ -63,17 +63,18 @@ struct agh_state * agh_state_setup(void) {
 
 	return mstate;
 }
+
 void agh_sources_setup(struct agh_state *mstate) {
 	/* Intercepts UNIX signals. This is useful at least to exit the main loop gracefully. SIGINT is also delivered on ctrl+c event. */
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 
-	/* Communications with other threads */
-	aghservices_core_messaging_setup(mstate);
-
 	/* queue for communicating with other threads. */
 	mstate->agh_comm = g_async_queue_new();
+
+	/* Communications with other threads */
+	aghservices_core_messaging_setup(mstate);
 }
 
 void agh_sources_teardown(struct agh_state *mstate) {
