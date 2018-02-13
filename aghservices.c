@@ -4,10 +4,10 @@
 #include "messages.h"
 #include "callbacks.h"
 
-void aghservices_messaging_setup(struct agh_thread *ct, GQueue *handlers) {
+void aghservices_messaging_setup(struct agh_thread *ct) {
 
-	if (!handlers) {
-		g_print("AGH CORE: a thread (%s) passed us an NULL handlers queue pointer. Messaging disabled for that thread to prevent an immediate segfault, but things will probably not work correctly.\n",ct->thread_name);
+	if (!ct->handlers) {
+		g_print("AGH CORE: a thread (%s) called us with a NULL handlers queue pointer. Messaging disabled for that thread to prevent an immediate segfault, but things will probably not work correctly.\n\t(maybe you forgot to call handlers_setup ? )\n",ct->thread_name);
 		return;
 	}
 

@@ -18,7 +18,7 @@ void xmpp_thread_init(gpointer data) {
 
 	handler_register(ct->handlers, &xmpp_test_handler);
 
-	aghservices_messaging_setup(ct, ct->handlers);
+	aghservices_messaging_setup(ct);
 
 	return;
 }
