@@ -75,6 +75,8 @@ void agh_sources_setup(struct agh_state *mstate) {
 
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
+	handlers_init(mstate->agh_handlers);
+	return;
 }
 
 void agh_sources_teardown(struct agh_state *mstate) {
