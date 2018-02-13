@@ -28,7 +28,7 @@ void aghservices_messaging_setup(struct agh_thread *ct, GQueue *handlers) {
 void aghservices_core_messaging_setup(struct agh_state *mstate) {
 
 	if (!mstate->agh_handlers) {
-		g_print("AGH CORE: the core seems to have no handlers. Something should be going horribly wrong.\n");
+		g_print("AGH CORE: handlers queue not allocated. Something should be going horribly wrong.\n");
 		return;
 	}
 
