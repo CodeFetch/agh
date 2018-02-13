@@ -37,8 +37,6 @@ void aghservices_core_messaging_setup(struct agh_state *mstate) {
 	g_source_set_callback(mstate->comm_timeout, aghservices_core_receive_messages, mstate, NULL);
 	mstate->comm_timeout_tag = g_source_attach(mstate->comm_timeout, mstate->ctx);
 
-	handlers_init(mstate->agh_handlers);
-
 	return;
 }
 
