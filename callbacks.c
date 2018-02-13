@@ -56,12 +56,12 @@ void handlers_teardown(GQueue *handlers) {
 
 void handler_register(GQueue *handlers, struct handler *h) {
 
-	g_print("handlers: an handler has been registered.\n");
 	if ((!h) || (!handlers)) {
 		g_print("handlers: tried to register a NULL handler, or to add an handler to a NULL queue.\n");
 	}
 	else {
 		g_queue_push_head(handlers, h);
+		g_print("handlers: an handler has been registered.\n");
 	}
 	return;
 }
