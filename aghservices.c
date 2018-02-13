@@ -20,8 +20,6 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 	g_source_set_callback(ct->comm_timeout, aghservices_receive_messages, ct, NULL);
 	ct->comm_timeout_tag = g_source_attach(ct->comm_timeout, ct->evl_ctx);
 
-	handlers_init(ct->handlers);
-
 	return;
 }
 
