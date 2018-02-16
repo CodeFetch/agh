@@ -123,3 +123,24 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 
 	return;
 }
+
+void aghservices_messaging_teardown(struct agh_thread *ct) {
+	// XXX is this the right order?
+	g_main_loop_unref(ct->evl);
+	g_main_context_unref(ct->evl_ctx);
+
+	aghservices_common_messaging_teardown(ct->comm_timeout, &ct->comm_timeout_tag);
+
+	return;
+}
+
+void aghservices_core_messaging_teardown(struct agh_state *mstate) {
+	aghservices_common_messaging_teardown(mstate->comm_timeout, &mstate->comm_timeout_tag);
+	return;
+}
+
+void aghservices_common_messaging_teardown(GSource *evsrc, guint *evsrc_tag) {
+	g_source_destroy(evsrc);
+	*evsrc_tag = 0;
+	return;
+}
