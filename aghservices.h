@@ -8,4 +8,5 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 void aghservices_core_messaging_setup(struct agh_state *mstate);
 gboolean aghservices_core_receive_messages(gpointer data);
 void aghservices_common_messaging_setup(GSource *evsrc, GSourceFunc evsrc_callback, gpointer data, guint *tag, GMainContext *ctx);
+void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers);
 #endif

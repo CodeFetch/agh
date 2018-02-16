@@ -44,30 +44,8 @@ void aghservices_common_messaging_setup(GSource *evsrc, GSourceFunc evsrc_callba
 
 gboolean aghservices_receive_messages(gpointer data) {
 	struct agh_thread *ct = data;
-	GQueue *handlers_answers;
-	guint num_answers;
-	guint i;
-	struct agh_message *m;
 
-	handlers_answers = g_async_queue_try_pop(ct->comm);
-
-	if (handlers_answers) {
-		num_answers = g_queue_get_length(handlers_answers);
-		for (i=num_answers;i>0;i--) {
-			m = g_queue_pop_head(handlers_answers);
-			aghservices_handle_message(ct->handlers, m, ct->comm);
-			g_print("Deallocating message...\n");
-			msg_dealloc(m);
-		}
-
-		if (g_queue_get_length(handlers_answers)) {
-			g_print("AGH messages: not all messages where processed. This is going to be a problem. We are leaking memory now.\n");
-		}
-
-		g_print("Deallocating queue.\n");
-		g_queue_free(handlers_answers);
-
-	}
+	aghservices_common_receive_messages(ct->comm, ct->handlers);
 
 	return TRUE;
 }
@@ -111,24 +89,31 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 
 gboolean aghservices_core_receive_messages(gpointer data) {
 	struct agh_state *mstate = data;
+
+	aghservices_common_receive_messages(mstate->agh_comm, mstate->agh_handlers);
+
+	return TRUE;
+}
+
+void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 	GQueue *handlers_answers;
 	guint num_answers;
 	guint i;
 	struct agh_message *m;
 
-	handlers_answers = g_async_queue_try_pop(mstate->agh_comm);
+	handlers_answers = g_async_queue_try_pop(comm);
 
 	if (handlers_answers) {
 		num_answers = g_queue_get_length(handlers_answers);
 		for (i=num_answers;i>0;i--) {
 			m = g_queue_pop_head(handlers_answers);
-			aghservices_handle_message(mstate->agh_handlers, m, mstate->agh_comm);
+			aghservices_handle_message(handlers, m, comm);
 			g_print("Deallocating message...\n");
 			msg_dealloc(m);
 		}
 
 		if (g_queue_get_length(handlers_answers)) {
-			g_print("AGH messages: the core did not process all messages. This is going to be a problem. We are leaking memory now.\n");
+			g_print("AGH messages: did not process all messages. This is going to be a problem. We are leaking memory now.\n");
 		}
 
 		g_print("Deallocating queue.\n");
@@ -136,5 +121,5 @@ gboolean aghservices_core_receive_messages(gpointer data) {
 
 	}
 
-	return TRUE;
+	return;
 }
