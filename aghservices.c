@@ -23,7 +23,7 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 void aghservices_core_messaging_setup(struct agh_state *mstate) {
 
 	if (!mstate->agh_handlers) {
-		g_print("AGH CORE: handlers queue not allocated. Something should be going horribly wrong.\n");
+		g_print("AGH CORE: handlers queue not allocated. Something should be going horribly wrong. CORE will not receive messages.\n");
 		return;
 	}
 
