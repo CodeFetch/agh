@@ -15,10 +15,7 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 	ct->evl_ctx = g_main_context_new();
 	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
 
-	/* New timeout source to check for messages periodically. */
-	ct->comm_timeout = g_timeout_source_new_seconds(2); // ????????
-	g_source_set_callback(ct->comm_timeout, aghservices_receive_messages, ct, NULL);
-	ct->comm_timeout_tag = g_source_attach(ct->comm_timeout, ct->evl_ctx);
+	aghservices_common_messaging_setup(ct->comm_timeout, aghservices_receive_messages, ct, &ct->comm_timeout_tag, ct->evl_ctx);
 
 	return;
 }
@@ -30,10 +27,17 @@ void aghservices_core_messaging_setup(struct agh_state *mstate) {
 		return;
 	}
 
+	aghservices_common_messaging_setup(mstate->comm_timeout, aghservices_core_receive_messages, mstate, &mstate->comm_timeout_tag, mstate->ctx);
+
+	return;
+}
+
+void aghservices_common_messaging_setup(GSource *evsrc, GSourceFunc evsrc_callback, gpointer data, guint *tag, GMainContext *ctx) {
+
 	/* New timeout source to check for messages periodically. */
-	mstate->comm_timeout = g_timeout_source_new_seconds(2); // ????????
-	g_source_set_callback(mstate->comm_timeout, aghservices_core_receive_messages, mstate, NULL);
-	mstate->comm_timeout_tag = g_source_attach(mstate->comm_timeout, mstate->ctx);
+	evsrc = g_timeout_source_new_seconds(2); // ????????
+	g_source_set_callback(evsrc, evsrc_callback, data, NULL);
+	*tag = g_source_attach(evsrc, ctx);
 
 	return;
 }
