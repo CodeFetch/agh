@@ -82,4 +82,13 @@ void agh_threads_stop_single(gpointer data, gpointer user_data);
 void agh_threads_deinit(struct agh_state *mstate);
 void agh_threads_deinit_single(gpointer data, gpointer user_data);
 void agh_threads_teardown(struct agh_state *mstate);
+gboolean agh_unix_signals_cb_dispatch(gpointer data);
+
+// XXX test only
+struct test_csp {
+	guint num;
+	char payload[700];
+};
+
+void agh_threads_test_sendmsg(gpointer data, gpointer user_data);
 #endif

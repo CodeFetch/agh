@@ -205,3 +205,30 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 	ct->current_thread = g_thread_join(ct->current_thread);
 }
 
+/* Invoked upon SIGINT reception. */
+gboolean agh_unix_signals_cb_dispatch(gpointer data) {
+	struct agh_state *mstate = data;
+	mstate->sigint_received = TRUE;
+	g_main_loop_quit(mstate->agh_mainloop);
+	return FALSE;
+}
+
+// XXX test only
+void agh_threads_test_sendmsg(gpointer data, gpointer user_data) {
+	struct agh_thread *ct = data;
+	struct agh_state *mstate = user_data;
+	struct agh_message *testm;
+	struct test_csp *mycsp;
+	static unsigned int testval = 0;
+
+	testm = msg_alloc(sizeof(struct test_csp));
+	msg_prepare(testm, mstate->agh_comm, ct->comm);
+	mycsp = testm->csp;
+	mycsp->num = testval;
+	testval++;
+
+	g_print("AGH CORE: sending message %d\n", mycsp->num);
+
+	msg_send(testm);
+	return;
+}

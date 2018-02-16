@@ -4,11 +4,6 @@
 #include <glib.h>
 #include "agh.h"
 
-struct test_csp {
-	guint num;
-	char payload[700];
-};
-
 struct handler {
 	gboolean enabled;
 	gboolean on_stack;
@@ -23,10 +18,6 @@ struct handler {
 	/* private handler data */
 	gpointer handler_data;
 };
-
-gboolean agh_unix_signals_cb_dispatch(gpointer data);
-gboolean agh_timeout_cb_dispatch(gpointer data);
-void agh_threads_test_sendmsg(gpointer data, gpointer user_data);
 
 GQueue *handlers_setup(void);
 void handler_register(GQueue *handlers, struct handler *h);
