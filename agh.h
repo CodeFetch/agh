@@ -82,5 +82,4 @@ void agh_threads_stop_single(gpointer data, gpointer user_data);
 void agh_threads_deinit(struct agh_state *mstate);
 void agh_threads_deinit_single(gpointer data, gpointer user_data);
 void agh_threads_teardown(struct agh_state *mstate);
-void agh_threads_destroied_check(gpointer data);
 #endif
