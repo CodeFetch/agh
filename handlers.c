@@ -40,7 +40,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
 
 void handlers_init(GQueue *handlers) {
 	g_print("handlers: init is taking place.\n");
-	g_queue_foreach(handlers, handlers_init_single, NULL);
+	g_queue_foreach(handlers, handlers_init_single, handlers);
 	return;
 }
 
