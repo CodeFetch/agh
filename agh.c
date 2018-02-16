@@ -130,7 +130,7 @@ void agh_threads_setup(struct agh_state *mstate) {
 
 void agh_threads_teardown(struct agh_state *mstate) {
 	g_print("AGH CORE: deallocating threads queue.\n");
-	g_queue_free_full(mstate->agh_threads, agh_threads_destroied_check);
+	g_queue_free(mstate->agh_threads);
 }
 
 void agh_threads_prepare(struct agh_state *mstate) {
@@ -166,6 +166,10 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 
 	g_print(ct->thread_name);
 	ct->agh_thread_deinit(ct);
+
+	if (ct->handlers) {
+		g_print("WARNING: %s thread may not be deinitializing its handlers correctly. This needs to be investigated.\n", ct->thread_name);
+	}
 	g_async_queue_unref(ct->comm);
 	ct->agh_maincontext = NULL;
 	ct->agh_mainloop = NULL;
@@ -198,8 +202,3 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 	ct->current_thread = g_thread_join(ct->current_thread);
 }
 
-void agh_threads_destroied_check(gpointer data) {
-	struct agh_thread *ct = data;
-
-	return;
-}
