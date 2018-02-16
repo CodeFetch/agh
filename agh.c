@@ -49,6 +49,7 @@ int main(void) {
 
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
+	handlers_teardown(mstate->agh_handlers);
 	agh_state_teardown(mstate);
 }
 
