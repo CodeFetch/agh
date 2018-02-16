@@ -12,11 +12,17 @@ void handlers_teardown(GQueue *handlers) {
 	g_print("handlers: teardown in progress.\n");
 	guint num_handlers;
 
+	if (!handlers) {
+		g_print("handlers: NULL handlers queue passed in. No action taken, but something might be going wrong.\n");
+		return;
+	}
+
 	num_handlers = g_queue_get_length(handlers);
 	if (num_handlers) {
 		g_print("handlers: %d handlers are still registered, this is going to leak memory!\n",num_handlers);
 	}
 	g_queue_free(handlers);
+	handlers = NULL;
 	return;
 }
 

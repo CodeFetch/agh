@@ -128,6 +128,8 @@ void aghservices_messaging_teardown(struct agh_thread *ct) {
 	// XXX is this the right order?
 	g_main_loop_unref(ct->evl);
 	g_main_context_unref(ct->evl_ctx);
+	ct->evl = NULL;
+	ct->evl_ctx = NULL;
 
 	aghservices_common_messaging_teardown(ct->comm_timeout, &ct->comm_timeout_tag);
 
@@ -142,5 +144,6 @@ void aghservices_core_messaging_teardown(struct agh_state *mstate) {
 void aghservices_common_messaging_teardown(GSource *evsrc, guint *evsrc_tag) {
 	g_source_destroy(evsrc);
 	*evsrc_tag = 0;
+	evsrc = NULL;
 	return;
 }

@@ -48,6 +48,7 @@ int main(void) {
 	g_print("AGH CORE: Main loop exiting.\n");
 
 	agh_sources_teardown(mstate);
+	handlers_finalize(mstate->agh_handlers);
 	agh_state_teardown(mstate);
 }
 
@@ -83,9 +84,9 @@ void agh_sources_teardown(struct agh_state *mstate) {
 	/* UNIX SIGINT signal source */
 	g_source_destroy(mstate->agh_main_unix_signals);
 	mstate->agh_main_unix_signals_tag = 0;
+	mstate->agh_main_unix_signals = NULL;
 	g_print("AGH CORE: SIGINT will not be handled from now on.\n");
-	// XXX remember to stop messaging!
-	// XXX and your handlers!
+	aghservices_core_messaging_teardown(mstate);
 }
 
 void agh_state_teardown(struct agh_state *mstate) {
@@ -93,6 +94,7 @@ void agh_state_teardown(struct agh_state *mstate) {
 	g_main_loop_unref(mstate->agh_mainloop);
 	g_main_context_unref(mstate->ctx);
 	g_free(mstate);
+	mstate = NULL;
 	return;
 }
 
@@ -134,6 +136,7 @@ void agh_threads_setup(struct agh_state *mstate) {
 void agh_threads_teardown(struct agh_state *mstate) {
 	g_print("AGH CORE: deallocating threads queue.\n");
 	g_queue_free(mstate->agh_threads);
+	mstate->agh_threads = NULL;
 }
 
 void agh_threads_prepare(struct agh_state *mstate) {
