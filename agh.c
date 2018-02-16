@@ -21,7 +21,7 @@ int main(void) {
 	mstate->agh_handlers = handlers_setup();
 
 	// XXX register some handlers here, test only
-	handler_register(mstate->agh_handlers, &xmpp_test_handler);
+	handler_register(mstate->agh_handlers, &xmpp_core_test_handler);
 
 	agh_sources_setup(mstate);
 
