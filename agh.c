@@ -89,9 +89,11 @@ void agh_sources_teardown(struct agh_state *mstate) {
 }
 
 void agh_state_teardown(struct agh_state *mstate) {
+	// XXX is this the proper order?
 	g_main_loop_unref(mstate->agh_mainloop);
 	g_main_context_unref(mstate->ctx);
 	g_free(mstate);
+	return;
 }
 
 void process_signals(struct agh_state *mstate) {
