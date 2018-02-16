@@ -2,7 +2,7 @@
 #include "agh.h"
 #include "aghservices.h"
 #include "messages.h"
-#include "callbacks.h"
+#include "handlers.h"
 
 void aghservices_messaging_setup(struct agh_thread *ct) {
 

@@ -7,7 +7,7 @@ export G_MESSAGES_DEBUG
 gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
 xmpp.c \
-callbacks.c \
+handlers.c \
 aghservices.c \
 messages.c \
 xmpp_handlers.c \

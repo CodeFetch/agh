@@ -7,7 +7,7 @@
 #include <glib-unix.h>
 #include "agh.h"
 #include "xmpp.h"
-#include "callbacks.h"
+#include "handlers.h"
 #include "aghservices.h"
 // XXX test only
 #include "xmpp_handlers.h"

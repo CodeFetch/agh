@@ -1,5 +1,5 @@
-/* callbacks */
-#include "callbacks.h"
+/* handlers */
+#include "handlers.h"
 #include <glib.h>
 #include "messages.h"
 

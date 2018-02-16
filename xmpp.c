@@ -2,7 +2,7 @@
 #include "agh.h"
 #include "xmpp.h"
 #include "aghservices.h"
-#include "callbacks.h"
+#include "handlers.h"
 #include "xmpp_handlers.h"
 
 void xmpp_thread_init(gpointer data) {

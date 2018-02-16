@@ -1,4 +1,4 @@
-#include "callbacks.h"
+#include "handlers.h"
 #include "xmpp_handlers.h"
 #include "messages.h"
 
