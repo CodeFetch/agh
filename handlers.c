@@ -38,20 +38,28 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	return;
 }
 
-void handlers_init(GQueue *handlers) {
+void handlers_init(GQueue *handlers, gpointer hsd) {
+	guint i;
+	guint num_handlers;
+	struct handler *h;
+
 	g_print("handlers: init is taking place.\n");
-	g_queue_foreach(handlers, handlers_init_single, handlers);
-	return;
-}
+	num_handlers = 0;
+	if (!handlers) {
+		g_print("WARNING: passed in a NULL queue.\n");
+	}
+	else {
+		num_handlers = g_queue_get_length(handlers);
+		for (i=0;i<num_handlers;i++) {
+			g_print("*");
+			h = g_queue_peek_nth(handlers, i);
 
-void handlers_init_single(gpointer data, gpointer user_data) {
-	struct handler *h = data;
-	GQueue *handlers = user_data;
+			h->handlers_queue = handlers;
+			if (h->enabled)
+				h->handler_initialize(h, hsd);
+		}
+	}
 
-	g_print("*");
-	h->handlers_queue = handlers;
-	if (h->enabled)
-		h->handler_initialize(h);
 	return;
 }
 
@@ -59,7 +67,7 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
 
 	g_print("X");
-	h->handler_finalize(h);
+	h->handler_finalize(h, user_data);
 
 	/* XXX: a better way to do this? */
 	g_queue_remove(h->handlers_queue, h);
@@ -72,18 +80,8 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-void handlers_finalize(GQueue *handlers) {
+void handlers_finalize(GQueue *handlers, gpointer hsd) {
 	g_print("handlers: finalizing handlers.\n");
-	g_queue_foreach(handlers, handlers_finalize_single, NULL);
+	g_queue_foreach(handlers, handlers_finalize_single, hsd);
 	return;
-}
-
-struct agh_message *handlers_dispatch_single(gpointer data, gpointer user_data) {
-	struct handler *h = data;
-	struct agh_message *m = user_data;
-	struct agh_message *answer;
-
-	answer = h->handle(data, user_data);
-
-	return answer;
 }

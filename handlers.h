@@ -8,9 +8,9 @@ struct handler {
 	gboolean enabled;
 	gboolean on_stack;
 
-	void (*handler_initialize)(gpointer data);
+	void (*handler_initialize)(gpointer data, gpointer hsd);
 	gpointer (*handle)(gpointer data, gpointer hmessage);
-	void (*handler_finalize)(gpointer data);
+	void (*handler_finalize)(gpointer data, gpointer hsd);
 
 	/* A pointer to the hanler queue. Handlers should avoid accessing their queue still if at all possible. */
 	GQueue *handlers_queue;
@@ -21,10 +21,8 @@ struct handler {
 
 GQueue *handlers_setup(void);
 void handler_register(GQueue *handlers, struct handler *h);
-void handlers_init(GQueue *handlers);
-void handlers_init_single(gpointer data, gpointer user_data);
-void handlers_finalize(GQueue *handlers);
+void handlers_init(GQueue *handlers, gpointer hsd);
+void handlers_finalize(GQueue *handlers, gpointer hsd);
 void handlers_finalize_single(gpointer data, gpointer user_data);
 void handlers_teardown(GQueue *handlers);
-struct agh_message *handlers_dispatch_single(gpointer data, gpointer user_data);
 #endif

@@ -19,7 +19,7 @@ void xmpp_thread_init(gpointer data) {
 	handler_register(ct->handlers, &xmpp_test_handler);
 
 	aghservices_messaging_setup(ct);
-	handlers_init(ct->handlers);
+	handlers_init(ct->handlers, ct);
 
 	return;
 }
@@ -41,7 +41,7 @@ void xmpp_thread_deinit(gpointer data) {
 
 	g_print("XMPP deinit.\n");
 
-	handlers_finalize(ct->handlers);
+	handlers_finalize(ct->handlers, ct);
 	handlers_teardown(ct->handlers);
 	g_free(ct->thread_data);
 	return;

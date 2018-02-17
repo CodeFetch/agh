@@ -48,7 +48,7 @@ int main(void) {
 	g_print("AGH CORE: Main loop exiting.\n");
 
 	agh_sources_teardown(mstate);
-	handlers_finalize(mstate->agh_handlers);
+	handlers_finalize(mstate->agh_handlers, mstate);
 	handlers_teardown(mstate->agh_handlers);
 	agh_state_teardown(mstate);
 }
@@ -77,7 +77,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
-	handlers_init(mstate->agh_handlers);
+	handlers_init(mstate->agh_handlers, mstate);
 	return;
 }
 

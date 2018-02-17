@@ -2,14 +2,14 @@
 #include "xmpp_handlers.h"
 #include "messages.h"
 
-void xmpp_test_handler_init(gpointer data) {
+void xmpp_test_handler_init(gpointer data, gpointer hsd) {
 	struct handler *h = data;
 
 	g_print("XMPP test handler init request.\n");
 	return;
 }
 
-void xmpp_test_handler_finalize(gpointer data) {
+void xmpp_test_handler_finalize(gpointer data, gpointer hsd) {
 	g_print("XMPP test handler finalize request.\n");
 	return;
 }
