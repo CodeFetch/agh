@@ -63,11 +63,14 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 		answers = g_queue_new();
 		for (i=0;i<num_handlers;i++) {
 			h = g_queue_peek_nth(handlers, i);
-			answer = h->handle(h, m);
-			if (answer) {
-				msg_prepare(answer, src_comm, m->src_comm);
-				g_queue_push_tail(answers, answer);
+			if (h->enabled) {
+				answer = h->handle(h, m);
+				if (answer) {
+					msg_prepare(answer, src_comm, m->src_comm);
+					g_queue_push_tail(answers, answer);
+				}
 			}
+
 		}
 
 		/* queue back messages to sender */
@@ -77,6 +80,7 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 		else {
 			g_async_queue_push(m->src_comm, answers);
 		}
+
 	}
 
 	return;
