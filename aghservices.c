@@ -17,9 +17,6 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 	ct->comm_timeout = g_timeout_source_new_seconds(2);
 	aghservices_common_messaging_setup(ct->comm_timeout, aghservices_receive_messages, ct, &ct->comm_timeout_tag, ct->evl_ctx);
 
-	if (!ct->comm_timeout)
-		g_print("Thread comm source seems NULL.\n");
-
 	return;
 }
 
@@ -135,21 +132,17 @@ void aghservices_messaging_teardown(struct agh_thread *ct) {
 	ct->evl = NULL;
 	ct->evl_ctx = NULL;
 
-	aghservices_common_messaging_teardown(ct->comm_timeout, &ct->comm_timeout_tag);
+	g_source_destroy(ct->comm_timeout);
+	ct->comm_timeout_tag = 0;
+	ct->comm_timeout = NULL;
 
 	return;
 }
 
 void aghservices_core_messaging_teardown(struct agh_state *mstate) {
 	g_async_queue_unref(mstate->agh_comm);
-	aghservices_common_messaging_teardown(mstate->comm_timeout, &mstate->comm_timeout_tag);
-	return;
-}
-
-void aghservices_common_messaging_teardown(GSource *evsrc, guint *evsrc_tag) {
-	g_source_destroy(evsrc);
-	g_print("TAG was: %d\n",*evsrc_tag);
-	*evsrc_tag = 0;
-	evsrc = NULL;
+	g_source_destroy(mstate->comm_timeout);
+	mstate->comm_timeout = NULL;
+	mstate->comm_timeout_tag = 0;
 	return;
 }

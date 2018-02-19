@@ -44,5 +44,6 @@ void xmpp_thread_deinit(gpointer data) {
 	handlers_finalize(ct->handlers, ct);
 	handlers_teardown(ct->handlers);
 	g_free(ct->thread_data);
+	ct->handlers = NULL;
 	return;
 }

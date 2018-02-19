@@ -22,8 +22,6 @@ void msg_dealloc(struct agh_message *m) {
 }
 
 void msg_prepare(struct agh_message *m, GAsyncQueue *src_comm, GAsyncQueue *dest_comm) {
-
-	g_print("Preparing messages...\n");
 	if (!m || !src_comm || !dest_comm) {
 		g_print("AGH messages: received an undeliverable message: ");
 		if (!m)

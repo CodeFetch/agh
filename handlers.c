@@ -4,12 +4,14 @@
 #include "messages.h"
 
 GQueue *handlers_setup(void) {
-	g_print("handlers: allocating queue.\n");
-	return g_queue_new();
+	GQueue *hq;
+
+	hq = g_queue_new();
+
+	return hq;
 }
 
 void handlers_teardown(GQueue *handlers) {
-	g_print("handlers: teardown in progress.\n");
 	guint num_handlers;
 
 	if (!handlers) {
@@ -22,7 +24,6 @@ void handlers_teardown(GQueue *handlers) {
 		g_print("handlers: %d handlers are still registered, this is going to leak memory!\n",num_handlers);
 	}
 	g_queue_free(handlers);
-	handlers = NULL;
 	return;
 }
 
@@ -66,8 +67,10 @@ void handlers_init(GQueue *handlers, gpointer hsd) {
 void handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
 
-	g_print("X");
-	h->handler_finalize(h, user_data);
+	if (h->enabled) {
+		g_print("/");
+		h->handler_finalize(h, user_data);
+	}
 
 	/* XXX: a better way to do this? */
 	g_queue_remove(h->handlers_queue, h);
