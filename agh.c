@@ -72,11 +72,11 @@ void agh_sources_setup(struct agh_state *mstate) {
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 
-	/* queue for communicating with other threads. */
-	mstate->agh_comm = g_async_queue_new();
-
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
+	if (!mstate->comm_timeout) {
+		g_print("Right after aghservices_core_messaging_setup, com_timeout was NULL.\n");
+	}
 	handlers_init(mstate->agh_handlers, mstate);
 	return;
 }

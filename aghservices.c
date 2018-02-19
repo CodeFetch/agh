@@ -14,8 +14,11 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 	/* Sets up a new Main Loop Context, and related Main Loop of course, for the new thread. */
 	ct->evl_ctx = g_main_context_new();
 	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
-
+	ct->comm_timeout = g_timeout_source_new_seconds(2);
 	aghservices_common_messaging_setup(ct->comm_timeout, aghservices_receive_messages, ct, &ct->comm_timeout_tag, ct->evl_ctx);
+
+	if (!ct->comm_timeout)
+		g_print("Thread comm source seems NULL.\n");
 
 	return;
 }
@@ -27,6 +30,8 @@ void aghservices_core_messaging_setup(struct agh_state *mstate) {
 		return;
 	}
 
+	mstate->agh_comm = g_async_queue_new();
+	mstate->comm_timeout = g_timeout_source_new_seconds(2);
 	aghservices_common_messaging_setup(mstate->comm_timeout, aghservices_core_receive_messages, mstate, &mstate->comm_timeout_tag, mstate->ctx);
 
 	return;
@@ -35,7 +40,6 @@ void aghservices_core_messaging_setup(struct agh_state *mstate) {
 void aghservices_common_messaging_setup(GSource *evsrc, GSourceFunc evsrc_callback, gpointer data, guint *tag, GMainContext *ctx) {
 
 	/* New timeout source to check for messages periodically. */
-	evsrc = g_timeout_source_new_seconds(2); // ????????
 	g_source_set_callback(evsrc, evsrc_callback, data, NULL);
 	*tag = g_source_attach(evsrc, ctx);
 
@@ -137,12 +141,14 @@ void aghservices_messaging_teardown(struct agh_thread *ct) {
 }
 
 void aghservices_core_messaging_teardown(struct agh_state *mstate) {
+	g_async_queue_unref(mstate->agh_comm);
 	aghservices_common_messaging_teardown(mstate->comm_timeout, &mstate->comm_timeout_tag);
 	return;
 }
 
 void aghservices_common_messaging_teardown(GSource *evsrc, guint *evsrc_tag) {
 	g_source_destroy(evsrc);
+	g_print("TAG was: %d\n",*evsrc_tag);
 	*evsrc_tag = 0;
 	evsrc = NULL;
 	return;
