@@ -8,7 +8,7 @@ struct agh_message *msg_alloc(gsize len) {
 	if (len) {
 		m = g_malloc0(sizeof(struct agh_message));
 		m->csp = g_malloc0(len);
-		m->len = len;
+		m->csp_len = len;
 	}
 	return m;
 }

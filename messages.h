@@ -4,7 +4,7 @@
 #include "agh.h"
 
 struct agh_message {
-	gsize len;
+	gsize csp_len;
 	GAsyncQueue *src_comm;
 	GAsyncQueue *dest_comm;
 	
