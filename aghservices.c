@@ -56,7 +56,7 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 	if (handlers)
 		num_handlers = g_queue_get_length(handlers);
 	else {
-		g_print("handlers: WARNING - a message has been received, but no handlers are present. This may be a problem.\n");
+		g_print("handlers: WARNING - a message has been received, but no handlers queue is allocated. This may be a problem.\n");
 	}
 
 	if (num_handlers) {
