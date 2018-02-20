@@ -5,6 +5,7 @@
 
 struct agh_message {
 	gsize csp_len;
+	guint opcode;
 	GAsyncQueue *src_comm;
 	GAsyncQueue *dest_comm;
 	
