@@ -6,8 +6,8 @@ export G_MESSAGES_DEBUG
 
 gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
-xmpp.c \
 handlers.c \
+xmpp.c \
 aghservices.c \
 messages.c \
 xmpp_handlers.c \

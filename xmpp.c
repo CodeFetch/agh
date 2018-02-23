@@ -11,15 +11,17 @@ void xmpp_thread_init(gpointer data) {
 
 	/* Should a memory allocation failure occur, glib will terminate the application. */
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
-
 	xstate = ct->thread_data;
+
+	ct->evl_ctx = g_main_context_new();
+	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
 
 	ct->handlers = handlers_setup();
 
-	//handler_register(ct->handlers, &xmpp_test_handler);
+	//handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
 	aghservices_messaging_setup(ct);
-	handlers_init(ct->handlers, ct);
+	handlers_init(ct->handlers);
 
 	g_print("XMPP library init\n");
 	xmpp_initialize();
@@ -35,6 +37,12 @@ void xmpp_thread_init(gpointer data) {
 	xmpp_conn_set_jid(xstate->xmpp_conn, "mrkiko@jabber.linux.it");
 	xmpp_conn_set_pass(xstate->xmpp_conn, "dviselect_123_456");
 
+	xstate->xmpp_evs = g_idle_source_new();
+	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
+	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
+
+	xstate->ct = ct;
+
 	return;
 }
 
@@ -44,7 +52,7 @@ gpointer xmpp_thread_start(gpointer data) {
 
 	xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, xstate);
 
-	xmpp_run(xstate->xmpp_ctx);
+	g_main_loop_run(ct->evl);
 
 	return data;
 }
@@ -58,7 +66,7 @@ void xmpp_thread_deinit(gpointer data) {
 	xmpp_conn_release(xstate->xmpp_conn);
 	xmpp_ctx_free(xstate->xmpp_ctx);
 	xmpp_shutdown();
-	handlers_finalize(ct->handlers, ct);
+	handlers_finalize(ct->handlers);
 	handlers_teardown(ct->handlers);
 	g_free(ct->thread_data);
 	ct->handlers = NULL;
@@ -83,9 +91,10 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 		xmpp_stanza_release(pres);
 		pres = NULL;
 	} else {
-		g_print("We are disconnected.\n");
+		g_print("We are disconnected from XMPP.\n");
 		xmpp_stop(ctx);
 	}
+
 	return;
 }
 
@@ -145,8 +154,12 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xmpp_stanza_t *body;
 	const char *type;
 	char *intext;
+	struct agh_message *m;
+	struct agh_thread *ct;
+	struct textcommand_csp *tcsp;
 
 	xstate = userdata;
+	ct = xstate->ct;
 	ctx = xstate->xmpp_ctx;
 
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
@@ -159,9 +172,25 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 	intext = xmpp_stanza_get_text(body);
 
-	g_print("Incoming message from %s: %s\n", xmpp_stanza_get_from(stanza), intext);
+	//g_print("Incoming message from %s: %s\n", xmpp_stanza_get_from(stanza), intext);
+
+	m = msg_alloc(sizeof(struct textcommand_csp));
+	msg_prepare(m, ct->comm, ct->agh_comm);
+	tcsp = m->csp;
+
+	tcsp->text = g_strdup(intext);
+	msg_send(m);
+	g_print("XMPP message sent to core.\n");
 
 	xmpp_free(ctx, intext);
-	
+
 	return 1;
+}
+
+gboolean xmpp_idle(gpointer data) {
+	struct agh_thread *ct = data;
+	struct xmpp_state *xstate = ct->thread_data;
+
+	xmpp_run_once(xstate->xmpp_ctx, 175);
+	return TRUE;
 }

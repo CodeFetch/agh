@@ -5,17 +5,22 @@ struct agh_message *msg_alloc(gsize len) {
 	struct agh_message *m;
 
 	m = NULL;
+	m = g_malloc0(sizeof(struct agh_message));
+
 	if (len) {
-		m = g_malloc0(sizeof(struct agh_message));
 		m->csp = g_malloc0(len);
-		m->csp_len = len;
+
+	m->csp_len = len;
 	}
+
 	return m;
 }
 
 void msg_dealloc(struct agh_message *m) {
-	g_free(m->csp);
-	m->csp = NULL;
+	if (m->csp_len != 0) {
+		g_free(m->csp);
+		m->csp = NULL;
+	}
 	g_free(m);
 	m = NULL;
 	return;

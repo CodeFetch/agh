@@ -1,13 +1,8 @@
-#include <unistd.h>
-#include <stdlib.h>
-#include <sys/types.h>
-#include <signal.h>
-#include <string.h>
 #include <glib.h>
 #include <glib-unix.h>
+#include "handlers.h"
 #include "agh.h"
 #include "xmpp.h"
-#include "handlers.h"
 #include "aghservices.h"
 // XXX test only
 #include "xmpp_handlers.h"
@@ -20,8 +15,7 @@ int main(void) {
 
 	mstate->agh_handlers = handlers_setup();
 
-	// XXX register some handlers here, test only
-	handler_register(mstate->agh_handlers, &xmpp_core_test_handler);
+	handler_register(mstate->agh_handlers, &core_recvtextcommand_handler);
 
 	agh_sources_setup(mstate);
 
@@ -32,8 +26,6 @@ int main(void) {
 	agh_threads_prepare(mstate);
 
 	agh_threads_start(mstate);
-
-	g_queue_foreach(mstate->agh_threads, agh_threads_test_sendmsg, mstate);
 
 	g_print("AGH CORE: Entering main loop...\n");
 
@@ -48,7 +40,7 @@ int main(void) {
 	g_print("AGH CORE: Main loop exiting.\n");
 
 	agh_sources_teardown(mstate);
-	handlers_finalize(mstate->agh_handlers, mstate);
+	handlers_finalize(mstate->agh_handlers);
 	handlers_teardown(mstate->agh_handlers);
 	agh_state_teardown(mstate);
 }
@@ -77,7 +69,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	if (!mstate->comm_timeout) {
 		g_print("Right after aghservices_core_messaging_setup, com_timeout was NULL.\n");
 	}
-	handlers_init(mstate->agh_handlers, mstate);
+	handlers_init(mstate->agh_handlers);
 	return;
 }
 
@@ -162,6 +154,7 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	/* Before starting our thread, provide basic facilities: the communication asynchronous queue and the main thread's GMainContext. */
 	ct->agh_maincontext = mstate->ctx;
 	ct->agh_mainloop = mstate->agh_mainloop;
+	ct->agh_comm = mstate->agh_comm;
 	ct->comm = g_async_queue_new();
 	ct->handlers = NULL;
 	ct->agh_thread_init(ct);
@@ -217,22 +210,22 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data) {
 	return FALSE;
 }
 
-// XXX test only
-void agh_threads_test_sendmsg(gpointer data, gpointer user_data) {
-	struct agh_thread *ct = data;
-	struct agh_state *mstate = user_data;
-	struct agh_message *testm;
-	struct test_csp *mycsp;
-	static unsigned int testval = 0;
+/* Core text command handler */
+void core_recvtextcommand_init(gpointer data) {
+	g_print("In theory, core should intercept xmpp messages.\n");
+	return;
+}
 
-	testm = msg_alloc(sizeof(struct test_csp));
-	msg_prepare(testm, mstate->agh_comm, ct->comm);
-	mycsp = testm->csp;
-	mycsp->num = testval;
-	testval++;
+gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
+	struct agh_message *m = hmessage;
+	struct handler *h = data;
+	struct textcommand_csp *csp = m->csp;
 
-	g_print("AGH CORE: sending message %d\n", mycsp->num);
+	g_print("Received text: %s",csp->text);
+	g_free(csp->text);
+	return NULL;
+}
 
-	msg_send(testm);
+void core_recvtextcommand_finalize(gpointer data) {
 	return;
 }

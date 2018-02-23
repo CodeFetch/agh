@@ -39,7 +39,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	return;
 }
 
-void handlers_init(GQueue *handlers, gpointer hsd) {
+void handlers_init(GQueue *handlers) {
 	guint i;
 	guint num_handlers;
 	struct handler *h;
@@ -57,7 +57,7 @@ void handlers_init(GQueue *handlers, gpointer hsd) {
 
 			h->handlers_queue = handlers;
 			if (h->enabled)
-				h->handler_initialize(h, hsd);
+				h->handler_initialize(h);
 		}
 	}
 
@@ -69,7 +69,7 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 
 	if (h->enabled) {
 		g_print("/");
-		h->handler_finalize(h, user_data);
+		h->handler_finalize(h);
 	}
 
 	/* XXX: a better way to do this? */
@@ -78,13 +78,14 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 	if (!h->on_stack) {
 		g_print("handlers: freeing an handler that has not been allocated in, or declared to be, in the stack. Freeing it now, but this needs to be looked at.\n");
 		g_free(h);
+		h = NULL;
 	}
 
 	return;
 }
 
-void handlers_finalize(GQueue *handlers, gpointer hsd) {
+void handlers_finalize(GQueue *handlers) {
 	g_print("handlers: finalizing handlers.\n");
-	g_queue_foreach(handlers, handlers_finalize_single, hsd);
+	g_queue_foreach(handlers, handlers_finalize_single, NULL);
 	return;
 }

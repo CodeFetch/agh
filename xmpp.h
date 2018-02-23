@@ -9,11 +9,15 @@ struct xmpp_state {
 	xmpp_log_t *xmpp_log;
 	char *jid;
 	char *pass;
+	GSource *xmpp_evs;
+	guint xmpp_evs_tag;
+	struct agh_thread *ct;
 };
 
 void xmpp_thread_init(gpointer data);
 gpointer xmpp_thread_start(gpointer data);
 void xmpp_thread_deinit(gpointer data);
+gboolean xmpp_idle(gpointer data);
 
 /* libstrophe XMPP handlers */
 int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);

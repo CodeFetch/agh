@@ -1,6 +1,7 @@
 #ifndef __agh_h__
 #define __agh_h__
 #include <glib.h>
+#include "handlers.h"
 
 /* Data structures */
 struct agh_state {
@@ -41,6 +42,7 @@ struct agh_thread {
 	GMainLoop *evl;
 	GMainContext *evl_ctx;
 	GAsyncQueue *comm;
+	GAsyncQueue *agh_comm;
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
 
@@ -90,5 +92,22 @@ struct test_csp {
 	char payload[700];
 };
 
-void agh_threads_test_sendmsg(gpointer data, gpointer user_data);
+/* Core command handler */
+
+void core_recvtextcommand_init(gpointer data);
+gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
+void core_recvtextcommand_finalize(gpointer data);
+
+static struct handler core_recvtextcommand_handler = {
+	.enabled = TRUE,
+	.on_stack = TRUE,
+	.handler_initialize = core_recvtextcommand_init,
+	.handle = core_recvtextcommand_handle,
+	.handler_finalize = core_recvtextcommand_finalize,
+};
+
+struct textcommand_csp {
+	char *text;
+};
+
 #endif

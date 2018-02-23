@@ -2,22 +2,35 @@
 #include "xmpp_handlers.h"
 #include "messages.h"
 
-void xmpp_test_handler_init(gpointer data, gpointer hsd) {
+void xmpp_sendmsg_handler_init(gpointer data) {
 	struct handler *h = data;
+	struct xmpp_handler_data *xh;
 
-	/* We are not allocating memory because we are only assigning a pointer value to another; otherwise,other considerations are needed */
-	h->handler_data = hsd;
-	// XXX why sizeof(*hsd) == 1?
-	g_print("XMPP test handler init request.\n");
+	h->handler_data = g_malloc0(sizeof(struct xmpp_handler_data));
+	xh = h->handler_data;
+
+	xh->outxmpp_messages = g_queue_new();
+
 	return;
 }
 
-void xmpp_test_handler_finalize(gpointer data, gpointer hsd) {
-	g_print("XMPP test handler finalize request.\n");
+void xmpp_sendmsg_handler_finalize(gpointer data) {
+	guint num_undelivered_messages;
+	struct handler *h = data;
+	struct xmpp_handler_data *xh = h->handler_data;
+
+	num_undelivered_messages = g_queue_get_length(xh->outxmpp_messages);
+	if (num_undelivered_messages) {
+		g_print("XMPP handler: losing %d pending messages. this should not happen; leaking memory.\n",num_undelivered_messages);
+	}
+	g_queue_free_full(xh->outxmpp_messages, g_free);
+	g_free(h->handler_data);
+	xh->outxmpp_messages = NULL;
+	h->handler_data = NULL;
 	return;
 }
 
-gpointer xmpp_test_handle(gpointer data, gpointer hmessage) {
+gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct test_csp *mycsp = m->csp;
@@ -38,7 +51,7 @@ gpointer xmpp_test_handle(gpointer data, gpointer hmessage) {
 	return answer;
 }
 
-gpointer xmpp_core_test_handle(gpointer data, gpointer hmessage) {
+gpointer xmpp_core_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct test_csp *mycsp = m->csp;
