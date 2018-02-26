@@ -21,7 +21,7 @@ void xmpp_thread_init(gpointer data) {
 	//handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
 	aghservices_messaging_setup(ct);
-	handlers_init(ct->handlers);
+	handlers_init(ct->handlers, ct->comm);
 
 	g_print("XMPP library init\n");
 	xmpp_initialize();
@@ -179,7 +179,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	tcsp = m->csp;
 
 	tcsp->text = g_strdup(intext);
-	m->opcode = CORE_TEXTCOMMAND;
+	m->opcode = MSG_RECVTEXT;
 	msg_send(m);
 
 	xmpp_free(ctx, intext);

@@ -69,7 +69,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	if (!mstate->comm_timeout) {
 		g_print("Right after aghservices_core_messaging_setup, com_timeout was NULL.\n");
 	}
-	handlers_init(mstate->agh_handlers);
+	handlers_init(mstate->agh_handlers, mstate->agh_comm);
 	return;
 }
 
@@ -217,12 +217,20 @@ void core_recvtextcommand_init(gpointer data) {
 
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
+	struct agh_message *answer;
 	struct handler *h = data;
 	struct text_csp *csp = m->csp;
+	struct text_csp *acsp;
 
-	if (m->opcode == CORE_TEXTCOMMAND) {
+	if (m->opcode == MSG_RECVTEXT) {
 		g_print("Received text: %s\n",csp->text);
 		g_free(csp->text);
+		answer = msg_alloc(sizeof(struct text_csp));
+		//msg_prepare(answer, mstate->
+		acsp = answer->csp;
+		acsp->text = g_malloc0(40);
+		acsp->text = "Ciao!";
+		//msg_send(answer)
 	}
 	return NULL;
 }

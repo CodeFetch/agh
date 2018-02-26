@@ -39,7 +39,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	return;
 }
 
-void handlers_init(GQueue *handlers) {
+void handlers_init(GQueue *handlers, GAsyncQueue *src_comm) {
 	guint i;
 	guint num_handlers;
 	struct handler *h;
@@ -48,6 +48,11 @@ void handlers_init(GQueue *handlers) {
 	num_handlers = 0;
 	if (!handlers) {
 		g_print("WARNING: passed in a NULL queue.\n");
+		return;
+	}
+	if (!src_comm) {
+		g_print("A nice COMM queue has been passed in.\n");
+		return;
 	}
 	else {
 		num_handlers = g_queue_get_length(handlers);
@@ -56,7 +61,8 @@ void handlers_init(GQueue *handlers) {
 			h = g_queue_peek_nth(handlers, i);
 
 			h->handlers_queue = handlers;
-			if (h->enabled)
+			h->hcomm = src_comm;
+			if (h->enabled && h->handler_initialize)
 				h->handler_initialize(h);
 		}
 	}

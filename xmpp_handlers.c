@@ -33,5 +33,12 @@ void xmpp_sendmsg_handler_finalize(gpointer data) {
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
+	struct text_csp *csp;
+
+	csp = m->csp;
+
+	g_print("I may send text %s; not for now.\n",csp->text);
+	g_free(csp->text);
+
 	return NULL;
 }

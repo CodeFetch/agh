@@ -4,10 +4,10 @@
 #include "agh.h"
 
 /* Messages opcodes */
-#define CORE_SHUTDOWN						0
-#define XMPP_SEND_MSG 					1
-#define XMPP_TRANSMIT_DATA 			2
-#define CORE_TEXTCOMMAND				3
+#define MSG_RECVTEXT 						0
+#define MSG_SENDTEXT						1
+#define MSG_RECVCMD							2
+#define MSG_SENDCMD							3
 
 struct agh_message {
 	gsize csp_len;
