@@ -153,10 +153,10 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xmpp_ctx_t *ctx;
 	xmpp_stanza_t *body;
 	const char *type;
-	char *intext;
+	gchar *intext;
 	struct agh_message *m;
 	struct agh_thread *ct;
-	struct textcommand_csp *tcsp;
+	struct text_csp *tcsp;
 
 	xstate = userdata;
 	ct = xstate->ct;
@@ -174,13 +174,13 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 	//g_print("Incoming message from %s: %s\n", xmpp_stanza_get_from(stanza), intext);
 
-	m = msg_alloc(sizeof(struct textcommand_csp));
+	m = msg_alloc(sizeof(struct text_csp));
 	msg_prepare(m, ct->comm, ct->agh_comm);
 	tcsp = m->csp;
 
 	tcsp->text = g_strdup(intext);
+	m->opcode = CORE_TEXTCOMMAND;
 	msg_send(m);
-	g_print("XMPP message sent to core.\n");
 
 	xmpp_free(ctx, intext);
 

@@ -33,42 +33,5 @@ void xmpp_sendmsg_handler_finalize(gpointer data) {
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
-	struct test_csp *mycsp = m->csp;
-	struct agh_message *answer;
-	struct test_csp *answer_csp;
-	struct agh_thread *ct = h->handler_data;
-
-	answer = msg_alloc(sizeof(struct test_csp));
-	answer_csp = answer->csp;
-
-	g_print("XMPP test handler: handling message (%d).\n",mycsp->num);
-	if (mycsp->num > 10) {
-		g_print("XMPP thread will exit.\n");
-		g_main_loop_quit(ct->evl);
-	}
-	answer_csp->num = ++mycsp->num;
-	g_print("XMPP Handler exiting.\n");
-	return answer;
-}
-
-gpointer xmpp_core_sendmsg_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
-	struct agh_message *m = hmessage;
-	struct test_csp *mycsp = m->csp;
-	struct agh_message *answer;
-	struct test_csp *answer_csp;
-	struct agh_state *mstate = h->handler_data;
-
-	answer = msg_alloc(sizeof(struct test_csp));
-	answer_csp = answer->csp;
-
-	g_print("CORE XMPP test handler: handling message (%d).\n",mycsp->num);
-	answer_csp->num = ++mycsp->num;
-
-	if (answer_csp->num > 10) {
-		g_main_loop_quit(mstate->agh_mainloop);
-		g_print("Bye bye!\n");
-	}
-
-	return answer;
+	return NULL;
 }

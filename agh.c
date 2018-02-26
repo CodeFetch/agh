@@ -212,20 +212,27 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data) {
 
 /* Core text command handler */
 void core_recvtextcommand_init(gpointer data) {
-	g_print("In theory, core should intercept xmpp messages.\n");
 	return;
 }
 
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct handler *h = data;
-	struct textcommand_csp *csp = m->csp;
+	struct text_csp *csp = m->csp;
 
-	g_print("Received text: %s",csp->text);
-	g_free(csp->text);
+	if (m->opcode == CORE_TEXTCOMMAND) {
+		g_print("Received text: %s\n",csp->text);
+		g_free(csp->text);
+	}
 	return NULL;
 }
 
 void core_recvtextcommand_finalize(gpointer data) {
+	return;
+}
+
+void core_sendtext(GAsyncQueue *dest, gpointer data) {
+	gchar *text = data;
+
 	return;
 }

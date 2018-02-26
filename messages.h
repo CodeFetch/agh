@@ -3,6 +3,12 @@
 #include <glib.h>
 #include "agh.h"
 
+/* Messages opcodes */
+#define CORE_SHUTDOWN						0
+#define XMPP_SEND_MSG 					1
+#define XMPP_TRANSMIT_DATA 			2
+#define CORE_TEXTCOMMAND				3
+
 struct agh_message {
 	gsize csp_len;
 	guint opcode;

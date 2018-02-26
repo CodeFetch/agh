@@ -30,7 +30,7 @@ struct agh_thread {
 	GThread *current_thread;
 
 	/* used to help users distinguish threads; maybe we can avoid using this ? */
-	char *thread_name;
+	gchar *thread_name;
 
 	/* Expose AGH main loop and context: useful for threads to cause the core to exit; arguably a good choice. */
 	GMainContext *agh_maincontext;
@@ -86,12 +86,6 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data);
 void agh_threads_teardown(struct agh_state *mstate);
 gboolean agh_unix_signals_cb_dispatch(gpointer data);
 
-// XXX test only
-struct test_csp {
-	guint num;
-	char payload[700];
-};
-
 /* Core command handler */
 
 void core_recvtextcommand_init(gpointer data);
@@ -106,8 +100,8 @@ static struct handler core_recvtextcommand_handler = {
 	.handler_finalize = core_recvtextcommand_finalize,
 };
 
-struct textcommand_csp {
-	char *text;
+struct text_csp {
+	gchar *text;
 };
 
 #endif

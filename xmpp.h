@@ -7,8 +7,8 @@ struct xmpp_state {
 	xmpp_ctx_t *xmpp_ctx;
 	xmpp_conn_t *xmpp_conn;
 	xmpp_log_t *xmpp_log;
-	char *jid;
-	char *pass;
+	gchar *jid;
+	gchar *pass;
 	GSource *xmpp_evs;
 	guint xmpp_evs_tag;
 	struct agh_thread *ct;
