@@ -46,7 +46,7 @@ int main(void) {
 struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
 
-	/* Note: glib will terminate the application should memory allocation fail. */
+	/* Note: GLib will terminate the application should memory allocation fail. */
 	mstate = g_malloc0(sizeof *mstate);
 
 	/* Set up the main event loop */
