@@ -17,11 +17,12 @@ struct handler {
 
 	/* private handler data */
 	gpointer handler_data;
+	gpointer ext_data;
 };
 
 GQueue *handlers_setup(void);
 void handler_register(GQueue *handlers, struct handler *h);
-void handlers_init(GQueue *handlers, GAsyncQueue *src_comm);
+void handlers_init(GQueue *handlers, GAsyncQueue *src_comm, gpointer data);
 void handlers_finalize(GQueue *handlers);
 void handlers_finalize_single(gpointer data, gpointer user_data);
 void handlers_teardown(GQueue *handlers);

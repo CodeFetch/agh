@@ -12,6 +12,7 @@ struct xmpp_state {
 	GSource *xmpp_evs;
 	guint xmpp_evs_tag;
 	struct agh_thread *ct;
+	GQueue *outxmpp_messages;
 };
 
 void xmpp_thread_init(gpointer data);
@@ -31,4 +32,6 @@ static struct agh_thread xmpp_thread_ops = {
 	.agh_thread_deinit = xmpp_thread_deinit,
 	.on_stack = 1
 };
+
+void xmpp_send_out_messages(gpointer data);
 #endif

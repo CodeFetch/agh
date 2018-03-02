@@ -21,13 +21,13 @@ void xmpp_thread_init(gpointer data) {
 	handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
 	aghservices_messaging_setup(ct);
-	handlers_init(ct->handlers, ct->comm);
+	handlers_init(ct->handlers, ct->comm, xstate);
 
 	g_print("XMPP library init\n");
 	xmpp_initialize();
 
 	/* Create XMPP library context */
-	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
+	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_DEBUG);
 
 	/* First parameter is NULL since we don't provide our own memory allocator. */
 	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
@@ -41,7 +41,10 @@ void xmpp_thread_init(gpointer data) {
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
 
+	/* XXX This is a layering violation, a bad thing I think. We should look around fixing this. */
 	xstate->ct = ct;
+
+	xstate->outxmpp_messages = g_queue_new();
 
 	return;
 }
@@ -60,6 +63,7 @@ gpointer xmpp_thread_start(gpointer data) {
 void xmpp_thread_deinit(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
+	guint num_undelivered_messages;
 
 	g_print("XMPP deinit.\n");
 
@@ -68,8 +72,16 @@ void xmpp_thread_deinit(gpointer data) {
 	xmpp_shutdown();
 	handlers_finalize(ct->handlers);
 	handlers_teardown(ct->handlers);
-	g_free(ct->thread_data);
 	ct->handlers = NULL;
+
+	num_undelivered_messages = g_queue_get_length(xstate->outxmpp_messages);
+	if (num_undelivered_messages) {
+		g_print("XMPP handler: losing %d pending messages. this should not happen; leaking memory.\n",num_undelivered_messages);
+	}
+	g_queue_free_full(xstate->outxmpp_messages, g_free);
+	g_free(ct->thread_data);
+	xstate = NULL;
+	xstate->outxmpp_messages = NULL;
 	return;
 }
 
@@ -172,6 +184,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 	intext = xmpp_stanza_get_text(body);
 	g_print("Type was %s\n",type);
+	g_print("Name was %s\n",xmpp_stanza_get_name(body));
 
 	m = msg_alloc(sizeof(struct text_csp));
 	msg_prepare(m, ct->comm, ct->agh_comm);
@@ -192,4 +205,21 @@ gboolean xmpp_idle(gpointer data) {
 
 	xmpp_run_once(xstate->xmpp_ctx, 175);
 	return TRUE;
+}
+
+void xmpp_send_out_messages(gpointer data) {
+	struct xmpp_state *xstate = data;
+	guint num_messages;
+	xmpp_stanza_t *reply;
+	xmpp_ctx_t *ctx;
+
+	ctx = xstate->xmpp_ctx;
+	num_messages = g_queue_get_length(xstate->outxmpp_messages);
+	if (num_messages) {
+		reply = xmpp_message_new(ctx, "chat", "mrkiko@alpha-labs.net", NULL);
+		xmpp_message_set_body(reply, "ciao!");
+		xmpp_send(xstate->xmpp_conn, reply);
+		xmpp_stanza_release(reply);
+	}
+	return;
 }

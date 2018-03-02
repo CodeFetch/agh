@@ -39,7 +39,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	return;
 }
 
-void handlers_init(GQueue *handlers, GAsyncQueue *src_comm) {
+void handlers_init(GQueue *handlers, GAsyncQueue *src_comm, gpointer data) {
 	guint i;
 	guint num_handlers;
 	struct handler *h;
@@ -62,6 +62,7 @@ void handlers_init(GQueue *handlers, GAsyncQueue *src_comm) {
 
 			h->handlers_queue = handlers;
 			h->hcomm = src_comm;
+			h->ext_data = data;
 			if (h->enabled && h->handler_initialize)
 				h->handler_initialize(h);
 		}
@@ -81,6 +82,13 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 	/* XXX: a better way to do this? */
 	g_queue_remove(h->handlers_queue, h);
 	h->handlers_queue = NULL;
+
+	if (h->handler_data) {
+		g_print("An handler did not deallocate its private data; this is going to leak memory.\n");
+	}
+	h->handler_data = NULL;
+	h->ext_data = NULL;
+
 	if (!h->on_stack) {
 		g_print("handlers: freeing an handler that has not been allocated in, or declared to be, in the stack. Freeing it now, but this needs to be looked at.\n");
 		g_free(h);

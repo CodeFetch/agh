@@ -69,7 +69,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	if (!mstate->comm_timeout) {
 		g_print("Right after aghservices_core_messaging_setup, com_timeout was NULL.\n");
 	}
-	handlers_init(mstate->agh_handlers, mstate->agh_comm);
+	handlers_init(mstate->agh_handlers, mstate->agh_comm, NULL);
 	return;
 }
 

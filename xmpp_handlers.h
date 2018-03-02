@@ -13,8 +13,4 @@ static struct handler xmpp_sendmsg_handler = {
 	.handler_finalize = xmpp_sendmsg_handler_finalize,
 };
 
-struct xmpp_handler_data {
-	GQueue *outxmpp_messages;
-};
-
 #endif
