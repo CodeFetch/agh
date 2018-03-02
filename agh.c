@@ -4,8 +4,6 @@
 #include "agh.h"
 #include "xmpp.h"
 #include "aghservices.h"
-// XXX test only
-#include "xmpp_handlers.h"
 
 int main(void) {
 
