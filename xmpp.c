@@ -18,7 +18,7 @@ void xmpp_thread_init(gpointer data) {
 
 	ct->handlers = handlers_setup();
 
-	//handler_register(ct->handlers, &xmpp_sendmsg_handler);
+	handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
 	aghservices_messaging_setup(ct);
 	handlers_init(ct->handlers, ct->comm);
@@ -171,8 +171,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 		return 1;
 
 	intext = xmpp_stanza_get_text(body);
-
-	//g_print("Incoming message from %s: %s\n", xmpp_stanza_get_from(stanza), intext);
+	g_print("Type was %s\n",type);
 
 	m = msg_alloc(sizeof(struct text_csp));
 	msg_prepare(m, ct->comm, ct->agh_comm);

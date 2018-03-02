@@ -34,11 +34,12 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct text_csp *csp;
+	struct xmpp_handler_data *xh = h->handler_data;
 
 	csp = m->csp;
 
-	g_print("I may send text %s; not for now.\n",csp->text);
-	g_free(csp->text);
+	g_print("Enqueuing text %s;\n",csp->text);
+	g_queue_push_tail(xh->outxmpp_messages, csp->text);
 
 	return NULL;
 }

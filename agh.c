@@ -223,14 +223,13 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct text_csp *acsp;
 
 	if (m->opcode == MSG_RECVTEXT) {
-		g_print("Received text: %s\n",csp->text);
-		g_free(csp->text);
+		//g_print("Received text: %s\n",csp->text);
 		answer = msg_alloc(sizeof(struct text_csp));
-		//msg_prepare(answer, mstate->
+		msg_prepare(answer, h->hcomm, m->src_comm);
 		acsp = answer->csp;
-		acsp->text = g_malloc0(40);
-		acsp->text = "Ciao!";
-		//msg_send(answer)
+		acsp->text = g_strdup(csp->text);
+		g_free(csp->text);
+		msg_send(answer);
 	}
 	return NULL;
 }
