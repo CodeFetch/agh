@@ -229,9 +229,9 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 		acsp = answer->csp;
 		acsp->text = g_strdup(csp->text);
 		g_free(csp->text);
-		msg_send(answer);
+//		msg_send(answer);
 	}
-	return NULL;
+	return answer;
 }
 
 void core_recvtextcommand_finalize(gpointer data) {
