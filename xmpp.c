@@ -9,7 +9,7 @@ void xmpp_thread_init(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate;
 
-	/* Should a memory allocation failure occur, glib will terminate the application. */
+	/* Should a memory allocation failure occur, GLib will terminate the application. */
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
 	xstate = ct->thread_data;
 
@@ -27,7 +27,7 @@ void xmpp_thread_init(gpointer data) {
 	xmpp_initialize();
 
 	/* Create XMPP library context */
-	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_DEBUG);
+	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
 
 	/* First parameter is NULL since we don't provide our own memory allocator. */
 	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
@@ -203,6 +203,7 @@ gboolean xmpp_idle(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
 
+	xmpp_send_out_messages(xstate);
 	xmpp_run_once(xstate->xmpp_ctx, 175);
 	return TRUE;
 }
@@ -212,14 +213,25 @@ void xmpp_send_out_messages(gpointer data) {
 	guint num_messages;
 	xmpp_stanza_t *reply;
 	xmpp_ctx_t *ctx;
+	gchar *text;
+	gchar *id = NULL;
 
 	ctx = xstate->xmpp_ctx;
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_messages) {
-		reply = xmpp_message_new(ctx, "chat", "mrkiko@alpha-labs.net", NULL);
-		xmpp_message_set_body(reply, "ciao!");
+
+		if (xstate->msg_id == G_MAXULONG)
+			xstate->msg_id = 0;
+
+		id = g_strdup_printf("AGH_%ld",xstate->msg_id);
+		reply = xmpp_message_new(ctx, "chat", "mrkiko@alpha-labs.net", id);
+		text = g_queue_pop_head(xstate->outxmpp_messages);
+		xmpp_message_set_body(reply, text);
 		xmpp_send(xstate->xmpp_conn, reply);
 		xmpp_stanza_release(reply);
+		g_free(text);
+		g_free(id);
+		xstate->msg_id++;
 	}
 	return;
 }
