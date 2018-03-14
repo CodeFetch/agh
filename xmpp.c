@@ -20,6 +20,7 @@ void xmpp_thread_init(gpointer data) {
 
 	handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
+	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time */
 	aghservices_messaging_setup(ct);
 	handlers_init(ct->handlers, ct->comm, xstate);
 

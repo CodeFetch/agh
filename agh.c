@@ -46,7 +46,7 @@ int main(void) {
 struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
 
-	/* Note: GLib will terminate the application should memory allocation fail. */
+	/* Note: GLib will terminate the application should this memory allocation fail. */
 	mstate = g_malloc0(sizeof *mstate);
 
 	/* Set up the main event loop */
@@ -84,6 +84,8 @@ void agh_state_teardown(struct agh_state *mstate) {
 	// XXX is this the proper order?
 	g_main_loop_unref(mstate->agh_mainloop);
 	g_main_context_unref(mstate->ctx);
+	mstate->agh_mainloop = NULL;
+	mstate->ctx = NULL;
 	g_free(mstate);
 	mstate = NULL;
 	return;
