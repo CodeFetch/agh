@@ -223,7 +223,6 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct text_csp *acsp;
 
 	if (m->opcode == MSG_RECVTEXT) {
-		//g_print("Received text: %s\n",csp->text);
 		answer = msg_alloc(sizeof(struct text_csp));
 		msg_prepare(answer, h->hcomm, m->src_comm);
 		acsp = answer->csp;

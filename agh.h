@@ -23,6 +23,8 @@ struct agh_state {
 	GAsyncQueue *agh_comm;
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
+
+	GQueue *command_handlers;
 };
 
 struct agh_thread {
@@ -57,6 +59,7 @@ struct agh_thread {
 	/* thread data */
 	gpointer thread_data;
 	GQueue *handlers;
+	GQueue *command_handlers;
 };
 
 /* Function prototypes */

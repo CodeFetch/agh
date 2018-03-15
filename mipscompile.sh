@@ -21,11 +21,15 @@ handlers.c \
 xmpp.c \
 aghservices.c \
 messages.c \
+commands.c \
 xmpp_handlers.c \
 `pkg-config --cflags --libs glib-2.0` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
 -Wl,-L/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -Wl,-rpath-link=/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -lstrophe -DG_DISABLE_DEPRECATED \
--o agh
+-o agh || exit 1
 
 #pkg-config --cflags --libs glib-2.0
+ssh root@192.168.0.110 killall -9 agh
+ssh root@192.168.0.110 rm /tmp/agh
+scp agh root@192.168.0.110:/tmp/

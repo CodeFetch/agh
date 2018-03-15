@@ -3,14 +3,6 @@
 #include "xmpp_handlers.h"
 #include "messages.h"
 
-void xmpp_sendmsg_handler_init(gpointer data) {
-	return;
-}
-
-void xmpp_sendmsg_handler_finalize(gpointer data) {
-	return;
-}
-
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
