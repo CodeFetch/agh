@@ -13,7 +13,7 @@ struct xmpp_state {
 	guint xmpp_evs_tag;
 	struct agh_thread *ct;
 	GQueue *outxmpp_messages;
-	gulong msg_id;
+	guint64 msg_id;
 };
 
 void xmpp_thread_init(gpointer data);

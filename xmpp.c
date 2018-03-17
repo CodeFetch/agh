@@ -77,7 +77,7 @@ void xmpp_thread_deinit(gpointer data) {
 
 	num_undelivered_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_undelivered_messages) {
-		g_print("XMPP handler: losing %d pending messages. this should not happen; leaking memory.\n",num_undelivered_messages);
+		g_print("XMPP handler: losing %" G_GUINT16_FORMAT" pending messages. This should not happen; leaking memory.\n",num_undelivered_messages);
 	}
 	g_queue_free_full(xstate->outxmpp_messages, g_free);
 	g_free(ct->thread_data);
@@ -184,8 +184,6 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 		return 1;
 
 	intext = xmpp_stanza_get_text(body);
-	g_print("Type was %s\n",type);
-	g_print("Name was %s\n",xmpp_stanza_get_name(body));
 
 	m = msg_alloc(sizeof(struct text_csp));
 	msg_prepare(m, ct->comm, ct->agh_comm);
@@ -221,10 +219,10 @@ void xmpp_send_out_messages(gpointer data) {
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_messages) {
 
-		if (xstate->msg_id == G_MAXULONG)
+		if (xstate->msg_id == G_MAXUINT64)
 			xstate->msg_id = 0;
 
-		id = g_strdup_printf("AGH_%ld",xstate->msg_id);
+		id = g_strdup_printf("AGH_%" G_GUINT64_FORMAT"",xstate->msg_id);
 		reply = xmpp_message_new(ctx, "chat", "mrkiko@alpha-labs.net", id);
 		text = g_queue_pop_head(xstate->outxmpp_messages);
 		xmpp_message_set_body(reply, text);
