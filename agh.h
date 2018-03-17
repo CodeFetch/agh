@@ -24,7 +24,7 @@ struct agh_state {
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
 
-	GQueue *command_handlers;
+	GQueue *core_commands;
 };
 
 struct agh_thread {
@@ -59,7 +59,7 @@ struct agh_thread {
 	/* thread data */
 	gpointer thread_data;
 	GQueue *handlers;
-	GQueue *command_handlers;
+	GQueue *commands;
 };
 
 /* Function prototypes */
