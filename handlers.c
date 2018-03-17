@@ -21,7 +21,7 @@ void handlers_teardown(GQueue *handlers) {
 
 	num_handlers = g_queue_get_length(handlers);
 	if (num_handlers) {
-		g_print("handlers: %d handlers are still registered, this is going to leak memory!\n",num_handlers);
+		g_print("handlers: %" G_GUINT16_FORMAT" handlers are still registered, this is going to leak memory!\n",num_handlers);
 	}
 	g_queue_free_full(handlers, g_free);
 
