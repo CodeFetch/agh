@@ -1,4 +1,5 @@
 #include <glib.h>
+#include "commands.h"
 #include <glib-unix.h>
 #include "handlers.h"
 #include "agh.h"
@@ -221,16 +222,15 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct text_csp *csp = m->csp;
 	struct text_csp *acsp;
+	struct command *cmd;
 
 	if (m->opcode == MSG_RECVTEXT) {
-		answer = msg_alloc(sizeof(struct text_csp));
-		msg_prepare(answer, h->hcomm, m->src_comm);
-		acsp = answer->csp;
-		acsp->text = g_strdup(csp->text);
-		g_free(csp->text);
-//		msg_send(answer);
+		cmd = cmd_process_msgtext(m);
+		if (!cmd) {
+			g_print("Invalid command received.\n");
+		}
 	}
-	return answer;
+	return NULL;
 }
 
 void core_recvtextcommand_finalize(gpointer data) {
