@@ -3,7 +3,7 @@
 #include <glib.h>
 #include "agh.h"
 
-/* Messages opcodes */
+/* Message types */
 #define MSG_RECVTEXT 						0
 #define MSG_SENDTEXT						1
 #define MSG_RECVCMD							2
@@ -11,7 +11,7 @@
 
 struct agh_message {
 	gsize csp_len;
-	guint opcode;
+	guint msg_type;
 	GAsyncQueue *src_comm;
 	GAsyncQueue *dest_comm;
 	
@@ -20,6 +20,6 @@ struct agh_message {
 
 struct agh_message *msg_alloc(gsize len);
 void msg_dealloc(struct agh_message *m);
-void msg_prepare(struct agh_message *m, GAsyncQueue *src_comm, GAsyncQueue *dest_comm);
+guint msg_prepare(struct agh_message *m, GAsyncQueue *src_comm, GAsyncQueue *dest_comm);
 void msg_send(struct agh_message *m);
 #endif

@@ -3,6 +3,8 @@
 #include <strophe.h>
 #include "agh.h"
 
+#define MAX_XMPP_QUEUED_MESSAGES 2
+
 struct xmpp_state {
 	xmpp_ctx_t *xmpp_ctx;
 	xmpp_conn_t *xmpp_conn;
@@ -11,9 +13,9 @@ struct xmpp_state {
 	gchar *pass;
 	GSource *xmpp_evs;
 	guint xmpp_evs_tag;
-	struct agh_thread *ct;
 	GQueue *outxmpp_messages;
 	guint64 msg_id;
+	xmpp_conn_event_t status;
 };
 
 void xmpp_thread_init(gpointer data);
@@ -35,4 +37,5 @@ static struct agh_thread xmpp_thread_ops = {
 };
 
 void xmpp_send_out_messages(gpointer data);
+void discard_xmpp_messages(gpointer data, gpointer userdata);
 #endif

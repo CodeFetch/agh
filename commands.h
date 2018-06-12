@@ -10,12 +10,6 @@ struct command {
 	GQueue *argq;
 };
 
-struct command_handler {
-	gchar *operation;
-	gchar *description;
-	gpointer function;
-};
-
 gpointer cmd_process_msgtext(struct agh_message *m);
 
 #endif

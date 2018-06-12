@@ -23,8 +23,6 @@ struct agh_state {
 	GAsyncQueue *agh_comm;
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
-
-	GQueue *core_commands;
 };
 
 struct agh_thread {
@@ -37,14 +35,11 @@ struct agh_thread {
 	/* Expose AGH main loop and context: useful for threads to cause the core to exit; arguably a good choice. */
 	GMainContext *agh_maincontext;
 	GMainLoop *agh_mainloop;
+	GAsyncQueue *agh_comm;
 
-	/*
-	 * Communication related data; here we include also the GMainLoop related stuff, because we actually need that. or this is the case now.
-	*/
 	GMainLoop *evl;
 	GMainContext *evl_ctx;
 	GAsyncQueue *comm;
-	GAsyncQueue *agh_comm;
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
 
@@ -59,7 +54,6 @@ struct agh_thread {
 	/* thread data */
 	gpointer thread_data;
 	GQueue *handlers;
-	GQueue *commands;
 };
 
 /* Function prototypes */
@@ -91,16 +85,14 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data);
 
 /* Core command handler */
 
-void core_recvtextcommand_init(gpointer data);
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
-void core_recvtextcommand_finalize(gpointer data);
 
 static struct handler core_recvtextcommand_handler = {
 	.enabled = TRUE,
 	.on_stack = TRUE,
-	.handler_initialize = core_recvtextcommand_init,
+	.handler_initialize = NULL,
 	.handle = core_recvtextcommand_handle,
-	.handler_finalize = core_recvtextcommand_finalize,
+	.handler_finalize = NULL,
 };
 
 struct text_csp {

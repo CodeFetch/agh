@@ -13,16 +13,13 @@ void xmpp_thread_init(gpointer data) {
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
 	xstate = ct->thread_data;
 
-	ct->evl_ctx = g_main_context_new();
-	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
-
 	ct->handlers = handlers_setup();
 
 	handler_register(ct->handlers, &xmpp_sendmsg_handler);
 
-	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time */
+	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
 	aghservices_messaging_setup(ct);
-	handlers_init(ct->handlers, ct->comm, xstate);
+	handlers_init(ct->handlers, ct);
 
 	g_print("XMPP library init\n");
 	xmpp_initialize();
@@ -37,13 +34,11 @@ void xmpp_thread_init(gpointer data) {
 
 	xmpp_conn_set_jid(xstate->xmpp_conn, "mrkiko@jabber.linux.it");
 	xmpp_conn_set_pass(xstate->xmpp_conn, "dviselect_123_456");
+	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
 
 	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
-
-	/* XXX This is a layering violation, a bad thing I think. We should look around fixing this. */
-	xstate->ct = ct;
 
 	xstate->outxmpp_messages = g_queue_new();
 
@@ -54,7 +49,7 @@ gpointer xmpp_thread_start(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
 
-	xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, xstate);
+	xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, ct);
 
 	g_main_loop_run(ct->evl);
 
@@ -77,12 +72,12 @@ void xmpp_thread_deinit(gpointer data) {
 
 	num_undelivered_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_undelivered_messages) {
-		g_print("XMPP handler: losing %" G_GUINT16_FORMAT" pending messages. This should not happen; leaking memory.\n",num_undelivered_messages);
+		g_print("XMPP handler: losing %" G_GUINT16_FORMAT" pending messages. This should not happen.\n",num_undelivered_messages);
 	}
 	g_queue_free_full(xstate->outxmpp_messages, g_free);
+	xstate->outxmpp_messages = NULL;
 	g_free(ct->thread_data);
 	xstate = NULL;
-	xstate->outxmpp_messages = NULL;
 	return;
 }
 
@@ -90,15 +85,18 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 	struct xmpp_state *xstate;
 	xmpp_stanza_t *pres;
 	xmpp_ctx_t *ctx;
+	struct agh_thread *ct;
 
-	xstate = userdata;
+	ct = userdata;
+	xstate = ct->thread_data;
 
 	ctx = xstate->xmpp_ctx;
 	pres = NULL;
+	xstate->status = status;
 
 	if (status == XMPP_CONN_CONNECT) {
-		xmpp_handler_add(conn, version_handler, "jabber:iq:version", "iq", NULL, xstate);
-		xmpp_handler_add(conn, message_handler, NULL, "message", NULL, xstate);
+		xmpp_handler_add(conn, version_handler, "jabber:iq:version", "iq", NULL, ct);
+		xmpp_handler_add(conn, message_handler, NULL, "message", NULL, ct);
 		pres = xmpp_presence_new(ctx);
 		xmpp_send(xstate->xmpp_conn, pres);
 		xmpp_stanza_release(pres);
@@ -114,11 +112,12 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	xmpp_stanza_t *reply, *query, *name, *version, *text;
 	const char *ns;
-
+	struct agh_thread *ct;
 	struct xmpp_state *xstate;
 	xmpp_ctx_t *ctx;
 
-	xstate = userdata;
+	ct = userdata;
+	xstate = ct->thread_data;
 	ctx = xstate->xmpp_ctx;
 
 	g_print("Received version request from %s\n", xmpp_stanza_get_from(stanza));
@@ -171,8 +170,8 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	struct agh_thread *ct;
 	struct text_csp *tcsp;
 
-	xstate = userdata;
-	ct = xstate->ct;
+	ct = userdata;
+	xstate = ct->thread_data;
 	ctx = xstate->xmpp_ctx;
 
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
@@ -190,7 +189,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	tcsp = m->csp;
 
 	tcsp->text = g_strdup(intext);
-	m->opcode = MSG_RECVTEXT;
+	m->msg_type = MSG_RECVTEXT;
 	msg_send(m);
 
 	xmpp_free(ctx, intext);
@@ -202,8 +201,10 @@ gboolean xmpp_idle(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
 
-	xmpp_send_out_messages(xstate);
-	xmpp_run_once(xstate->xmpp_ctx, 175);
+	if (xstate->status == XMPP_CONN_CONNECT)
+		xmpp_send_out_messages(xstate);
+
+	xmpp_run_once(xstate->xmpp_ctx, 180);
 	return TRUE;
 }
 
@@ -219,6 +220,11 @@ void xmpp_send_out_messages(gpointer data) {
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_messages) {
 
+	if (num_messages >= MAX_XMPP_QUEUED_MESSAGES) {
+		g_print("XMPP: maximum number of messages queued for sending has been received; discarding all of them.\n");
+		g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+	}
+
 		if (xstate->msg_id == G_MAXUINT64)
 			xstate->msg_id = 0;
 
@@ -232,5 +238,16 @@ void xmpp_send_out_messages(gpointer data) {
 		g_free(id);
 		xstate->msg_id++;
 	}
+	return;
+}
+
+void discard_xmpp_messages(gpointer data, gpointer userdata) {
+	struct xmpp_state *xstate = userdata;
+	gchar *xmpp_message_text = data;
+
+	g_print("Discarding element: %s\n", xmpp_message_text);
+	g_queue_remove(xstate->outxmpp_messages, data);
+	g_free(data);
+
 	return;
 }

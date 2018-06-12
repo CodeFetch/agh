@@ -7,11 +7,11 @@
 void aghservices_messaging_setup(struct agh_thread *ct) {
 
 	if (!ct->handlers) {
-		g_print("AGH CORE: a thread (%s) called us with a NULL handlers queue pointer. Messaging setup not happening for this thread to prevent an immediate segfault, but things will probably not work correctly.\n\t(maybe you forgot to call handlers_setup ? )\n",ct->thread_name);
+		g_print("AGH CORE: (%s) called us with a NULL handlers queue pointer. Messaging setup not happening for this thread to prevent an immediate segfault, but things will probably not work correctly.\n\t(maybe you forgot to call handlers_setup ? )\n",ct->thread_name);
 		return;
 	}
 
-	/* Sets up a new Main Loop Context (and related Main Loop of course) for the new thread. */
+	/* Sets up a new Main Loop Context (and related Main Loop of course) for the calling thread. */
 	ct->evl_ctx = g_main_context_new();
 	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
 
@@ -25,7 +25,7 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 void aghservices_core_messaging_setup(struct agh_state *mstate) {
 
 	if (!mstate->agh_handlers) {
-		g_print("AGH CORE: handlers queue not allocated. Something should be going horribly wrong. CORE will not receive messages.\n");
+		g_print("AGH CORE: handlers queue not allocated. Something should be going wrong. CORE will not receive messages.\n");
 		return;
 	}
 
@@ -124,7 +124,7 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 }
 
 void aghservices_messaging_teardown(struct agh_thread *ct) {
-	// XXX is this the right order?
+	/* XXX is this the right order? */
 	g_main_loop_unref(ct->evl);
 	g_main_context_unref(ct->evl_ctx);
 	ct->evl = NULL;

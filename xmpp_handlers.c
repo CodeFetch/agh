@@ -7,7 +7,11 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct text_csp *csp;
-	struct xmpp_state *xstate = h->ext_data;
+	struct agh_thread *ct;
+	struct xmpp_state *xstate;
+
+	ct = h->handler_data;
+	xstate = ct->thread_data;
 
 	csp = m->csp;
 

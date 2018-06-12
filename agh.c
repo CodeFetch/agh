@@ -30,18 +30,19 @@ int main(void) {
 
 	g_main_loop_run(mstate->agh_mainloop);
 
+	g_print("AGH CORE: Main loop exiting.\n");
+
 	process_signals(mstate);
 
 	agh_threads_stop(mstate);
 	agh_threads_deinit(mstate);
 	agh_threads_teardown(mstate);
 
-	g_print("AGH CORE: Main loop exiting.\n");
-
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
 	handlers_teardown(mstate->agh_handlers);
 	agh_state_teardown(mstate);
+	return 0;
 }
 
 struct agh_state * agh_state_setup(void) {
@@ -65,10 +66,9 @@ void agh_sources_setup(struct agh_state *mstate) {
 
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
-	if (!mstate->comm_timeout) {
-		g_print("Right after aghservices_core_messaging_setup, com_timeout was NULL.\n");
-	}
-	handlers_init(mstate->agh_handlers, mstate->agh_comm, NULL);
+
+	handlers_init(mstate->agh_handlers, NULL);
+
 	return;
 }
 
@@ -79,6 +79,7 @@ void agh_sources_teardown(struct agh_state *mstate) {
 	mstate->agh_main_unix_signals = NULL;
 	g_print("AGH CORE: SIGINT will not be handled from now on.\n");
 	aghservices_core_messaging_teardown(mstate);
+	return;
 }
 
 void agh_state_teardown(struct agh_state *mstate) {
@@ -108,10 +109,16 @@ void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
 		g_print("AGH CORE: ** INVALID THREAD REGISTRATION CALL: NULL VALUE NOT ACCEPTABLE AS A THREAD.\n");
 		return;
 	}
+
+	if (!mstate->agh_threads) {
+		g_print("AGH CORE: ** INVALID THREAD REGISTRATION CALL: THREADS QUEUE NOT INITIALIZED.\n");
+		return;
+	}
 	
 	g_print("AGH CORE: registering %s thread: ",ct->thread_name);
-	g_queue_push_head(mstate->agh_threads, ct);
+	g_queue_push_tail(mstate->agh_threads, ct);
 	g_print(" done\n");
+	return;
 }
 
 void agh_threads_stop(struct agh_state *mstate) {
@@ -122,15 +129,15 @@ void agh_threads_stop(struct agh_state *mstate) {
 }
 
 void agh_threads_setup(struct agh_state *mstate) {
-	g_print("AGH CORE: Allocating threads queue: ");
 	mstate->agh_threads = g_queue_new();
-	g_print("done\n");
+	return;
 }
 
 void agh_threads_teardown(struct agh_state *mstate) {
 	g_print("AGH CORE: deallocating threads queue.\n");
 	g_queue_free(mstate->agh_threads);
 	mstate->agh_threads = NULL;
+	return;
 }
 
 void agh_threads_prepare(struct agh_state *mstate) {
@@ -138,12 +145,14 @@ void agh_threads_prepare(struct agh_state *mstate) {
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
 	g_print("done\n");
+	return;
 }
 
 void agh_threads_deinit(struct agh_state *mstate) {
 	g_print("AGH CORE: invoking threads deinit functions ");
 	g_queue_foreach(mstate->agh_threads, agh_threads_deinit_single, mstate);
 	g_print("done\n");
+	return;
 }
 
 void agh_threads_prepare_single(gpointer data, gpointer user_data) {
@@ -156,9 +165,17 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	ct->agh_maincontext = mstate->ctx;
 	ct->agh_mainloop = mstate->agh_mainloop;
 	ct->agh_comm = mstate->agh_comm;
+
 	ct->comm = g_async_queue_new();
 	ct->handlers = NULL;
-	ct->agh_thread_init(ct);
+
+	/* We would like to be informed about this situation: and if someone finds this useful we are going to remove this message
+	* and think about what's going on and what's needed. I don't think there's a valid reason for doing this, but who knows.
+	*/
+	if (ct->agh_thread_init)
+		ct->agh_thread_init(ct);
+
+	return;
 }
 
 void agh_threads_deinit_single(gpointer data, gpointer user_data) {
@@ -166,7 +183,8 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
 	g_print(ct->thread_name);
-	ct->agh_thread_deinit(ct);
+	if (ct->agh_thread_deinit)
+		ct->agh_thread_deinit(ct);
 
 	if (ct->handlers) {
 		g_print("WARNING: %s thread may not be deinitializing its handlers correctly. This needs to be investigated.\n", ct->thread_name);
@@ -174,6 +192,10 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	g_async_queue_unref(ct->comm);
 	ct->agh_maincontext = NULL;
 	ct->agh_mainloop = NULL;
+	ct->comm = NULL;
+
+	g_main_loop_unref(ct->evl);
+	g_main_context_unref(ct->evl_ctx);
 
 	/* don't get confused, this was only to remind us to check how things go when stopping the usage of on-stack control thread structures */
 	if (!ct->on_stack ) {
@@ -191,7 +213,12 @@ void agh_threads_start_single(gpointer data, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
 	g_print(ct->thread_name);
-	ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
+
+	if (ct->agh_thread_main)
+		ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
+	else
+		g_print("AGH CORE: so you found useful to create a thread that actually can't start (NULL main function). Contact us to discuss this, if you intend to leave your code this way, since we will need to do some changes for this to work as you expect, I guess.\n");
+
 	return;
 }
 
@@ -201,6 +228,7 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 
 	g_print(ct->thread_name);
 	ct->current_thread = g_thread_join(ct->current_thread);
+	return;
 }
 
 /* Invoked upon SIGINT reception. */
@@ -212,10 +240,6 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data) {
 }
 
 /* Core text command handler */
-void core_recvtextcommand_init(gpointer data) {
-	return;
-}
-
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct agh_message *answer;
@@ -224,21 +248,11 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct text_csp *acsp;
 	struct command *cmd;
 
-	if (m->opcode == MSG_RECVTEXT) {
+	if (m->msg_type == MSG_RECVTEXT) {
 		cmd = cmd_process_msgtext(m);
 		if (!cmd) {
 			g_print("Invalid command received.\n");
 		}
 	}
 	return NULL;
-}
-
-void core_recvtextcommand_finalize(gpointer data) {
-	return;
-}
-
-void core_sendtext(GAsyncQueue *dest, gpointer data) {
-	gchar *text = data;
-
-	return;
 }

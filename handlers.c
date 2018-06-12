@@ -25,8 +25,6 @@ void handlers_teardown(GQueue *handlers) {
 	}
 	g_queue_free_full(handlers, g_free);
 
-	/* XXX Setting here handlers to NULL won't be so useful it seems */
-
 	return;
 }
 
@@ -36,7 +34,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
 		g_print("handlers: tried to register a NULL handler, or to add an handler to a NULL queue.\n");
 	}
 	else {
-		g_queue_push_head(handlers, h);
+		g_queue_push_tail(handlers, h);
 		g_print("handlers: an handler has been registered.\n");
 	}
 	return;
@@ -46,7 +44,7 @@ void handler_register(GQueue *handlers, struct handler *h) {
  * Each handler's init function is invoked, if the handler is actually enabled and the callback is not NULL.
  * Some handler's structure data fields are initialized in any case.
 */
-void handlers_init(GQueue *handlers, GAsyncQueue *src_comm, gpointer data) {
+void handlers_init(GQueue *handlers, gpointer data) {
 	guint i;
 	guint num_handlers;
 	struct handler *h;
@@ -54,11 +52,7 @@ void handlers_init(GQueue *handlers, GAsyncQueue *src_comm, gpointer data) {
 	g_print("handlers: init is taking place.\n");
 	num_handlers = 0;
 	if (!handlers) {
-		g_print("handlers: WARNING during init: passed in a NULL queue.\n");
-		return;
-	}
-	if (!src_comm) {
-		g_print("handlers: during init, a nice NULL COMM queue has been passed in.\n");
+		g_print("handlers: WARNING during init, passed in a NULL queue.\n");
 		return;
 	}
 
@@ -68,8 +62,10 @@ void handlers_init(GQueue *handlers, GAsyncQueue *src_comm, gpointer data) {
 		h = g_queue_peek_nth(handlers, i);
 
 		h->handlers_queue = handlers;
-		h->hcomm = src_comm;
-		h->ext_data = data;
+
+		if (data)
+			h->handler_data = data;
+
 		if (h->enabled && h->handler_initialize)
 			h->handler_initialize(h);
 	}
@@ -91,14 +87,9 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 
 	if (h->handler_data) {
 		g_print("An handler did not deallocate its private data; this is going to leak memory. Or you may experience a segfault right now. Or who knows.\n");
+		g_free(h->handler_data);
+		h->handler_data = NULL;
 	}
-	g_free(h->handler_data);
-	h->handler_data = NULL;
-
-	/* We are not expecting this data to be managed by, but ony accessed from, the handler. If this is not the case, the handler should act accordingly. */
-	h->ext_data = NULL;
-
-	h->hcomm = NULL;
 
 	if (!h->on_stack) {
 		g_print("handlers: freeing an handler that has not been allocated in, or declared to be, in the stack. This needs to be looked at.\n");
