@@ -16,6 +16,7 @@ void xmpp_thread_init(gpointer data) {
 	ct->handlers = handlers_setup();
 
 	handler_register(ct->handlers, &xmpp_sendmsg_handler);
+	handler_register(ct->handlers, &xmpp_cmd_handler);
 
 	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
 	aghservices_messaging_setup(ct);
@@ -173,6 +174,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	ct = userdata;
 	xstate = ct->thread_data;
 	ctx = xstate->xmpp_ctx;
+	tcsp = g_malloc0(sizeof(struct text_csp));
 
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
 	if (!body)
@@ -184,9 +186,9 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 	intext = xmpp_stanza_get_text(body);
 
-	m = msg_alloc(sizeof(struct text_csp));
+	m = msg_alloc();
 	msg_prepare(m, ct->comm, ct->agh_comm);
-	tcsp = m->csp;
+	m->csp = tcsp;
 
 	tcsp->text = g_strdup(intext);
 	m->msg_type = MSG_RECVTEXT;

@@ -1,38 +1,45 @@
 #include "messages.h"
 #include "agh.h"
+#include "commands.h"
 
-struct agh_message *msg_alloc(gsize len) {
+struct agh_message *msg_alloc(void) {
 	struct agh_message *m;
 
-	m = NULL;
 	m = g_malloc0(sizeof(struct agh_message));
-
-	if (len)
-		m->csp = g_malloc0(len);
-
-	m->csp_len = len;
 
 	return m;
 }
 
 void msg_dealloc(struct agh_message *m) {
 	struct text_csp *csptext;
+	struct command *cmd;
 
-	if (m->csp_len != 0) {
+	csptext = NULL;
+	cmd = NULL;
+
+	if (m->csp) {
 		switch(m->msg_type) {
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
+			g_print("Deallocating text %s\n",csptext->text);
 			g_free(csptext->text);
-			csptext->text = NULL;
+			csptext = NULL;
 			g_free(m->csp);
-			m->csp = NULL;
+			break;
+		case MSG_RECVCMD:
+		case MSG_SENDCMD:
+			g_print("CMD DEALLOC matches.\n");
+			cmd = m->csp;
+			cmd_free(cmd);
 			break;
 		default:
-			g_print("Unknown CSP type detected while deallocating a message; leaking memory.\n");
+			g_print("Unknown CSP type (%" G_GUINT16_FORMAT") detected while deallocating a message; leaking memory.\n", m->msg_type);
 			break;
 		}
 	}
+
+	m->csp = NULL;
 	g_free(m);
 	return;
 }

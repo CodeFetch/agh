@@ -12,5 +12,5 @@ aghservices.c \
 messages.c \
 commands.c \
 xmpp_handlers.c \
-`pkg-config --cflags --libs glib-2.0 libstrophe` -DG_DISABLE_DEPRECATED \
+`pkg-config --cflags --libs glib-2.0 libstrophe libconfig` -DG_DISABLE_DEPRECATED \
 -o agh

@@ -86,12 +86,30 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data);
 /* Core command handler */
 
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
+gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
+gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 
 static struct handler core_recvtextcommand_handler = {
 	.enabled = TRUE,
 	.on_stack = TRUE,
 	.handler_initialize = NULL,
 	.handle = core_recvtextcommand_handle,
+	.handler_finalize = NULL,
+};
+
+static struct handler core_sendtext_handler = {
+	.enabled = TRUE,
+	.on_stack = TRUE,
+	.handler_initialize = NULL,
+	.handle = core_sendtext_handle,
+	.handler_finalize = NULL,
+};
+
+static struct handler core_cmd_handler = {
+	.enabled = TRUE,
+	.on_stack = TRUE,
+	.handler_initialize = NULL,
+	.handle = core_cmd_handle,
 	.handler_finalize = NULL,
 };
 

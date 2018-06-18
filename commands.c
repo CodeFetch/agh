@@ -1,12 +1,548 @@
 #include <string.h>
+#include <libconfig.h>
 #include "commands.h"
 #include "messages.h"
 
-gpointer cmd_process_msgtext(struct agh_message *m) {
-	struct text_csp *mycsp = m->csp;
+struct command *text_to_cmd(gchar *content) {
+	struct command *ocmd;
+	gchar *atext;
+	config_t *cmd_cfg;
+	gint cmd_id;
+	config_setting_t *in_keyword;
+	config_setting_t *id;
+	config_setting_t *op;
+	const gchar *cmd_operation;
+	guint lengths;
 
-	g_print("Command received: %" G_GSIZE_FORMAT ", %s.\n",strlen(mycsp->text), mycsp->text);
+	ocmd = NULL;
+	atext = NULL;
+	in_keyword = NULL;
+	cmd_id = 0;
+	id = NULL;
+	op = NULL;
+	cmd_operation = NULL;
+	lengths = 0;
 
-	g_free(mycsp->text);
-	return NULL;
+	lengths = strlen(content);
+	if (lengths > CMD_MAX_TEXT_LEN) {
+		g_print("CMD_MAX_TEXT_LEN exceeded.\n");
+		return ocmd;
+	}
+
+	/* We are not checking for errors, since GLib guarantees us we'll not survive an allocation failure by default. This needs
+	 * to be reviewed of course.
+	*/
+	cmd_cfg = g_malloc0(sizeof(config_t));
+
+	config_init(cmd_cfg);
+
+	/* Convert given input to ascii, just in case. */
+	atext = g_str_to_ascii(content, "C");
+
+	if (!config_read_string(cmd_cfg, atext)) {
+		/* Invalid input. */
+		g_print("Invalid input.\n");
+		goto wayout;
+	}
+
+	/*
+	 * A command should clearly repsect the libconfig configuration grammar. In our context, it should be formed of the
+	 * following elements:
+	 *
+	 * - the CMD_IN_KEYWORD keyword / setting
+	 * - an equal sign
+	 * - a list, which should contain an operation ID (long unsigned int), and an operation name (char *).
+	 *
+	 * Any further data is command-specific. A command may require zero or more arguments. Data outside the list should be
+	 * rejected, or, at least, ignored during processing.
+	*/
+
+	/* 1 - Root setting is a group, and it should contain only one element.
+	 * This should be considered a sanity check, and may be removed in future. Infact, if I understood this correctly, libconfig
+	 * always builds a group root setting, which contains whatever gets processed.
+	*/
+	if (config_setting_length(config_root_setting(cmd_cfg)) != 1) {
+		g_print("Excess data.\n");
+		goto wayout;
+	}
+
+	/* 2 - CMD_IN_KEYWORD keyword */
+	in_keyword = config_lookup(cmd_cfg, CMD_IN_KEYWORD);
+
+	if (!in_keyword) {
+		g_print(CMD_IN_KEYWORD" keyword not detected. Not processing.\n");
+		goto wayout;
+	}
+
+	/* 3 - The CMD_IN_KEYWORD setting should be a list, and contain at minimum of 2 keywords. */
+	if (!config_setting_is_list(in_keyword)) {
+		g_print("Unexpected command structure.\n");
+		goto wayout;
+	}
+
+	if (config_setting_length(in_keyword) < 2) {
+		g_print("At least an operation and a command ID are required.\n");
+		goto wayout;
+	}
+
+	/* 4 - Command ID, should be gint and != 0. */
+	id = config_setting_get_elem(in_keyword, 0);
+	cmd_id = config_setting_get_int(id);
+	if (cmd_id<1) {
+		g_print("Invalid command ID.\n");
+		goto wayout;
+	}
+
+	/* 5 - Operation should not be an empty string. */
+	op = config_setting_get_elem(in_keyword, 1);
+	cmd_operation = config_setting_get_string(op);
+	if (!cmd_operation) {
+		g_print("Operation can not be valid.\n");
+		goto wayout;
+	}
+
+	/* 6 - Operation name should consist at least of a single character. */
+	lengths = strlen(cmd_operation);
+	if (!lengths) {
+		g_print("An operation name should consist at least of a single character.\n");
+		goto wayout;
+	}
+
+	/* 7 - Operation name may consist of CMD_MAX_OP_NAME_LEN characters at most. */
+	if (lengths > CMD_MAX_OP_NAME_LEN) {
+		g_print("CMD_MAX_OP_NAME_LEN exceeded.\n");
+		goto wayout;
+	}
+
+	g_print("OK.\n");
+
+	ocmd = g_malloc0(sizeof(struct command));
+	ocmd->cmd = cmd_cfg;
+
+	/* Makes me feel more peaceful, but it's useless. */
+	ocmd->answer = NULL;
+
+	g_free(atext);
+	return ocmd;
+
+wayout:
+	g_free(atext);
+	config_destroy(cmd_cfg);
+	g_free(cmd_cfg);
+	cmd_cfg = NULL;
+	return ocmd;
+}
+
+void cmd_answer_set_status(struct command *cmd, guint status) {
+	cmd->answer->status = status;
+	return;
+}
+
+guint cmd_answer_get_status(struct command *cmd) {
+	return cmd->answer->status;
+}
+
+guint cmd_answer_addtext(struct command *cmd, gchar *text) {
+	gpointer data = text;
+	guint retval;
+
+	retval = 0;
+
+	if (text)
+		g_queue_push_tail(cmd->answer->restextparts, data);
+	else {
+		g_print("AGH: tried to add a NULL text part to a command answer.\n");
+		retval = 1;
+	}
+
+	return retval;
+}
+
+/*
+ * This function transforms a command_result structure content to text. It is destructive, and infact it also deallocates the
+ * structure. Yeah, this is arguable design.
+*/
+gchar *cmd_answer_to_text(struct command *cmd) {
+	GString *output;
+	guint ntextparts;
+	guint i;
+	gchar *current_textpart;
+
+	ntextparts = 0;
+
+	if (!cmd)
+		return NULL;
+
+	/* Start with the OUT keyword */
+	output = g_string_new(CMD_OUT_KEYWORD" = ( ");
+
+	/* Appends command ID,and status code, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
+	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, CMD_IN_KEYWORD), 0)), cmd->answer->status);
+
+	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
+	ntextparts = g_queue_get_length(cmd->answer->restextparts);
+
+	for (i=0;i<ntextparts;i++) {
+		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
+		g_string_append_printf(output, ", \"%s\"", current_textpart);
+		g_free(current_textpart);
+	}
+
+	/* A space and a close round bracket are to be added to complete the answer. */
+	g_string_append_printf(output, " )");
+
+	/*
+	 * I should be honest: I did not think about this when I started using g_queue_pop_head in the above loop. Still, we are
+	 * modifying the data structure we are translating to text.
+	 * We could have decided to do differently, but... let's deallocate the structure itself, and go on.
+	*/
+	g_queue_free(cmd->answer->restextparts);
+
+	/* Yeah, probably useless. */
+	cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+	cmd->answer->restextparts = NULL;
+
+	g_free(cmd->answer);
+	cmd->answer = NULL;
+
+	return g_string_free(output, FALSE);
+}
+
+guint cmd_answer_prepare(struct command *cmd) {
+	guint retval;
+
+	retval = 0;
+
+	if (!cmd) {
+		g_print("AGH CORE: can not prepare an answer to a NULL command.\n");
+		retval = 1;
+	}
+	else
+	{
+		cmd->answer = g_malloc0(sizeof(struct command_result));
+
+		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+		cmd->answer->restextparts = g_queue_new();
+	}
+
+	return retval;
+}
+
+/*gint main(gint argc, gchar **argv) {
+	struct command *cmd;
+
+	cmd = NULL;
+
+	if (argc != 2)
+		g_print("No.\n");
+	else {
+		cmd = text_to_cmd(argv[1]);
+		cmd_answer_prepare(cmd);
+		//cmd_answer_set_status(cmd, 100);
+		//cmd_answer_addtext(cmd, g_strdup("yo"));
+		//cmd_answer_addtext(cmd, g_strdup("yo"));
+		//cmd_answer_addtext(cmd, g_strdup("BRO"));
+		//cmd_answer_addtext(cmd, g_strdup("testmeout"));
+		g_print("Answer: %s\n",cmd_answer_to_text(cmd));
+
+		//g_print("Struct command is %d bytes, struct *command is %d bytes and gchar * is %d bytes, as is a gpointer (%d
+		bytes)..\n",sizeof(struct command),sizeof(struct command	*),sizeof(gchar *),sizeof(gpointer));
+	}
+
+	return 0;
+}*/
+
+void cmd_free(struct command *cmd) {
+
+	if (!cmd)
+		return;
+
+	/* This probably should be replaced by an assert. */
+	if (cmd->cmd) {
+		g_print("Deallocating command config structure.\n");
+		config_destroy(cmd->cmd);
+		g_free(cmd->cmd);
+		cmd->cmd = NULL;
+	}
+
+	/* Command answer. */
+	if (cmd->answer) {
+		g_print("Deallocating associated answer structure.\n");
+		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+		g_queue_free_full(cmd->answer->restextparts, g_free);
+		cmd->answer->restextparts = NULL;
+		g_free(cmd->answer);
+		cmd->answer = NULL;
+	}
+}
+
+struct command *cmd_copy(struct command *cmd) {
+	struct command *ocmd;
+	config_t *cfg;
+	struct command_result *cmd_answer;
+
+	ocmd = g_malloc0(sizeof(struct command));
+	cfg = NULL;
+	cmd_answer = NULL;
+
+	cfg = cmd_copy_cfg(cmd->cmd);
+	if (!cfg)
+		return ocmd;
+
+	ocmd->cmd = cfg;
+
+	if (!cmd->answer)
+		return ocmd;
+
+	/* Anser processing. */
+	cmd_answer = g_malloc0(sizeof(struct command_result));
+	cmd_answer->status = cmd->answer->status;
+
+	cmd_answer->restextparts = g_queue_new();
+
+	g_queue_foreach(cmd_answer->restextparts, cmd_copy_textpart_single, cmd_answer->restextparts);
+	ocmd->answer = cmd_answer;
+
+	return ocmd;;
+}
+
+/*
+ * this function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
+ * function. Other config_t structures will not be copied correctly. Any better way to do this is apreciated.
+*/
+config_t *cmd_copy_cfg(config_t *src) {
+	config_t *ncfg;
+	config_setting_t *root_setting;
+	config_setting_t *list_setting;
+	guint index;
+	config_setting_t *elem;
+	config_setting_t *src_in_keyword;
+	config_setting_t *current_setting;
+	gint current_setting_type;
+
+	ncfg = NULL;
+	root_setting = NULL;
+	list_setting = NULL;
+	index = 0;
+	elem = NULL;
+	src_in_keyword = NULL;
+	current_setting = NULL;
+	current_setting_type = 0;
+
+	if (!src)
+		return NULL;
+
+	ncfg = g_malloc0(sizeof(config_t));
+
+	config_init(ncfg);
+
+	/* 1 - Get root setting. We're guaranteed there is one. */
+	root_setting = config_root_setting(ncfg);
+
+	/* 2 - Add our CMD_IN_KEYWORD list setting. */
+	list_setting = config_setting_add(root_setting, CMD_IN_KEYWORD, CONFIG_TYPE_LIST);
+
+	if (!list_setting) {
+		goto wayout;
+	}
+
+	/* 3 - Add things */
+	src_in_keyword = config_lookup(src, CMD_IN_KEYWORD);
+
+	while ( (elem = config_setting_get_elem(src_in_keyword, index)) ) {
+		current_setting_type = config_setting_type(elem);
+		current_setting = config_setting_add(list_setting, NULL, current_setting_type);
+
+		/*
+		 * Given the fact we check for settings types before writing them to new ones, we are not checking the final result(s).
+		 * Infact, both config_setting_set_* and their config_setting_get_* counterparts, return useful error values.
+		 * Should components receive zero values unexpectedly, checking what's going on here could be a good idea. This place may
+		 * also be more subject than others to effects due to changes in libconfig.
+		*/
+		switch(current_setting_type) {
+			case CONFIG_TYPE_INT:
+				config_setting_set_int(current_setting, config_setting_get_int(elem));
+				break;
+			case CONFIG_TYPE_INT64:
+				config_setting_set_int64(current_setting, config_setting_get_int64(elem));
+				break;
+			case CONFIG_TYPE_FLOAT:
+				config_setting_set_float(current_setting, config_setting_get_float(elem));
+				break;
+			case CONFIG_TYPE_STRING:
+				config_setting_set_string(current_setting, config_setting_get_string(elem));
+				break;
+			case CONFIG_TYPE_BOOL:
+				config_setting_set_bool(current_setting, config_setting_get_bool(elem));
+				break;
+			default:
+				g_print("Unsupported (or unknown) setting type while processing command config structure.\n");
+				goto wayout;
+		}
+
+		index++;
+	}
+
+	return ncfg;
+
+wayout:
+	config_destroy(ncfg);
+	g_free(ncfg);
+	ncfg = NULL;
+	return ncfg;
+}
+
+void cmd_copy_textpart_single(gpointer data, gpointer user_data) {
+	GQueue *destqueue = user_data;
+
+	/*
+	 * The function calling us should check if the destination queue actually has been allocated. Anyway, it seems g_queue_new
+	 * can not fail.
+	*/
+	g_queue_push_tail(destqueue, data);
+	return;
+}
+
+struct agh_message *cmd_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest) {
+	struct agh_message *m;
+
+	m = NULL;
+
+	m = msg_alloc();
+	m->msg_type = MSG_SENDCMD;
+	if (msg_prepare(m, src, dest)) {
+		msg_dealloc(m);
+		m = NULL;
+	}
+	else
+	{
+		g_print("Attaching CMD to message.\n");
+		m->csp = cmd_copy(cmd);
+	}
+
+	return m;
+}
+
+struct agh_message *cmd_answer_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest) {
+	struct agh_message *m;
+	struct text_csp *textcsp;
+
+	m = NULL;
+	textcsp = g_malloc0(sizeof(struct text_csp));
+
+	textcsp->text = cmd_answer_to_text(cmd);
+
+	if (!textcsp->text)
+		return m;
+
+	m = msg_alloc();
+	m->csp = textcsp;
+	m->msg_type = MSG_SENDTEXT;
+
+	if (msg_prepare(m, src, dest)) {
+		msg_dealloc(m);
+		m = NULL;
+	}
+
+	return m;
+}
+
+config_setting_t *cmd_get_in_keyword_setting(struct command *cmd) {
+
+	if (!cmd)
+		return NULL;
+
+	/* Should something go wrong, this returns NULL as well. */
+	return config_lookup(cmd->cmd, CMD_IN_KEYWORD);
+}
+
+gint cmd_get_id(struct command *cmd) {
+	config_setting_t *in_keyword;
+	gint id;
+
+	in_keyword = NULL;
+	id = 0;
+
+	if (!cmd)
+		return id;
+
+	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+		return id;
+
+	id = config_setting_get_int(config_setting_get_elem(in_keyword, 0));
+	return id;
+}
+
+const gchar *cmd_get_operation(struct command *cmd) {
+	config_setting_t *in_keyword;
+	const gchar *operation;
+
+	in_keyword = NULL;
+	operation = NULL;
+
+	if (!cmd)
+		return operation;
+
+	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+		return operation;
+
+	operation = config_setting_get_string(config_setting_get_elem(in_keyword, 1));
+	return operation;
+}
+
+config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_type) {
+	config_setting_t *outset;
+	config_setting_t *in_keyword;
+
+	outset = NULL;
+	in_keyword = NULL;
+
+	if (!cmd)
+		return outset;
+
+	/*
+	 * An arg_index being zero should give the operation, and in general it should not be a problem. Still, we may decide or need
+	 * to "reserve" this value.
+	*/
+	if (!arg_index)
+		return NULL;
+
+	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+		return outset;
+
+	outset = config_setting_get_elem(in_keyword, 1+arg_index);
+
+	if (!outset)
+		return outset;
+
+	/* This should not leak memory, because we're managing memory pertaining to the command config structure. */
+	if (config_setting_type(outset) != config_type) {
+		outset = NULL;
+	}
+
+	return outset;
+}
+
+void print_config_type(gint type) {
+	switch(type) {
+		case CONFIG_TYPE_INT:
+			g_print("CONFIG_TYPE_INT");
+			break;
+		case CONFIG_TYPE_INT64:
+			g_print("CONFIG_TYPE_INT64");
+			break;
+		case CONFIG_TYPE_FLOAT:
+			g_print("CONFIG_TYPE_FLOAT");
+			break;
+		case CONFIG_TYPE_STRING:
+			g_print("CONFIG_TYPE_STRING");
+			break;
+		case CONFIG_TYPE_BOOL:
+			g_print("CONFIG_TYPE_BOOL");
+			break;
+		default:
+			g_print("Unsupported (or unknown) setting type.\n");
+			break;
+	}
+	return;
 }

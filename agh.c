@@ -6,7 +6,7 @@
 #include "xmpp.h"
 #include "aghservices.h"
 
-int main(void) {
+gint main(void) {
 
 	struct agh_state *mstate;
 
@@ -15,6 +15,8 @@ int main(void) {
 	mstate->agh_handlers = handlers_setup();
 
 	handler_register(mstate->agh_handlers, &core_recvtextcommand_handler);
+	handler_register(mstate->agh_handlers, &core_sendtext_handler);
+	handler_register(mstate->agh_handlers, &core_cmd_handler);
 
 	agh_sources_setup(mstate);
 
@@ -67,7 +69,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
 
-	handlers_init(mstate->agh_handlers, NULL);
+	handlers_init(mstate->agh_handlers, mstate);
 
 	return;
 }
@@ -239,20 +241,145 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data) {
 	return FALSE;
 }
 
-/* Core text command handler */
+/*
+ * This handler is meant to:
+ * - receive text messages from components willing to send them
+ * - build a command using the appropriate functions in commands.c
+ * - if building a command succeeds, then build and send a message containing it
+*/
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
-	struct agh_message *answer;
 	struct handler *h = data;
 	struct text_csp *csp = m->csp;
-	struct text_csp *acsp;
+	struct agh_state *mstate = h->handler_data;
+	struct agh_message *command_message;
 	struct command *cmd;
+	guint num_threads;
+	guint i;
+	struct agh_thread *ct;
+
+	command_message = NULL;
+	cmd = NULL;
+	num_threads = 0;
+	ct = NULL;
+	i = 0;
 
 	if (m->msg_type == MSG_RECVTEXT) {
-		cmd = cmd_process_msgtext(m);
-		if (!cmd) {
-			g_print("Invalid command received.\n");
-		}
+		/* Parse incoming text. */
+		cmd = text_to_cmd(csp->text);
+
+		if (cmd) {
+			/* Send this message around to all registered components. */
+			g_print("AGH: processing CMD.\n");
+
+			num_threads = g_queue_get_length(mstate->agh_threads);
+			if (num_threads) {
+
+				for (i=0;i<num_threads;i++) {
+					command_message = msg_alloc();
+					command_message->msg_type = MSG_SENDCMD;
+					ct = g_queue_peek_nth(mstate->agh_threads, i);
+					g_print("Sending command message to %s thread.\n",ct->thread_name);
+					if (msg_prepare(command_message, mstate->agh_comm, ct->comm)) {
+						g_print("AGH CORE: error while preparing message for sending to %s thread.\n",ct->thread_name);
+						msg_dealloc(command_message);
+						continue;
+					}
+
+					command_message->csp = cmd_copy(cmd);
+					msg_send(command_message);
+
+				} /* end of for loop */
+
+			} /* num_threads not zero */
+
+			/*
+			 * Send command messages to the core itself.
+			*/
+			command_message = msg_alloc();
+			command_message->msg_type = MSG_SENDCMD;
+			if (msg_prepare(command_message, mstate->agh_comm, mstate->agh_comm)) {
+				g_print("AGH CORE: error while preparing message for sending to core.\n");
+				msg_dealloc(command_message);
+			}
+			else {
+				command_message->csp = cmd;
+				msg_send(command_message);
+			}
+
+		} /* valid command was received */
+
 	}
+
+	return NULL;
+}
+
+/*
+ * This handler receives MSG_SENDTEXT text messages from sources willing to send them, and broadcast them to all components.
+*/
+gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
+	struct agh_message *m = hmessage;
+	struct handler *h = data;
+	struct text_csp *csp = m->csp;
+	struct agh_state *mstate = h->handler_data;
+	guint num_threads;
+	guint i;
+	struct agh_thread *ct;
+	struct agh_message *text_message;
+	struct text_csp *ncsp;
+
+	num_threads = 0;
+	ct = NULL;
+	i = 0;
+	text_message = NULL;
+	ncsp = NULL;
+
+	if (m->msg_type == MSG_SENDTEXT) {
+		/* Send this message around to all registered components. */
+		g_print("AGH: broadcasting text.\n");
+
+		num_threads = g_queue_get_length(mstate->agh_threads);
+		if (num_threads) {
+
+			for (i=0;i<num_threads;i++) {
+				text_message = msg_alloc();
+				text_message->msg_type = MSG_SENDTEXT;
+				ct = g_queue_peek_nth(mstate->agh_threads, i);
+				g_print("Sending text message to %s thread.\n",ct->thread_name);
+				if (msg_prepare(text_message, mstate->agh_comm, ct->comm)) {
+					g_print("AGH CORE: error while preparing text message for sending to %s thread.\n",ct->thread_name);
+					msg_dealloc(text_message);
+					continue;
+				}
+
+				ncsp = g_malloc0(sizeof(struct text_csp));
+				ncsp->text = g_strdup(csp->text);
+				text_message->csp = ncsp;
+				msg_send(text_message);
+
+			} /* end of for loop */
+
+		} /* num_threads not zero */
+
+	} /* valid command was received */
+
+	return NULL;
+}
+
+gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
+	struct handler *h = data;
+	struct agh_message *m = hmessage;
+	struct agh_state *mstate = h->handler_data;
+	struct command *cmd;
+
+	cmd = m->csp;
+
+	if (m->msg_type != MSG_SENDCMD)
+		return NULL;
+
+	if (!g_strcmp0(cmd_get_operation(cmd), "quit")) {
+		g_main_loop_quit(mstate->agh_mainloop);
+	}
+
 	return NULL;
 }
