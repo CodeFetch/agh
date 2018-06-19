@@ -15,17 +15,15 @@ gint main(void) {
 
 	mstate->agh_handlers = handlers_setup();
 
-	handler_register(mstate->agh_handlers, &core_recvtextcommand_handler);
-	handler_register(mstate->agh_handlers, &core_sendtext_handler);
-	handler_register(mstate->agh_handlers, &core_cmd_handler);
-	handler_register(mstate->agh_handlers, &core_event_handler);
+	/* handlers are registered from within the function called here. */
+	agh_core_handlers_setup_ext(mstate);
 
 	agh_sources_setup(mstate);
 
 	agh_threads_setup(mstate);
 
-	agh_thread_register(mstate, &xmpp_thread_ops);
-	agh_thread_register(mstate, &modem_thread_ops);
+	/* This will need to be done in a better way. Threads are registered within the function called here. */
+	agh_thread_setup_ext(mstate);
 
 	agh_threads_prepare(mstate);
 
@@ -204,18 +202,12 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 		g_main_loop_unref(ct->evl);
 		g_main_context_unref(ct->evl_ctx);
 	}
-	else {
-		g_print("AGH: the %s thread is not using messaging facilities. Is this what you want? If you observe crashes, let us know.\n",ct->thread_name);
-	}
 
-	/* Don't get confused, this was only to remind us to check how things go when stopping the usage of on-stack control thread structures. */
-	if (!ct->on_stack ) {
-		g_print("** WARNING: AGH thread control structure for %s isn't on stack and has not been freed. Freeing it now, but this needs to be looked at.\n",ct->thread_name);
-		g_free(ct);
-	}
+	g_free(ct->thread_name);
 
 	/* XXX: a better way to do this? */
 	g_queue_remove(mstate->agh_threads, ct);
+	g_free(ct);
 	return;
 }
 
@@ -429,4 +421,97 @@ gpointer core_event_handle(gpointer data, gpointer hmessage) {
 	}
 
 	return evmsg;
+}
+
+struct agh_thread *agh_thread_new(gchar *name) {
+	struct agh_thread *ct;
+
+	ct = NULL;
+
+	if (!name) {
+		g_print("AGH CORE: a thread may not have a NULL name.\n");
+		return ct;
+	}
+
+	ct = g_malloc0(sizeof(struct agh_thread));
+	ct->thread_name = g_strdup(name);
+	return ct;
+}
+
+void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data)) {
+	ct->agh_thread_init = agh_thread_init_cb;
+	return;
+}
+
+void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) {
+	ct->agh_thread_main = agh_thread_main_cb;
+	return;
+}
+
+void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) {
+	ct->agh_thread_deinit = agh_thread_deinit_cb;
+	return;
+}
+
+/*
+ * This function exists solely because I don't know a better way to do this.
+*/
+void agh_thread_setup_ext(struct agh_state *mstate) {
+	struct agh_thread *xmpp_thread;
+	struct agh_thread *modem_thread;
+
+	xmpp_thread = NULL;
+	modem_thread = NULL;
+
+	/* XMPP */
+	xmpp_thread = agh_thread_new("XMPP");
+	agh_thread_set_init(xmpp_thread, xmpp_thread_init);
+	agh_thread_set_main(xmpp_thread, xmpp_thread_start);
+	agh_thread_set_deinit(xmpp_thread, xmpp_thread_deinit);
+
+	/* Modem */
+	modem_thread = agh_thread_new("Modem");
+	agh_thread_set_init(modem_thread, modem_thread_init);
+	agh_thread_set_main(modem_thread, modem_thread_start);
+	agh_thread_set_deinit(modem_thread, modem_thread_deinit);
+
+	agh_thread_register(mstate, xmpp_thread);
+	agh_thread_register(mstate, modem_thread);
+	return;
+}
+
+void agh_core_handlers_setup_ext(struct agh_state *mstate) {
+	/* Core handlers. */
+	struct handler *core_recvtextcommand_handler;
+	struct handler *core_sendtext_handler;
+	struct handler *core_cmd_handler;
+	struct handler *core_event_handler;
+
+	core_recvtextcommand_handler = NULL;
+	core_cmd_handler = NULL;
+	core_sendtext_handler = NULL;
+	core_event_handler = NULL;
+
+	core_recvtextcommand_handler = handler_new("core_recvtextcommand_handler");
+	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
+	handler_enable(core_recvtextcommand_handler, TRUE);
+
+	core_cmd_handler = handler_new("core_cmd_handler");
+	handler_set_handle(core_cmd_handler, core_cmd_handle);
+	handler_enable(core_cmd_handler, TRUE);
+
+	core_sendtext_handler = handler_new("core_sendtext_handler");
+	handler_set_handle(core_sendtext_handler, core_sendtext_handle);
+	handler_enable(core_sendtext_handler, TRUE);
+
+	core_event_handler = handler_new("core_event_handler");
+	handler_set_handle(core_event_handler, core_event_handle);
+	handler_enable(core_event_handler, TRUE);
+
+	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
+	handler_register(mstate->agh_handlers, core_sendtext_handler);
+	handler_register(mstate->agh_handlers, core_cmd_handler);
+	handler_register(mstate->agh_handlers, core_event_handler);
+
+	return;
 }

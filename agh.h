@@ -46,9 +46,6 @@ struct agh_thread {
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
 
-	/* to be removed at some point */
-	gboolean on_stack;
-
 	/* callbacks */
 	void (*agh_thread_init)(gpointer data);
 	gpointer (*agh_thread_main)(gpointer data);
@@ -84,6 +81,13 @@ void agh_threads_stop_single(gpointer data, gpointer user_data);
 void agh_threads_deinit(struct agh_state *mstate);
 void agh_threads_deinit_single(gpointer data, gpointer user_data);
 void agh_threads_teardown(struct agh_state *mstate);
+
+/* threads structures helpers */
+struct agh_thread *agh_thread_new(gchar *name);
+void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data));
+void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data));
+void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data));
+
 gboolean agh_unix_signals_cb_dispatch(gpointer data);
 
 /* Core command handler */
@@ -93,37 +97,8 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 gpointer core_event_handle(gpointer data, gpointer hmessage);
 
-static struct handler core_recvtextcommand_handler = {
-	.enabled = TRUE,
-	.on_stack = TRUE,
-	.handler_initialize = NULL,
-	.handle = core_recvtextcommand_handle,
-	.handler_finalize = NULL,
-};
-
-static struct handler core_sendtext_handler = {
-	.enabled = TRUE,
-	.on_stack = TRUE,
-	.handler_initialize = NULL,
-	.handle = core_sendtext_handle,
-	.handler_finalize = NULL,
-};
-
-static struct handler core_cmd_handler = {
-	.enabled = TRUE,
-	.on_stack = TRUE,
-	.handler_initialize = NULL,
-	.handle = core_cmd_handle,
-	.handler_finalize = NULL,
-};
-
-static struct handler core_event_handler = {
-	.enabled = TRUE,
-	.on_stack = TRUE,
-	.handler_initialize = NULL,
-	.handle = core_event_handle,
-	.handler_finalize = NULL,
-};
+void agh_thread_setup_ext(struct agh_state *mstate);
+void agh_core_handlers_setup_ext(struct agh_state *mstate);
 
 struct text_csp {
 	gchar *text;

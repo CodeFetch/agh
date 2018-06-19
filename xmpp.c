@@ -15,8 +15,8 @@ void xmpp_thread_init(gpointer data) {
 
 	ct->handlers = handlers_setup();
 
-	handler_register(ct->handlers, &xmpp_sendmsg_handler);
-	handler_register(ct->handlers, &xmpp_cmd_handler);
+	/* Handlers are registered from inside the function called here. */
+	xmpp_set_handlers_ext(ct);
 
 	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
 	aghservices_messaging_setup(ct);
@@ -250,6 +250,27 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 	g_print("Discarding element: %s\n", xmpp_message_text);
 	g_queue_remove(xstate->outxmpp_messages, data);
 	g_free(data);
+
+	return;
+}
+
+void xmpp_set_handlers_ext(struct agh_thread *ct) {
+	struct handler *xmpp_sendmsg_handler;
+	struct handler *xmpp_cmd_handler;
+
+	xmpp_sendmsg_handler = NULL;
+	xmpp_cmd_handler = NULL;
+
+	xmpp_sendmsg_handler = handler_new("xmpp_sendmsg_handler");
+	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
+	handler_enable(xmpp_sendmsg_handler, TRUE);
+
+	xmpp_cmd_handler = handler_new("xmpp_cmd_handler");
+	handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
+	handler_enable(xmpp_cmd_handler, TRUE);
+
+	handler_register(ct->handlers, xmpp_sendmsg_handler);
+	handler_register(ct->handlers, xmpp_cmd_handler);
 
 	return;
 }

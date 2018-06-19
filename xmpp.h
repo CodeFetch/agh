@@ -28,14 +28,9 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
 void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata);
 
-static struct agh_thread xmpp_thread_ops = {
-	.thread_name = "XMPP",
-	.agh_thread_init = xmpp_thread_init,
-	.agh_thread_main = xmpp_thread_start,
-	.agh_thread_deinit = xmpp_thread_deinit,
-	.on_stack = 1
-};
-
 void xmpp_send_out_messages(gpointer data);
 void discard_xmpp_messages(gpointer data, gpointer userdata);
+
+void xmpp_set_handlers_ext(struct agh_thread *ct);
+
 #endif

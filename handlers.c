@@ -87,11 +87,8 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 
 	h->handler_data = NULL;
 
-	if (!h->on_stack) {
-		g_print("handlers: freeing an handler that has not been allocated in, or declared to be, in the stack. This needs to be looked at.\n");
-		g_free(h);
-		h = NULL;
-	}
+	g_free(h->name);
+	g_free(h);
 
 	return;
 }
@@ -99,5 +96,46 @@ void handlers_finalize_single(gpointer data, gpointer user_data) {
 void handlers_finalize(GQueue *handlers) {
 	g_print("handlers: finalizing handlers.\n");
 	g_queue_foreach(handlers, handlers_finalize_single, NULL);
+	return;
+}
+
+struct handler *handler_new(gchar *name) {
+	struct handler *h;
+
+	h = NULL;
+
+	if (!name) {
+		g_print("An handler can not have a NULL name.\n");
+		return h;
+	}
+
+	h = g_malloc0(sizeof(struct handler));
+
+	h->name = g_strdup(name);
+	return h;
+}
+
+void handler_enable(struct handler *h, gboolean enabled) {
+	h->enabled = enabled;
+	return;
+}
+
+void handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
+	h->handler_initialize = handler_initialize_cb;
+	return;
+}
+
+void handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
+	if (!handler_handle_cb) {
+		g_print("An handler will a NULL cb ? Why?\n");
+		return;
+	}
+
+	h->handle = handler_handle_cb;
+	return;
+}
+
+void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
+	h->handler_finalize = handler_finalize_cb;
 	return;
 }
