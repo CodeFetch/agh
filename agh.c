@@ -4,6 +4,7 @@
 #include "handlers.h"
 #include "agh.h"
 #include "xmpp.h"
+#include "modem.h"
 #include "aghservices.h"
 
 gint main(void) {
@@ -17,12 +18,14 @@ gint main(void) {
 	handler_register(mstate->agh_handlers, &core_recvtextcommand_handler);
 	handler_register(mstate->agh_handlers, &core_sendtext_handler);
 	handler_register(mstate->agh_handlers, &core_cmd_handler);
+	handler_register(mstate->agh_handlers, &core_event_handler);
 
 	agh_sources_setup(mstate);
 
 	agh_threads_setup(mstate);
 
 	agh_thread_register(mstate, &xmpp_thread_ops);
+	agh_thread_register(mstate, &modem_thread_ops);
 
 	agh_threads_prepare(mstate);
 
@@ -146,7 +149,7 @@ void agh_threads_prepare(struct agh_state *mstate) {
 	g_print("AGH CORE: preparing threads \n");
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
-	g_print("done\n");
+	g_print(" done\n");
 	return;
 }
 
@@ -161,7 +164,7 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
-	g_print(ct->thread_name);
+	g_print("%s ",ct->thread_name);
 
 	/* Before starting our thread, provide basic facilities: the communication asynchronous queue and the main thread's GMainContext. */
 	ct->agh_maincontext = mstate->ctx;
@@ -196,10 +199,16 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	ct->agh_mainloop = NULL;
 	ct->comm = NULL;
 
-	g_main_loop_unref(ct->evl);
-	g_main_context_unref(ct->evl_ctx);
+	/* Due to the usage of on-stack structures, if the current thread is not using GLib main loop, I guess we're going to access uninitialized memory. This should be fixed. For now, just let the code remind us something is not right. */
+	if (ct->evl) {
+		g_main_loop_unref(ct->evl);
+		g_main_context_unref(ct->evl_ctx);
+	}
+	else {
+		g_print("AGH: the %s thread is not using messaging facilities. Is this what you want? If you observe crashes, let us know.\n",ct->thread_name);
+	}
 
-	/* don't get confused, this was only to remind us to check how things go when stopping the usage of on-stack control thread structures */
+	/* Don't get confused, this was only to remind us to check how things go when stopping the usage of on-stack control thread structures. */
 	if (!ct->on_stack ) {
 		g_print("** WARNING: AGH thread control structure for %s isn't on stack and has not been freed. Freeing it now, but this needs to be looked at.\n",ct->thread_name);
 		g_free(ct);
@@ -228,7 +237,7 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
-	g_print(ct->thread_name);
+	g_print("%s ",ct->thread_name);
 	ct->current_thread = g_thread_join(ct->current_thread);
 	return;
 }
@@ -382,4 +391,42 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	}
 
 	return NULL;
+}
+
+gpointer core_event_handle(gpointer data, gpointer hmessage) {
+	struct handler *h = data;
+	struct agh_message *m = hmessage;
+	struct agh_state *mstate = h->handler_data;
+	struct command *cmd;
+	gchar *evtext;
+	struct agh_message *evmsg;
+	struct text_csp *textcsp;
+
+	cmd = m->csp;
+	evtext = NULL;
+	evmsg = NULL;
+	textcsp = NULL;
+
+	if (m->msg_type != MSG_EVENT)
+		return evmsg;
+
+	/* An event arrived - so we need to assign it an event ID. */
+	evtext = cmd_event_to_text(cmd, (mstate->event_id++)%CMD_EVENT_UNKNOWN_ID);
+
+	if (!evtext)
+		return evmsg;
+
+	evmsg = msg_alloc();
+
+	textcsp = g_malloc0(sizeof(struct text_csp));
+	textcsp->text = evtext;
+	evmsg->csp = textcsp;
+	evmsg->msg_type = MSG_SENDTEXT;
+
+	if (msg_prepare(evmsg, mstate->agh_comm, mstate->agh_comm)) {
+		msg_dealloc(evmsg);
+		evmsg = NULL;
+	}
+
+	return evmsg;
 }

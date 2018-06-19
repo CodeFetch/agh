@@ -27,9 +27,8 @@ void msg_dealloc(struct agh_message *m) {
 			csptext = NULL;
 			g_free(m->csp);
 			break;
-		case MSG_RECVCMD:
 		case MSG_SENDCMD:
-			g_print("CMD DEALLOC matches.\n");
+		case MSG_EVENT:
 			cmd = m->csp;
 			cmd_free(cmd);
 			break;

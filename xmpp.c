@@ -222,10 +222,10 @@ void xmpp_send_out_messages(gpointer data) {
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
 	if (num_messages) {
 
-	if (num_messages >= MAX_XMPP_QUEUED_MESSAGES) {
-		g_print("XMPP: maximum number of messages queued for sending has been received; discarding all of them.\n");
-		g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
-	}
+		if (num_messages >= MAX_XMPP_QUEUED_MESSAGES) {
+			g_print("XMPP: maximum number of messages queued for sending has been received; discarding all of them.\n");
+			g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+		}
 
 		if (xstate->msg_id == G_MAXUINT64)
 			xstate->msg_id = 0;

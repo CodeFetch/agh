@@ -23,6 +23,9 @@ struct agh_state {
 	GAsyncQueue *agh_comm;
 	GSource *comm_timeout;
 	guint comm_timeout_tag;
+
+	/* current event ID */
+	gint event_id;
 };
 
 struct agh_thread {
@@ -88,6 +91,7 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data);
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
 gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 gpointer core_cmd_handle(gpointer data, gpointer hmessage);
+gpointer core_event_handle(gpointer data, gpointer hmessage);
 
 static struct handler core_recvtextcommand_handler = {
 	.enabled = TRUE,
@@ -110,6 +114,14 @@ static struct handler core_cmd_handler = {
 	.on_stack = TRUE,
 	.handler_initialize = NULL,
 	.handle = core_cmd_handle,
+	.handler_finalize = NULL,
+};
+
+static struct handler core_event_handler = {
+	.enabled = TRUE,
+	.on_stack = TRUE,
+	.handler_initialize = NULL,
+	.handle = core_event_handle,
 	.handler_finalize = NULL,
 };
 

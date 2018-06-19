@@ -16,8 +16,18 @@
 /* OUT keyword: for outgoing commands. */
 #define CMD_OUT_KEYWORD "IH"
 
-/* use this to determine an unknown status */
+/* EVENT keyword, for events */
+#define CMD_EVENT_KEYWORD CMD_OUT_KEYWORD"!"
+
+/* use this to determine an unknown status. */
 #define CMD_ANSWER_STATUS_UNKNOWN 380
+
+/* or unset event ID */
+#define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
+
+/* bugs */
+#define BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
+#define BUG_EMPTY_EVENT_TEXT "BUG_EMPTY_EVENT_TEXT"
 
 struct command_result {
 	guint status;
@@ -57,5 +67,10 @@ gint cmd_get_id(struct command *cmd);
 const gchar *cmd_get_operation(struct command *cmd);
 config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_type);
 void print_config_type(gint type);
+
+/* events */
+struct command *cmd_event_prepare(void);
+gchar *cmd_event_to_text(struct command *cmd, gint event_id);
+void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd);
 
 #endif

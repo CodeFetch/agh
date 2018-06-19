@@ -6,8 +6,9 @@
 /* Message types */
 #define MSG_RECVTEXT 						0
 #define MSG_SENDTEXT						1
-#define MSG_RECVCMD							2
 #define MSG_SENDCMD							3
+#define MSG_EVENT							4
+
 
 struct agh_message {
 	guint msg_type;

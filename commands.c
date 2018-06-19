@@ -149,7 +149,7 @@ guint cmd_answer_addtext(struct command *cmd, gchar *text) {
 	retval = 0;
 
 	if (text)
-		g_queue_push_tail(cmd->answer->restextparts, data);
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
 	else {
 		g_print("AGH: tried to add a NULL text part to a command answer.\n");
 		retval = 1;
@@ -181,6 +181,11 @@ gchar *cmd_answer_to_text(struct command *cmd) {
 
 	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
+
+	if (!ntextparts) {
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_ANSWER_TEXT));
+		ntextparts++;
+	}
 
 	for (i=0;i<ntextparts;i++) {
 		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
@@ -239,10 +244,10 @@ guint cmd_answer_prepare(struct command *cmd) {
 		cmd = text_to_cmd(argv[1]);
 		cmd_answer_prepare(cmd);
 		//cmd_answer_set_status(cmd, 100);
-		//cmd_answer_addtext(cmd, g_strdup("yo"));
-		//cmd_answer_addtext(cmd, g_strdup("yo"));
-		//cmd_answer_addtext(cmd, g_strdup("BRO"));
-		//cmd_answer_addtext(cmd, g_strdup("testmeout"));
+		//cmd_answer_addtext(cmd, "yo");
+		//cmd_answer_addtext(cmd, "yo");
+		//cmd_answer_addtext(cmd, "BRO");
+		//cmd_answer_addtext(cmd, "testmeout");
 		g_print("Answer: %s\n",cmd_answer_to_text(cmd));
 
 		//g_print("Struct command is %d bytes, struct *command is %d bytes and gchar * is %d bytes, as is a gpointer (%d
@@ -432,8 +437,10 @@ struct agh_message *cmd_answer_msg(struct command *cmd, GAsyncQueue *src, GAsync
 
 	textcsp->text = cmd_answer_to_text(cmd);
 
-	if (!textcsp->text)
+	if (!textcsp->text) {
+		g_free(textcsp);
 		return m;
+	}
 
 	m = msg_alloc();
 	m->csp = textcsp;
@@ -544,5 +551,98 @@ void print_config_type(gint type) {
 			g_print("Unsupported (or unknown) setting type.\n");
 			break;
 	}
+	return;
+}
+
+struct command *cmd_event_prepare(void) {
+	struct command *cmd;
+
+	cmd = NULL;
+
+	cmd = g_malloc0(sizeof(struct command));
+
+	cmd->answer = g_malloc0(sizeof(struct command_result));
+
+	cmd->answer->status = CMD_EVENT_UNKNOWN_ID;
+	cmd->answer->restextparts = g_queue_new();
+
+	return cmd;
+}
+
+/*
+ * This function transforms an event's command_result structure content to text. It is destructive, and infact it also
+ * deallocates the structure. Yeah, this is arguable design. A lot of code here is in common with the cmd_answer_to_text
+ * function, and infact it has been copied from there. Maybe unifying those function is a good idea.
+*/
+gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
+	GString *output;
+	guint ntextparts;
+	guint i;
+	gchar *current_textpart;
+
+	ntextparts = 0;
+
+	if (!cmd)
+		return NULL;
+
+	/* Start with the EVENT keyword */
+	output = g_string_new(CMD_EVENT_KEYWORD" = ( ");
+
+	/* Appends event ID, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
+	g_string_append_printf(output, "%" G_GINT16_FORMAT"", event_id);
+
+	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
+	ntextparts = g_queue_get_length(cmd->answer->restextparts);
+
+	if (!ntextparts) {
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_EVENT_TEXT));
+		ntextparts++;
+	}
+
+	for (i=0;i<ntextparts;i++) {
+		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
+		g_string_append_printf(output, ", \"%s\"", current_textpart);
+		g_free(current_textpart);
+	}
+
+	/* A space and a close round bracket are to be added to complete the answer. */
+	g_string_append_printf(output, " )");
+
+	/*
+	* See cmd_answer_to_text for clarification.
+	*/
+	g_queue_free(cmd->answer->restextparts);
+
+	/* Yeah, probably useless. */
+	cmd->answer->status = CMD_EVENT_UNKNOWN_ID;
+	cmd->answer->restextparts = NULL;
+
+	g_free(cmd->answer);
+	cmd->answer = NULL;
+
+	return g_string_free(output, FALSE);
+}
+
+void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd) {
+	struct agh_message *m;
+
+	m = NULL;
+
+	if (!cmd)
+		return;
+
+	if (!cmd->answer)
+		return;
+
+	m = msg_alloc();
+	m->msg_type = MSG_EVENT;
+	m->csp = cmd;
+	if (msg_prepare(m, agh_comm, agh_comm)) {
+		msg_dealloc(m);
+		return;
+	}
+
+	msg_send(m);
+
 	return;
 }

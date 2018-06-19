@@ -5,13 +5,13 @@ G_MESSAGES_DEBUG=all
 export G_MESSAGES_DEBUG
 
 # mips
-STAGING_DIR=/home/mrkiko/files/src/openwrt/staging_dir/toolchain-mipsel_74kc_gcc-7.3.0_musl/
+STAGING_DIR=/mnt/hdd/sdata/openwrt/staging_dir/toolchain-mipsel_74kc_gcc-7.3.0_musl/
 export STAGING_DIR
 PATH=$PATH:$STAGING_DIR/bin
 export PATH
 
-PKG_CONFIG_LIBDIR=/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/pkgconfig
-PKG_CONFIG_SYSROOT_DIR=/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/
+PKG_CONFIG_LIBDIR=/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/pkgconfig
+PKG_CONFIG_SYSROOT_DIR=/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/
 export PKG_CONFIG_LIBDIR
 export PKG_CONFIG_SYSROOT_DIR
 
@@ -23,9 +23,10 @@ aghservices.c \
 messages.c \
 commands.c \
 xmpp_handlers.c \
-`pkg-config --cflags --libs glib-2.0` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
--Wl,-L/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
--Wl,-rpath-link=/home/mrkiko/files/src/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
+modem.c \
+`pkg-config --cflags --libs glib-2.0 libconfig` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
+-Wl,-L/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
+-Wl,-rpath-link=/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -lstrophe -DG_DISABLE_DEPRECATED \
 -o agh || exit 1
 
