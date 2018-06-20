@@ -150,10 +150,8 @@ guint cmd_answer_addtext(struct command *cmd, gchar *text) {
 
 	if (text)
 		g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
-	else {
-		g_print("AGH: tried to add a NULL text part to a command answer.\n");
+	else
 		retval = 1;
-	}
 
 	return retval;
 }
@@ -291,24 +289,28 @@ struct command *cmd_copy(struct command *cmd) {
 	cmd_answer = NULL;
 
 	cfg = cmd_copy_cfg(cmd->cmd);
-	if (!cfg)
-		return ocmd;
+	if (cfg) {
+		ocmd->cmd = cfg;
+	}
 
-	ocmd->cmd = cfg;
+	if (cmd->answer) {
+		/* Anser processing. */
+		cmd_answer = g_malloc0(sizeof(struct command_result));
+		cmd_answer->status = cmd->answer->status;
 
-	if (!cmd->answer)
-		return ocmd;
+		cmd_answer->restextparts = g_queue_new();
 
-	/* Anser processing. */
-	cmd_answer = g_malloc0(sizeof(struct command_result));
-	cmd_answer->status = cmd->answer->status;
+		g_queue_foreach(cmd->answer->restextparts, cmd_copy_textpart_single, cmd_answer->restextparts);
+		ocmd->answer = cmd_answer;
+	}
 
-	cmd_answer->restextparts = g_queue_new();
+	if ((!ocmd->cmd) && (!ocmd->answer)) {
+		cmd_free(ocmd);
+		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
+		ocmd = NULL;
+	}
 
-	g_queue_foreach(cmd_answer->restextparts, cmd_copy_textpart_single, cmd_answer->restextparts);
-	ocmd->answer = cmd_answer;
-
-	return ocmd;;
+	return ocmd;
 }
 
 /*
@@ -404,7 +406,7 @@ void cmd_copy_textpart_single(gpointer data, gpointer user_data) {
 	 * The function calling us should check if the destination queue actually has been allocated. Anyway, it seems g_queue_new
 	 * can not fail.
 	*/
-	g_queue_push_tail(destqueue, data);
+	g_queue_push_tail(destqueue, g_strdup(data));
 	return;
 }
 

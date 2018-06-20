@@ -200,7 +200,10 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	/* Due to the usage of on-stack structures, if the current thread is not using GLib main loop, I guess we're going to access uninitialized memory. This should be fixed. For now, just let the code remind us something is not right. */
 	if (ct->evl) {
 		g_main_loop_unref(ct->evl);
-		g_main_context_unref(ct->evl_ctx);
+
+		if (ct->evl_ctx)
+			g_main_context_unref(ct->evl_ctx);
+
 	}
 
 	g_free(ct->thread_name);
@@ -385,7 +388,7 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
-gpointer core_event_handle(gpointer data, gpointer hmessage) {
+gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
@@ -394,7 +397,7 @@ gpointer core_event_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *evmsg;
 	struct text_csp *textcsp;
 
-	cmd = m->csp;
+	cmd = NULL;
 	evtext = NULL;
 	evmsg = NULL;
 	textcsp = NULL;
@@ -403,10 +406,13 @@ gpointer core_event_handle(gpointer data, gpointer hmessage) {
 		return evmsg;
 
 	/* An event arrived - so we need to assign it an event ID. */
+	cmd = cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, (mstate->event_id++)%CMD_EVENT_UNKNOWN_ID);
 
-	if (!evtext)
+	if (!evtext) {
+		cmd_free(cmd);
 		return evmsg;
+	}
 
 	evmsg = msg_alloc();
 
@@ -420,7 +426,58 @@ gpointer core_event_handle(gpointer data, gpointer hmessage) {
 		evmsg = NULL;
 	}
 
+	cmd_free(cmd);
 	return evmsg;
+}
+
+gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
+	struct handler *h = data;
+	struct agh_message *m = hmessage;
+	struct agh_state *mstate = h->handler_data;
+	struct command *cmd;
+	struct agh_message *evmsg;
+	guint num_threads;
+	struct command *ncmd;
+	guint i;
+	struct agh_thread *ct;
+
+	cmd = m->csp;
+	evmsg = NULL;
+	num_threads = 0;
+	ncmd = NULL;
+	ct = NULL;
+
+	if (m->msg_type != MSG_EVENT)
+		return NULL;
+
+	/* An event arrived - so we'll broadcast it. */
+	g_print("AGH CORE: broadcasting event.\n");
+
+	num_threads = g_queue_get_length(mstate->agh_threads);
+	if (num_threads) {
+
+		for (i=0;i<num_threads;i++) {
+			evmsg = msg_alloc();
+			evmsg->msg_type = MSG_EVENT;
+			ct = g_queue_peek_nth(mstate->agh_threads, i);
+			g_print("Sending event message to %s thread.\n",ct->thread_name);
+			if (msg_prepare(evmsg, mstate->agh_comm, ct->comm)) {
+				g_print("AGH CORE: error while preparing event message for sending to %s thread.\n",ct->thread_name);
+				msg_dealloc(evmsg);
+				continue;
+			}
+
+			ncmd = cmd_copy(cmd);
+
+			/* ncmd may well be NULL here */
+			evmsg->csp = ncmd;
+			msg_send(evmsg);
+
+		} /* end of for loop */
+
+	} /* num_threads not zero */
+
+	return NULL;
 }
 
 struct agh_thread *agh_thread_new(gchar *name) {
@@ -485,12 +542,14 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *core_recvtextcommand_handler;
 	struct handler *core_sendtext_handler;
 	struct handler *core_cmd_handler;
-	struct handler *core_event_handler;
+	struct handler *core_event_to_text_handler;
+	struct handler *core_event_broadcast_handler;
 
 	core_recvtextcommand_handler = NULL;
 	core_cmd_handler = NULL;
 	core_sendtext_handler = NULL;
-	core_event_handler = NULL;
+	core_event_to_text_handler = NULL;
+	core_event_broadcast_handler = NULL;
 
 	core_recvtextcommand_handler = handler_new("core_recvtextcommand_handler");
 	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
@@ -504,14 +563,19 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	handler_set_handle(core_sendtext_handler, core_sendtext_handle);
 	handler_enable(core_sendtext_handler, TRUE);
 
-	core_event_handler = handler_new("core_event_handler");
-	handler_set_handle(core_event_handler, core_event_handle);
-	handler_enable(core_event_handler, TRUE);
+	core_event_to_text_handler = handler_new("core_event_to_text_handler");
+	handler_set_handle(core_event_to_text_handler, core_event_to_text_handle);
+	handler_enable(core_event_to_text_handler, TRUE);
+
+	core_event_broadcast_handler = handler_new("core_event_broadcast_handler");
+	handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
+	handler_enable(core_event_broadcast_handler, TRUE);
 
 	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
 	handler_register(mstate->agh_handlers, core_sendtext_handler);
 	handler_register(mstate->agh_handlers, core_cmd_handler);
-	handler_register(mstate->agh_handlers, core_event_handler);
+	handler_register(mstate->agh_handlers, core_event_to_text_handler);
+	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
 
 	return;
 }

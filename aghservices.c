@@ -4,7 +4,7 @@
 #include "messages.h"
 #include "handlers.h"
 
-void aghservices_messaging_setup(struct agh_thread *ct) {
+void aghservices_messaging_setup(struct agh_thread *ct, gboolean no_context) {
 
 	if (!ct->handlers) {
 		g_print("AGH CORE: (%s) called us with a NULL handlers queue pointer. Messaging setup not happening for this thread to prevent an immediate segfault, but things will probably not work correctly.\n\t(maybe you forgot to call handlers_setup ? )\n",ct->thread_name);
@@ -12,7 +12,9 @@ void aghservices_messaging_setup(struct agh_thread *ct) {
 	}
 
 	/* Sets up a new Main Loop Context (and related Main Loop of course) for the calling thread. */
-	ct->evl_ctx = g_main_context_new();
+	if (!no_context)
+		ct->evl_ctx = g_main_context_new();
+
 	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
 
 	ct->comm_timeout = g_timeout_source_new_seconds(2);
@@ -64,6 +66,7 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 		for (i=0;i<num_handlers;i++) {
 			h = g_queue_peek_nth(handlers, i);
 			if (h->enabled) {
+				//g_print("handle(%s)\n",h->name);
 				answer = h->handle(h, m);
 				if (answer) {
 					msg_prepare(answer, src_comm, m->src_comm);
@@ -107,7 +110,7 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 		for (i=num_answers;i>0;i--) {
 			m = g_queue_pop_head(handlers_answers);
 			aghservices_handle_message(handlers, m, comm);
-			g_print("Deallocating message...\n");
+			//g_print("Deallocating message...\n");
 			msg_dealloc(m);
 		}
 
@@ -115,7 +118,7 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 			g_print("AGH messages: did not process all messages. This is going to be a problem. We are leaking memory now.\n");
 		}
 
-		g_print("Deallocating queue.\n");
+		//g_print("Deallocating queue.\n");
 		g_queue_free(handlers_answers);
 
 	}

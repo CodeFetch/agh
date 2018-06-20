@@ -19,7 +19,7 @@ void xmpp_thread_init(gpointer data) {
 	xmpp_set_handlers_ext(ct);
 
 	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
-	aghservices_messaging_setup(ct);
+	aghservices_messaging_setup(ct, FALSE);
 	handlers_init(ct->handlers, ct);
 
 	g_print("XMPP library init\n");
@@ -257,6 +257,7 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 void xmpp_set_handlers_ext(struct agh_thread *ct) {
 	struct handler *xmpp_sendmsg_handler;
 	struct handler *xmpp_cmd_handler;
+	struct handler *xmpp_event_handler;
 
 	xmpp_sendmsg_handler = NULL;
 	xmpp_cmd_handler = NULL;
@@ -269,8 +270,13 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 	handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
 	handler_enable(xmpp_cmd_handler, TRUE);
 
+	xmpp_event_handler = handler_new("xmpp_event_handler");
+	handler_set_handle(xmpp_event_handler,xmpp_event_handle);
+	handler_enable(xmpp_event_handler, TRUE);
+
 	handler_register(ct->handlers, xmpp_sendmsg_handler);
 	handler_register(ct->handlers, xmpp_cmd_handler);
+	handler_register(ct->handlers, xmpp_event_handler);
 
 	return;
 }

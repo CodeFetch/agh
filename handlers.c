@@ -35,7 +35,6 @@ void handler_register(GQueue *handlers, struct handler *h) {
 	}
 	else {
 		g_queue_push_tail(handlers, h);
-		g_print("handlers: an handler has been registered.\n");
 	}
 	return;
 }
@@ -49,7 +48,6 @@ void handlers_init(GQueue *handlers, gpointer data) {
 	guint num_handlers;
 	struct handler *h;
 
-	g_print("handlers: init is taking place.\n");
 	num_handlers = 0;
 	if (!handlers) {
 		g_print("handlers: WARNING during init, passed in a NULL queue.\n");
@@ -58,8 +56,8 @@ void handlers_init(GQueue *handlers, gpointer data) {
 
 	num_handlers = g_queue_get_length(handlers);
 	for (i=0;i<num_handlers;i++) {
-		g_print("*");
 		h = g_queue_peek_nth(handlers, i);
+		g_print("handlers: init %s\n",h->name);
 
 		h->handlers_queue = handlers;
 

@@ -58,3 +58,18 @@ gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 
 	return NULL;
 }
+
+gpointer xmpp_event_handle(gpointer data, gpointer hmessage) {
+	struct command *event;
+	struct handler *h = data;
+	struct agh_thread *ct = h->handler_data;
+	struct agh_message *m = hmessage;
+
+	event = m->csp;
+
+	if (m->msg_type != MSG_EVENT)
+		return NULL;
+
+	g_print("%s: an event has been intercepted.\n",ct->thread_name);
+	return NULL;
+}

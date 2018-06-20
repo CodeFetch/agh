@@ -95,7 +95,7 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data);
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
 gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 gpointer core_cmd_handle(gpointer data, gpointer hmessage);
-gpointer core_event_handle(gpointer data, gpointer hmessage);
+gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
 
 void agh_thread_setup_ext(struct agh_state *mstate);
 void agh_core_handlers_setup_ext(struct agh_state *mstate);
