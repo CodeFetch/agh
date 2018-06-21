@@ -70,6 +70,6 @@ gpointer xmpp_event_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_EVENT)
 		return NULL;
 
-	g_print("%s: an event has been intercepted.\n",ct->thread_name);
+	g_print("%s: an event has been intercepted.\n\t(operation is %s, arg1 is %s, arg2 is %s, arg3 is %s and arg4 is %s)",ct->thread_name,event_name(event),event_arg(event, 1),event_arg(event, 2),event_arg(event, 3),event_arg(event, 4));
 	return NULL;
 }

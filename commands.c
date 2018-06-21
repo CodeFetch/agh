@@ -573,7 +573,7 @@ struct command *cmd_event_prepare(void) {
 
 /*
  * This function transforms an event's command_result structure content to text. It is destructive, and infact it also
- * deallocates the structure. Yeah, this is arguable design. A lot of code here is in common with the cmd_answer_to_text
+ * deallocates the command_result structure contained in the command used as event. Yeah, this is arguable design. A lot of code here is in common with the cmd_answer_to_text
  * function, and infact it has been copied from there. Maybe unifying those function is a good idea.
 */
 gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
@@ -647,4 +647,37 @@ void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd) {
 	msg_send(m);
 
 	return;
+}
+
+/*
+ * Gets event name. It should not in general return NULL, but it may do so. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
+ * Note that the pointer returned here is "inside" the structure itself, and that's why it's const. So don't try to modify, or free it. And clearly do not use it once you freed or sent the event.
+*/
+const gchar *event_name(struct command *cmd) {
+	const gchar *textop;
+
+	textop = NULL;
+
+	if (!cmd->answer)
+		return NULL;
+
+	textop = g_queue_peek_nth(cmd->answer->restextparts, 0);
+
+	return textop;
+}
+
+/*
+ * Gets an event argument. It returns NULL if specified argument is not present. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
+*/
+const gchar *event_arg(struct command *cmd, guint arg_index) {
+	const gchar *arg;
+
+	arg = NULL;
+
+	if (!arg_index)
+		return arg;
+
+	arg = g_queue_peek_nth(cmd->answer->restextparts, arg_index);
+
+	return arg;
 }

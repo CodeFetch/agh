@@ -24,6 +24,7 @@
 
 /* or unset event ID */
 #define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
+#define CMD_EVENT_MAX_ID CMD_EVENT_UNKNOWN_ID
 
 /* bugs */
 #define BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
@@ -72,5 +73,9 @@ void print_config_type(gint type);
 struct command *cmd_event_prepare(void);
 gchar *cmd_event_to_text(struct command *cmd, gint event_id);
 void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd);
+
+/* And some useful functions to access events */
+const gchar *event_name(struct command *cmd);
+const gchar *event_arg(struct command *cmd, guint arg_index);
 
 #endif

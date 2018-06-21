@@ -407,7 +407,10 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 
 	/* An event arrived - so we need to assign it an event ID. */
 	cmd = cmd_copy(m->csp);
-	evtext = cmd_event_to_text(cmd, (mstate->event_id++)%CMD_EVENT_UNKNOWN_ID);
+	evtext = cmd_event_to_text(cmd, mstate->event_id);
+	mstate->event_id++;
+	if (mstate->event_id == CMD_EVENT_MAX_ID)
+		mstate->event_id = 0;
 
 	if (!evtext) {
 		cmd_free(cmd);
