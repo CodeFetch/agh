@@ -22,7 +22,7 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
-			g_print("Deallocating text %s\n",csptext->text);
+			//g_print("Deallocating text %s\n",csptext->text);
 			g_free(csptext->text);
 			csptext = NULL;
 			g_free(m->csp);

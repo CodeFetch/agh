@@ -218,7 +218,7 @@ void agh_threads_start_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
-	g_print(ct->thread_name);
+	g_print("%s ",ct->thread_name);
 
 	if (ct->agh_thread_main)
 		ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
@@ -283,7 +283,7 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 					command_message = msg_alloc();
 					command_message->msg_type = MSG_SENDCMD;
 					ct = g_queue_peek_nth(mstate->agh_threads, i);
-					g_print("Sending command message to %s thread.\n",ct->thread_name);
+					//g_print("Sending command message to %s thread.\n",ct->thread_name);
 					if (msg_prepare(command_message, mstate->agh_comm, ct->comm)) {
 						g_print("AGH CORE: error while preparing message for sending to %s thread.\n",ct->thread_name);
 						msg_dealloc(command_message);
@@ -349,7 +349,7 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 				text_message = msg_alloc();
 				text_message->msg_type = MSG_SENDTEXT;
 				ct = g_queue_peek_nth(mstate->agh_threads, i);
-				g_print("Sending text message to %s thread.\n",ct->thread_name);
+				//g_print("Sending text message to %s thread.\n",ct->thread_name);
 				if (msg_prepare(text_message, mstate->agh_comm, ct->comm)) {
 					g_print("AGH CORE: error while preparing text message for sending to %s thread.\n",ct->thread_name);
 					msg_dealloc(text_message);
@@ -463,7 +463,7 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 			evmsg = msg_alloc();
 			evmsg->msg_type = MSG_EVENT;
 			ct = g_queue_peek_nth(mstate->agh_threads, i);
-			g_print("Sending event message to %s thread.\n",ct->thread_name);
+			//g_print("Sending event message to %s thread.\n",ct->thread_name);
 			if (msg_prepare(evmsg, mstate->agh_comm, ct->comm)) {
 				g_print("AGH CORE: error while preparing event message for sending to %s thread.\n",ct->thread_name);
 				msg_dealloc(evmsg);

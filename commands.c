@@ -262,7 +262,7 @@ void cmd_free(struct command *cmd) {
 
 	/* This probably should be replaced by an assert. */
 	if (cmd->cmd) {
-		g_print("Deallocating command config structure.\n");
+		//g_print("Deallocating command config structure.\n");
 		config_destroy(cmd->cmd);
 		g_free(cmd->cmd);
 		cmd->cmd = NULL;
@@ -270,7 +270,7 @@ void cmd_free(struct command *cmd) {
 
 	/* Command answer. */
 	if (cmd->answer) {
-		g_print("Deallocating associated answer structure.\n");
+		//g_print("Deallocating associated answer structure.\n");
 		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
 		g_queue_free_full(cmd->answer->restextparts, g_free);
 		cmd->answer->restextparts = NULL;

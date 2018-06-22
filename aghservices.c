@@ -78,7 +78,7 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 
 		/* queue back messages to sender */
 		if (!g_queue_get_length(answers)) {
-			g_print("No answers from handlers, not responding.\n");
+			//g_print("No answers from handlers, not responding.\n");
 		}
 		else {
 			g_async_queue_push(m->src_comm, answers);

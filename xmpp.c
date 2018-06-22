@@ -272,7 +272,7 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 
 	xmpp_event_handler = handler_new("xmpp_event_handler");
 	handler_set_handle(xmpp_event_handler,xmpp_event_handle);
-	handler_enable(xmpp_event_handler, TRUE);
+	handler_enable(xmpp_event_handler, FALSE);
 
 	handler_register(ct->handlers, xmpp_sendmsg_handler);
 	handler_register(ct->handlers, xmpp_cmd_handler);

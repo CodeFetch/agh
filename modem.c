@@ -12,6 +12,7 @@
 #include "handlers.h"
 #include "modem.h"
 #include "commands.h"
+#include "modem_handlers.h"
 
 void modem_thread_init(gpointer data) {
 	struct agh_thread *ct = data;
@@ -25,7 +26,7 @@ void modem_thread_init(gpointer data) {
 
 	ct->handlers = handlers_setup();
 
-	/* Register some handlers here */
+	modem_handlers_setup_ext(ct);
 
 	aghservices_messaging_setup(ct, TRUE);
 
@@ -37,32 +38,20 @@ void modem_thread_init(gpointer data) {
 gpointer modem_thread_start(gpointer data) {
 	struct agh_thread *ct = data;
 	struct modem_state *mmstate = ct->thread_data;
-	struct command *event;
-
-	event = NULL;
 
 	/* We need a connection to D-Bus to talk with ModemManager, of course. */
 	mmstate->dbus_connection = g_bus_get_sync (G_BUS_TYPE_SYSTEM, NULL, &mmstate->gerror);
 
 	if (!mmstate->dbus_connection) {
 		g_print("%s: unable to connect to the D-Bus system bus; error was %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
-		mm_freebase(mmstate);
+		mm_freemem(mmstate, MM_NO_DBUS_CONNECTION);
 		return data;
 	}
 
 	/*
-	 * Asynchronously obtain a manager object, used to talk to ModemManager. This means we're "requesting" here the object, but the setup will end in another function.
+	 * Asynchronously obtain a manager object, used to talk to ModemManager. This means we're "requesting" here the object, but the setup will happen once the main loop is started, and in the modem_manager_init function.
 	*/
-	g_print("%s: requesting manager object\n",ct->thread_name);
 	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)modem_manager_init, ct);
-	event = cmd_event_prepare();
-	cmd_answer_addtext(event, "test_event");
-	cmd_answer_addtext(event, "test_arg1");
-	cmd_answer_addtext(event, "test_arg2");
-	cmd_answer_addtext(event, "test_arg3");
-	cmd_answer_addtext(event, "test_arg4");
-	cmd_emit_event(ct->agh_comm, event);
-	g_print("%s: entering main loop.\n",ct->thread_name);
 
 	g_main_loop_run(ct->evl);
 
@@ -74,11 +63,21 @@ void modem_thread_deinit(gpointer data) {
 	return;
 }
 
-void mm_freebase(struct modem_state *mmstate) {
-
-	if (mmstate->gerror) {
-		g_error_free(mmstate->gerror);
-		mmstate->gerror = NULL;
+void mm_freemem(struct modem_state *mmstate, gint error) {
+	switch(error) {
+	case MM_NO_MM_PROCESS:
+		g_object_unref(mmstate->manager);
+		mmstate->manager = NULL;
+		/* fall through */
+	case MM_NO_MANAGER_OBJECT:
+	case MM_NO_DBUS_CONNECTION:
+		if (mmstate->gerror) {
+			g_error_free(mmstate->gerror);
+			mmstate->gerror = NULL;
+		}
+		break;
+	default:
+		g_print("%s detected an unknown error!\n",__FUNCTION__);
 	}
 
 	return;
@@ -91,7 +90,7 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 	if (!mmstate->manager) {
 		g_print("%s: can not obtain a manager object; %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
-		mm_freebase(mmstate);
+		mm_freemem(mmstate, MM_NO_MANAGER_OBJECT);
 		return;
 	}
 
@@ -99,7 +98,20 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 	if (!mmstate->name_owner) {
 		g_print("%s: can not find the ModemManager process in the bus.\n", ct->thread_name);
-		mm_freebase(mmstate);
+		mm_freemem(mmstate, MM_NO_MM_PROCESS);
 	}
+
+	return;
+}
+
+void modem_handlers_setup_ext(struct agh_thread *ct) {
+	struct handler *modem_cmd_handler;
+
+	modem_cmd_handler = handler_new("modem_cmd_handler");
+	handler_set_handle(modem_cmd_handler, modem_cmd_handle);
+	handler_enable(modem_cmd_handler, TRUE);
+
+	handler_register(ct->handlers, modem_cmd_handler);
+
 	return;
 }
