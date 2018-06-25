@@ -8,9 +8,10 @@
 #define NO_MMModem_OBJECT "NO_MMModem_OBJECT"
 
 /* Operations */
-#define AGH_MM_GET_IMEI "get_imei"
+#define AGH_CMD_MODEM	"modem"
 
-#define CMD_MODEM_OP	"modem"
+/* subcommands */
+#define AGH_MM_GET_IMEI "get_imei"
 
 gpointer modem_cmd_handle(gpointer data, gpointer hmessage);
 

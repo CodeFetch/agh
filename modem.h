@@ -8,6 +8,7 @@
 #define AGH_MM_NO_DBUS_CONNECTION 1
 #define AGH_MM_NO_MANAGER_OBJECT 2
 #define AGH_MM_NO_MM_PROCESS 3
+#define AGH_MM_DEINIT 4
 
 void modem_thread_init(gpointer data);
 gpointer modem_thread_start(gpointer data);

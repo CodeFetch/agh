@@ -32,7 +32,11 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd = m->csp;
 
-	if (g_strcmp0(cmd_get_operation(cmd), CMD_MODEM_OP))
+	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
+		g_main_loop_quit(ct->evl);
+	}
+
+	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_MODEM))
 		return NULL;
 
 	cmd_answer_prepare(cmd);

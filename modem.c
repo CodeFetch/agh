@@ -59,12 +59,29 @@ gpointer modem_thread_start(gpointer data) {
 }
 
 void modem_thread_deinit(gpointer data) {
-	g_print("Modem thread deinit function invoked.\n");
+	struct agh_thread *ct = data;
+	struct modem_state *mmstate = ct->thread_data;
+
+	if (!mmstate)
+		return;
+
+	agh_mm_freemem(mmstate, AGH_MM_DEINIT);
+	g_free(mmstate);
+	handlers_finalize(ct->handlers);
+	handlers_teardown(ct->handlers);
+	ct->handlers = NULL;
 	return;
 }
 
 void agh_mm_freemem(struct modem_state *mmstate, gint error) {
 	switch(error) {
+	case AGH_MM_DEINIT:
+		g_print("%s: AGH_MM_DEINIT\n",__FUNCTION__);
+		if (mmstate->name_owner) {
+			g_free(mmstate->name_owner);
+			mmstate->name_owner = NULL;
+		}
+		/* fall through */
 	case AGH_MM_NO_MM_PROCESS:
 		g_object_unref(mmstate->manager);
 		mmstate->manager = NULL;

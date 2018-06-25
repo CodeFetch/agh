@@ -3,6 +3,9 @@
 #include <glib.h>
 #include "handlers.h"
 
+/* command used to "quit" AGH */
+#define AGH_CMD_QUIT "quit"
+
 /* Data structures */
 struct agh_state {
 	GMainLoop *agh_mainloop;

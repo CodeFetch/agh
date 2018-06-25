@@ -45,7 +45,7 @@ gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 	//g_print("XMPP: CMD SEEN. Current JID is %s\n", xmpp_conn_get_jid(xstate->xmpp_conn));
 
 	/* quit */
-	if (!g_strcmp0(cmd_get_operation(cmd), "quit")) {
+	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
 		g_main_loop_quit(ct->evl);
 	}
 

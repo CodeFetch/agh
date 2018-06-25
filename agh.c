@@ -102,7 +102,7 @@ void process_signals(struct agh_state *mstate) {
 }
 
 void agh_threads_start(struct agh_state *mstate) {
-	g_print("AGH CORE: starting threads: \n");
+	g_print("AGH CORE: starting threads: ");
 	g_queue_foreach(mstate->agh_threads, agh_threads_start_single, mstate);
 	g_print("done\n");
 }
@@ -162,7 +162,7 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
-	g_print("%s ",ct->thread_name);
+	g_print("%s\n",ct->thread_name);
 
 	/* Before starting our thread, provide basic facilities: the communication asynchronous queue and the main thread's GMainContext. */
 	ct->agh_maincontext = mstate->ctx;
@@ -185,7 +185,7 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
-	g_print(ct->thread_name);
+	g_print("%s\n",ct->thread_name);
 	if (ct->agh_thread_deinit)
 		ct->agh_thread_deinit(ct);
 
@@ -381,7 +381,7 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_SENDCMD)
 		return NULL;
 
-	if (!g_strcmp0(cmd_get_operation(cmd), "quit")) {
+	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
 		g_main_loop_quit(mstate->agh_mainloop);
 	}
 
