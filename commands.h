@@ -19,8 +19,11 @@
 /* EVENT keyword, for events */
 #define CMD_EVENT_KEYWORD CMD_OUT_KEYWORD"!"
 
-/* use this to determine an unknown status. */
+/* status codes */
 #define CMD_ANSWER_STATUS_UNKNOWN 380
+#define CMD_ANSWER_STATUS_OK 200
+#define CMD_ANSWER_STATUS_FAIL 400
+/* end of status codes */
 
 /* or unset event ID */
 #define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
@@ -46,7 +49,7 @@ struct command *text_to_cmd(gchar *content);
 
 void cmd_answer_set_status(struct command *cmd, guint status);
 guint cmd_answer_get_status(struct command *cmd);
-guint cmd_answer_addtext(struct command *cmd, gchar *text);
+guint cmd_answer_addtext(struct command *cmd, const gchar *text);
 gchar *cmd_answer_to_text(struct command *cmd);
 guint cmd_answer_prepare(struct command *cmd);
 

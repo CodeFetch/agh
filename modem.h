@@ -5,9 +5,9 @@
 #define __modem_h__
 
 /* errors */
-#define MM_NO_DBUS_CONNECTION 1
-#define MM_NO_MANAGER_OBJECT 2
-#define MM_NO_MM_PROCESS 3
+#define AGH_MM_NO_DBUS_CONNECTION 1
+#define AGH_MM_NO_MANAGER_OBJECT 2
+#define AGH_MM_NO_MM_PROCESS 3
 
 void modem_thread_init(gpointer data);
 gpointer modem_thread_start(gpointer data);
@@ -20,7 +20,7 @@ struct modem_state {
 	gchar *name_owner;
 };
 
-void mm_freemem(struct modem_state *mmstate, gint error);
+void agh_mm_freemem(struct modem_state *mmstate, gint error);
 
 void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct agh_thread *ct);
 

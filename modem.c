@@ -44,7 +44,7 @@ gpointer modem_thread_start(gpointer data) {
 
 	if (!mmstate->dbus_connection) {
 		g_print("%s: unable to connect to the D-Bus system bus; error was %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
-		mm_freemem(mmstate, MM_NO_DBUS_CONNECTION);
+		agh_mm_freemem(mmstate, AGH_MM_NO_DBUS_CONNECTION);
 		return data;
 	}
 
@@ -63,14 +63,14 @@ void modem_thread_deinit(gpointer data) {
 	return;
 }
 
-void mm_freemem(struct modem_state *mmstate, gint error) {
+void agh_mm_freemem(struct modem_state *mmstate, gint error) {
 	switch(error) {
-	case MM_NO_MM_PROCESS:
+	case AGH_MM_NO_MM_PROCESS:
 		g_object_unref(mmstate->manager);
 		mmstate->manager = NULL;
 		/* fall through */
-	case MM_NO_MANAGER_OBJECT:
-	case MM_NO_DBUS_CONNECTION:
+	case AGH_MM_NO_MANAGER_OBJECT:
+	case AGH_MM_NO_DBUS_CONNECTION:
 		if (mmstate->gerror) {
 			g_error_free(mmstate->gerror);
 			mmstate->gerror = NULL;
@@ -90,7 +90,7 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 	if (!mmstate->manager) {
 		g_print("%s: can not obtain a manager object; %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
-		mm_freemem(mmstate, MM_NO_MANAGER_OBJECT);
+		agh_mm_freemem(mmstate, AGH_MM_NO_MANAGER_OBJECT);
 		return;
 	}
 
@@ -98,7 +98,7 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 	if (!mmstate->name_owner) {
 		g_print("%s: can not find the ModemManager process in the bus.\n", ct->thread_name);
-		mm_freemem(mmstate, MM_NO_MM_PROCESS);
+		agh_mm_freemem(mmstate, AGH_MM_NO_MM_PROCESS);
 	}
 
 	return;

@@ -142,8 +142,7 @@ guint cmd_answer_get_status(struct command *cmd) {
 	return cmd->answer->status;
 }
 
-guint cmd_answer_addtext(struct command *cmd, gchar *text) {
-	gpointer data = text;
+guint cmd_answer_addtext(struct command *cmd, const gchar *text) {
 	guint retval;
 
 	retval = 0;
