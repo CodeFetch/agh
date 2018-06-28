@@ -14,5 +14,6 @@ commands.c \
 xmpp_handlers.c \
 modem.c \
 modem_handlers.c \
+modem_mm_helpers.c \
 `pkg-config --cflags --libs glib-2.0 libstrophe libconfig gio-2.0 mm-glib` -DG_DISABLE_DEPRECATED \
 -o agh

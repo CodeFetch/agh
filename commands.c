@@ -155,6 +155,19 @@ guint cmd_answer_addtext(struct command *cmd, const gchar *text) {
 	return retval;
 }
 
+guint cmd_answer_peektext(struct command *cmd, gchar *text) {
+	guint retval;
+
+	retval = 0;
+
+	if (text)
+		g_queue_push_tail(cmd->answer->restextparts, text);
+	else
+		retval = 1;
+
+	return retval;
+}
+
 /*
  * This function transforms a command_result structure content to text. It is destructive, and infact it also deallocates the
  * structure. Yeah, this is arguable design.

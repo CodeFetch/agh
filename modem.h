@@ -10,6 +10,9 @@
 #define AGH_MM_NO_MM_PROCESS 3
 #define AGH_MM_DEINIT 4
 
+/* Thanks Aleksander! */
+#define VALIDATE_UNKNOWN(str) (str ? str : "unknown")
+
 void modem_thread_init(gpointer data);
 gpointer modem_thread_start(gpointer data);
 void modem_thread_deinit(gpointer data);

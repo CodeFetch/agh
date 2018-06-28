@@ -50,6 +50,7 @@ struct command *text_to_cmd(gchar *content);
 void cmd_answer_set_status(struct command *cmd, guint status);
 guint cmd_answer_get_status(struct command *cmd);
 guint cmd_answer_addtext(struct command *cmd, const gchar *text);
+guint cmd_answer_peektext(struct command *cmd, gchar *text);
 gchar *cmd_answer_to_text(struct command *cmd);
 guint cmd_answer_prepare(struct command *cmd);
 

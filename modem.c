@@ -83,8 +83,10 @@ void agh_mm_freemem(struct modem_state *mmstate, gint error) {
 		}
 		/* fall through */
 	case AGH_MM_NO_MM_PROCESS:
-		g_object_unref(mmstate->manager);
-		mmstate->manager = NULL;
+		if (mmstate->manager) {
+			g_object_unref(mmstate->manager);
+			mmstate->manager = NULL;
+		}
 		/* fall through */
 	case AGH_MM_NO_MANAGER_OBJECT:
 	case AGH_MM_NO_DBUS_CONNECTION:
