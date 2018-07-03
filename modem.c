@@ -236,8 +236,10 @@ void agh_modem_enable_next(MMModem *modem, GAsyncResult *res, struct modem_state
 	}
 	else {
 		g_print("Enabling modem failed: %s\n",mmstate->gerror ? mmstate->gerror->message : "unknown error");
-		g_error_free(mmstate->gerror);
-		mmstate->gerror = NULL;
+		if (mmstate->gerror) {
+			g_error_free(mmstate->gerror);
+			mmstate->gerror = NULL;
+		}
 	}
 
 	nm = agh_modem_enable_process_list(mmstate);
