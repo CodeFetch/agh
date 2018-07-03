@@ -8,13 +8,14 @@
 #define AGH_NO_MMModem_OBJECT "NO_MMModem_OBJECT"
 #define AGH_MM_INVALID_SUBCOMMAND "MM_INVALID_SUBCOMMAND"
 #define AGH_MM_NO_MM_PROCESS_TEXT "MM_NOT_RUNNING"
+#define AGH_MM_NOT_READY "NOT_READY_OR_BUG"
 #define AGH_MM_INVALID_MODEM "MM_INVALID_MODEM"
 /* End of string error responses. */
 
 /* Operations */
 #define AGH_CMD_MODEM	"modem"
 
-/* subcommands */
+/* Subcommands for a specific modem. */
 #define AGH_CMD_MM_GET_IMEI "get_imei"
 #define AGH_CMD_MM_GET_STATE "get_state"
 #define AGH_CMD_MM_GET_POWER_STATE "get_power_state"
@@ -43,7 +44,11 @@
 #define AGH_CMD_MM_GET_SUPPORTED_IP_FAMILIES "ip_families"
 #define AGH_CMD_MM_GET_SIGNAL_QUALITY "signal_quality"
 #define AGH_CMD_MM_GET_ACCESS_TECHNOLOGIES "access_technologies"
-/* end of subcommands */
+/* end of subcommands for a specific modem. */
+
+/* General subcommands. */
+#define AGH_CMD_MM_LIST_DISABLED_MODEMS "list_disabled_modems"
+/* End of general subcommands. */
 
 /* Flags. */
 #define AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT "is_recent"
@@ -90,5 +95,6 @@ void agh_modem_get_current_bands(MMObject *modem, struct command *cmd);
 void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd);
 void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd);
 void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd);
+void agh_mm_list_disabled_modems(struct modem_state *mmstate, struct command *cmd);
 
 #endif

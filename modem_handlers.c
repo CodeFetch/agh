@@ -16,6 +16,7 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	config_setting_t *arg;
 	struct agh_message *answer;
 	MMObject *modem;
+	void (*general_subcommand_cb)(struct modem_state *mmstate, struct command *cmd);
 
 	cmd = NULL;
 	string_arg = NULL;
@@ -23,6 +24,7 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	arg = NULL;
 	answer = NULL;
 	modem = NULL;
+	general_subcommand_cb = NULL;
 
 	if (m->msg_type != MSG_SENDCMD)
 		return cmd;
@@ -40,10 +42,9 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd_answer_prepare(cmd);
 
-	/* We can not act on commands if talking with ModemManager is not possible. */
-	if ((!mmstate->manager) || (!mmstate->name_owner)) {
+	if (!mmstate->ready) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(cmd, AGH_MM_NO_MM_PROCESS_TEXT);
+		cmd_answer_addtext(cmd, AGH_MM_NOT_READY);
 		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
 		return answer;
 	}
@@ -74,7 +75,19 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	if (arg) {
 		string_arg = config_setting_get_string(arg);
 		g_print("General subcommand was specified: %s\n",string_arg);
-		return NULL;
+
+		if (!g_strcmp0(string_arg, AGH_CMD_MM_LIST_DISABLED_MODEMS))
+			general_subcommand_cb = agh_mm_list_disabled_modems;
+
+		general_subcommand_cb(mmstate, cmd);
+
+		if (!general_subcommand_cb) {
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND);
+		}
+		
+		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
+		return answer;
 	}
 
 	agh_mm_list_modems(mmstate, cmd);
@@ -92,7 +105,7 @@ void agh_mm_list_modems(struct modem_state *mmstate, struct command *cmd) {
 
 	modems = NULL;
 
-	modems = g_dbus_object_manager_get_objects (G_DBUS_OBJECT_MANAGER (mmstate->manager));
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mmstate->manager));
 
 	if (!modems) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
@@ -123,7 +136,9 @@ void agh_mm_list_modem_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-/* Input to this function should come from MM calls, in general. That's why no validation is done. */
+/* Input to this function should come from MM calls, in general. That's why no validation is done.
+ * And yes, the way AGH handles modem index probably needs to be done differently.
+*/
 gchar *agh_mm_modem_to_index(const gchar *modem_path) {
 	GString *modem_index;
 	gsize modem_path_size;
@@ -142,8 +157,13 @@ gchar *agh_mm_modem_to_index(const gchar *modem_path) {
 	for (i=modem_path_size-1;i>=0;i--) {
 		if (modem_path[i] == '/')
 			break;
+	}
 
+	i++;
+
+	while (modem_path[i]) {
 		g_string_append_c(modem_index, modem_path[i]);
+		i++;
 	}
 
 	return g_string_free(modem_index, FALSE);
@@ -982,5 +1002,22 @@ void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd) {
 	cmd_answer_peektext(cmd, VALIDATE_UNKNOWN(mm_modem_access_technology_build_string_from_mask(mm_modem_get_access_technologies(object))));
 
 	g_object_unref(object);
+	return;
+}
+
+void agh_mm_list_disabled_modems(struct modem_state *mmstate, struct command *cmd) {
+	GList *modems;
+
+	if (!mmstate->disabled_modems) {
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
+		return;
+	}
+	else {
+		modems = mmstate->disabled_modems;
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		g_list_foreach(modems, agh_mm_list_modem_single, cmd);
+	}
+
 	return;
 }
