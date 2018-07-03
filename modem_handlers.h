@@ -29,7 +29,25 @@
 #define AGH_CMD_MM_GET_PRIMARY_PORT "get_primary_port"
 #define AGH_CMD_MM_GET_PORTS "get_ports"
 #define AGH_CMD_MM_GET_DEVICE "get_device"
+#define AGH_CMD_MM_GET_EQUIPMENT_IDENTIFIER "get_equipment_identifier"
+#define AGH_CMD_MM_GET_DEVICE_IDENTIFIER "get_deviceid"
+#define AGH_CMD_MM_GET_UNLOCK_REQUIRED "get_lockstatus"
+#define AGH_CMD_MM_GET_UNLOCK_RETRIES "get_unlock_retries"
+#define AGH_CMD_MM_GET_MAX_BEARERS "max_bearers"
+#define AGH_CMD_MM_GET_MAX_ACTIVE_BEARERS "max_active_bearers"
+#define AGH_CMD_MM_GET_OWN_NUMBERS "get_own_numbers"
+#define AGH_CMD_MM_GET_SUPPORTED_MODES "supported_modes"
+#define AGH_CMD_MM_GET_CURRENT_MODES "current_modes"
+#define AGH_CMD_MM_GET_SUPPORTED_BANDS "supported_bands"
+#define AGH_CMD_MM_GET_CURRENT_BANDS "current_bands"
+#define AGH_CMD_MM_GET_SUPPORTED_IP_FAMILIES "ip_families"
+#define AGH_CMD_MM_GET_SIGNAL_QUALITY "signal_quality"
+#define AGH_CMD_MM_GET_ACCESS_TECHNOLOGIES "access_technologies"
 /* end of subcommands */
+
+/* Flags. */
+#define AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT "is_recent"
+/* End of flags. */
 
 gpointer modem_cmd_handle(gpointer data, gpointer hmessage);
 
@@ -58,4 +76,19 @@ void agh_modem_get_plugin(MMObject *modem, struct command *cmd);
 void agh_modem_get_primary_port(MMObject *modem, struct command *cmd);
 void agh_modem_get_ports(MMObject *modem, struct command *cmd);
 void agh_modem_get_device(MMObject *modem, struct command *cmd);
+void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd);
+void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd);
+void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd);
+void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd);
+void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd);
+void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd);
+void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd);
+void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd);
+void agh_modem_get_current_modes(MMObject *modem, struct command *cmd);
+void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd);
+void agh_modem_get_current_bands(MMObject *modem, struct command *cmd);
+void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd);
+void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd);
+void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd);
+
 #endif

@@ -56,3 +56,77 @@ gchar *agh_mm_common_build_ports_string(const MMModemPortInfo *ports, guint n_po
 
 	return g_string_free(str, FALSE);
 }
+
+gchar *agh_mm_unlock_retries_build_string(MMUnlockRetries *object) {
+	GString *str;
+	GHashTableIter iter;
+	gpointer key;
+	gpointer value;
+	const gchar *lock_name;
+	guint retries;
+
+	str = NULL;
+	key = NULL;
+	value = NULL;
+	lock_name = NULL;
+	retries = 0;
+
+	g_hash_table_iter_init(&iter, object->priv->ht);
+
+	while (g_hash_table_iter_next (&iter, &key, &value)) {
+		lock_name = mm_modem_lock_get_string((MMModemLock)GPOINTER_TO_UINT(key));
+		retries = GPOINTER_TO_UINT(value);
+		if (!str) {
+			str = g_string_new(NULL);
+			g_string_append_printf(str, "%s (%u)", lock_name, retries);
+		} else
+			g_string_append_printf(str, ", %s (%u)", lock_name, retries);
+	}
+
+	return(str ? g_string_free (str, FALSE) : NULL);
+}
+
+gchar *agh_mm_common_build_mode_combinations_string(const MMModemModeCombination *modes, guint n_modes) {
+	GString *str;
+	guint i;
+	gchar *allowed;
+	gchar *preferred;
+
+	i = 0;
+	str = NULL;
+	allowed = NULL;
+	preferred = NULL;
+
+	if (!modes || !n_modes)
+		return g_strdup("none");
+
+	str = g_string_new(NULL);
+
+	for (i = 0; i < n_modes; i++) {
+		allowed = mm_modem_mode_build_string_from_mask(modes[i].allowed);
+		preferred = mm_modem_mode_build_string_from_mask(modes[i].preferred);
+		g_string_append_printf (str, "allowed: %s; preferred: %s",allowed, preferred);
+		g_free(allowed);
+		g_free(preferred);
+		allowed = NULL;
+		preferred = NULL;
+	}
+
+	return g_string_free(str, FALSE);
+}
+
+gchar *agh_mm_common_build_bands_string(const MMModemBand *bands, guint n_bands) {
+	GString *str;
+	guint i;
+
+	if (!bands || !n_bands)
+		return g_strdup("none");
+
+	str = g_string_new(NULL);
+
+	for (i = 0; i < n_bands; i++) {
+		g_string_append_printf(str, "%s%s",i ? " " : "",mm_modem_band_get_string(bands[i]));
+	}
+
+	return g_string_free(str, FALSE);
+}
