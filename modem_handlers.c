@@ -41,7 +41,7 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	cmd_answer_prepare(cmd);
 
 	/* We can not act on commands if talking with ModemManager is not possible. */
-	if (!mmstate->manager) {
+	if ((!mmstate->manager) || (!mmstate->name_owner)) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_NO_MM_PROCESS_TEXT);
 		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
@@ -175,7 +175,7 @@ MMObject *agh_mm_index_to_modem(struct modem_state *mmstate, gint modem_index) {
 	modem_list_length = g_list_length(modems);
 
 	if (!modem_list_length) {
-		g_free(modems);
+		g_list_free(modems);
 		return modem_found;
 	}
 
