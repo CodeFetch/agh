@@ -9,6 +9,7 @@
 #define AGH_MM_INVALID_SUBCOMMAND "MM_INVALID_SUBCOMMAND"
 #define AGH_MM_NO_MM_PROCESS_TEXT "MM_NOT_RUNNING"
 #define AGH_MM_NOT_READY "NOT_READY_OR_BUG"
+#define AGH_MM_NO_MODEMS "NO_MODEMS"
 #define AGH_MM_INVALID_MODEM "MM_INVALID_MODEM"
 /* End of string error responses. */
 
@@ -55,6 +56,7 @@
 /* End of flags. */
 
 gpointer modem_cmd_handle(gpointer data, gpointer hmessage);
+gpointer modem_quit_handle(gpointer data, gpointer hmessage);
 
 void agh_mm_list_modems(struct modem_state *mmstate, struct command *cmd);
 void agh_mm_list_modem_single(gpointer data, gpointer user_data);

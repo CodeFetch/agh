@@ -21,6 +21,8 @@ void modem_thread_deinit(gpointer data);
 struct modem_async_state {
 	struct command *acmd;
 	MMObject *mmobject;
+	GList *agh_modem_enable_all_state_list;
+	guint agh_modem_enable_all_state;
 };
 
 struct modem_state {
@@ -38,6 +40,7 @@ struct modem_state {
 
 	/* Are we ready to accept commands? */
 	gboolean ready;
+	gboolean no_modems;
 };
 
 void agh_mm_freemem(struct modem_state *mmstate, gint error);
@@ -47,7 +50,7 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 void modem_handlers_setup_ext(struct agh_thread *ct);
 void agh_modem_enable_all(struct modem_state *mmstate);
 void agh_modem_enable_next(MMModem *modem, GAsyncResult *res, struct modem_state *mmstate);
-MMModem *agh_modem_enable_process_list(struct modem_state *mmstate);
+MMModem *agh_modem_enable_process_list(struct modem_state *mmstate, GList **state_list, guint *state);
 void modem_free_asyncstate(struct modem_state *mstate);
 void modem_new_asyncstate(struct modem_state *mstate);
 

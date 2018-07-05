@@ -130,15 +130,15 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 	if (!mmstate->disabled_modems) {
 		agh_mm_freemem(mmstate, AGH_MM_NO_MM_LIST);
-		return;
+		mmstate->no_modems = TRUE;
+		mmstate->ready = TRUE;
 	}
 
-	if (!g_list_length(mmstate->disabled_modems)) {
-		g_list_free(mmstate->disabled_modems);
-		return;
-	}
+	/* We can enable this handler here because we know it has no init or finalize callbacks. */
+	handler_enable(handler_find_by_name(ct->handlers, "modem_cmd_handler"), TRUE);
 
 	/* Asynchronously but sequentially enable all modems we can. */
+	mmstate->disabled_modems = g_list_first(mmstate->disabled_modems);
 	agh_modem_enable_all(mmstate);
 
 	return;
@@ -146,12 +146,18 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 void modem_handlers_setup_ext(struct agh_thread *ct) {
 	struct handler *modem_cmd_handler;
+	struct handler *modem_quit_handler;
 
 	modem_cmd_handler = handler_new("modem_cmd_handler");
 	handler_set_handle(modem_cmd_handler, modem_cmd_handle);
-	handler_enable(modem_cmd_handler, TRUE);
+	handler_enable(modem_cmd_handler, FALSE);
+
+	modem_quit_handler = handler_new("modem_quit_handler");
+	handler_set_handle(modem_quit_handler,modem_quit_handle);
+	handler_enable(modem_quit_handler, TRUE);
 
 	handler_register(ct->handlers, modem_cmd_handler);
+	handler_register(ct->handlers, modem_quit_handler);
 
 	return;
 }
@@ -193,18 +199,26 @@ void modem_new_asyncstate(struct modem_state *mstate) {
 
 void agh_modem_enable_all(struct modem_state *mmstate) {
 	MMModem *m;
+	struct modem_async_state *astate;
 
 	m = NULL;
+	astate = NULL;
 
 	/* We know the list is not NULL and it contains at least one element. */
 
 	modem_new_asyncstate(mmstate);
+	astate = mmstate->astate;
 
-	m = agh_modem_enable_process_list(mmstate);
+	m = agh_modem_enable_process_list(mmstate, &astate->agh_modem_enable_all_state_list, &astate->agh_modem_enable_all_state);
 
 	if (!m) {
-		/* No modem could be enabled, because no call to mm_object_get_modem returned a suitable object. */
+		/* No modem could be enabled, because no call to mm_object_get_modem returned a suitable object for some reason.
+		 * Invoke agh_modem_enable_process_list to give it the chance to reset its state.
+		*/
+		m = agh_modem_enable_process_list(mmstate, &astate->agh_modem_enable_all_state_list, &astate->agh_modem_enable_all_state);
+
 		modem_free_asyncstate(mmstate);
+		astate = NULL;
 		return;
 	}
 
@@ -242,17 +256,15 @@ void agh_modem_enable_next(MMModem *modem, GAsyncResult *res, struct modem_state
 		}
 	}
 
-	nm = agh_modem_enable_process_list(mmstate);
+	nm = agh_modem_enable_process_list(mmstate, &astate->agh_modem_enable_all_state_list, &astate->agh_modem_enable_all_state);
 
 	if (!nm) {
 		modem_free_asyncstate(mmstate);
 		mmstate->ready = TRUE;
 		g_print("Modem: accepting commands.\n");
 
-		if (!g_list_length(mmstate->disabled_modems)) {
+		if (!mmstate->disabled_modems) {
 			g_print("All modems where enabled.\n");
-			g_list_free(mmstate->disabled_modems);
-			mmstate->disabled_modems = NULL;
 		}
 
 		return;
@@ -263,25 +275,51 @@ void agh_modem_enable_next(MMModem *modem, GAsyncResult *res, struct modem_state
 	return;
 }
 
-MMModem *agh_modem_enable_process_list(struct modem_state *mmstate) {
+MMModem *agh_modem_enable_process_list(struct modem_state *mmstate, GList **state_list, guint *state) {
 	MMModem *m;
 	struct modem_async_state *astate = mmstate->astate;
 
 	m = NULL;
 
-	while ( (mmstate->disabled_modems = g_list_first(mmstate->disabled_modems)) ) {
-		astate->mmobject = MM_OBJECT(mmstate->disabled_modems->data);
-		m = mm_object_get_modem(astate->mmobject);
+	switch(*state) {
+	case 0:
 
-		if (m)
-			break;
-		else
-			continue;
+		*state_list = g_list_copy(mmstate->disabled_modems);
 
-	}
+		/* Start giving out objects. */
+		(*state)++;
+		/* fall through */
+	case 1:
 
-	if (!m)
+		while ( (*state_list = g_list_first(*state_list)) ) {
+			astate->mmobject = MM_OBJECT((*state_list)->data);
+			m = mm_object_get_modem(astate->mmobject);
+
+			*state_list = g_list_remove(*state_list, (*state_list)->data);
+
+			if (m)
+				break;
+			else
+				continue;
+
+		} /* end of while */
+
+		if (!(*state_list)) {
+			(*state)++;
+
+		}
+
+		break;
+	case 2:
+		*state = 0;
 		astate->mmobject = NULL;
+
+		break;
+	default:
+		g_print("%s: unknown state %" G_GUINT16_FORMAT"\n",__FUNCTION__, *state);
+		break;
+
+	} /* end of switch */
 
 	return m;
 }

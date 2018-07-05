@@ -137,3 +137,32 @@ void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointe
 	h->handler_finalize = handler_finalize_cb;
 	return;
 }
+
+struct handler *handler_find_by_name(GQueue *handlers, gchar *n) {
+	struct handler *h;
+	guint i;
+	guint hl;
+
+	h = NULL;
+	hl = 0;
+
+	if ((!n) || (!handlers))
+		return h;
+
+	hl = g_queue_get_length(handlers);
+	if (!hl)
+		return h;
+
+	for (i=0;i<hl;i++) {
+		h = g_queue_peek_nth(handlers, i);
+
+		if (!g_strcmp0(h->name, n))
+			break;
+
+	}
+
+	if (i == hl)
+		h = NULL;
+
+	return h;
+}

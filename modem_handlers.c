@@ -31,16 +31,18 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd = m->csp;
 
-	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
-		g_main_loop_quit(ct->evl);
-		return NULL; /* reached */
-	}
-
 	/* If this is not the AGH_CMD_MODEM command, then stop here. */
 	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_MODEM))
 		return NULL;
 
 	cmd_answer_prepare(cmd);
+
+	if (mmstate->no_modems) {
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		cmd_answer_addtext(cmd, AGH_MM_NO_MODEMS);
+		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
+		return answer;
+	}
 
 	if (!mmstate->ready) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
@@ -79,13 +81,13 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 		if (!g_strcmp0(string_arg, AGH_CMD_MM_LIST_DISABLED_MODEMS))
 			general_subcommand_cb = agh_mm_list_disabled_modems;
 
-		general_subcommand_cb(mmstate, cmd);
-
 		if (!general_subcommand_cb) {
 			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
 			cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND);
 		}
-		
+		else
+			general_subcommand_cb(mmstate, cmd);
+
 		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
 		return answer;
 	}
@@ -97,6 +99,26 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	/* I acknowledge answer may be NULL. */
 
 	return answer;
+}
+
+gpointer modem_quit_handle(gpointer data, gpointer hmessage) {
+	struct agh_message *m = hmessage;
+	struct handler *h = data;
+	struct agh_thread *ct = h->handler_data;
+	struct command *cmd;
+
+	cmd = NULL;
+
+	if (m->msg_type != MSG_SENDCMD)
+		return NULL;
+
+	cmd = m->csp;
+
+	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
+		g_main_loop_quit(ct->evl);
+	}
+
+	return NULL;
 }
 
 /* Get and report a list of modems known by ModemManager. */
@@ -1021,3 +1043,4 @@ void agh_mm_list_disabled_modems(struct modem_state *mmstate, struct command *cm
 
 	return;
 }
+
