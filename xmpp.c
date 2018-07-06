@@ -25,6 +25,7 @@ void xmpp_thread_init(gpointer data) {
 	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
+	g_source_unref(xstate->xmpp_evs);
 
 	xstate->outxmpp_messages = g_queue_new();
 
@@ -320,6 +321,8 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 
 	g_print("Discarding element: %s\n", xmpp_message_text);
 	g_queue_remove(xstate->outxmpp_messages, data);
+
+	/* Should I use "text" here? */
 	g_free(data);
 
 	return;

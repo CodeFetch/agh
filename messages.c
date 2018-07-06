@@ -81,3 +81,10 @@ void msg_send(struct agh_message *m) {
 
 	return;
 }
+
+void msg_dealloc_from_queue(gpointer data) {
+	struct agh_message *m = data;
+
+	msg_dealloc(m);
+	return;
+}

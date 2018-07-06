@@ -1,4 +1,3 @@
-/* Some of these functions are called from within treads, some aren't. */
 #include "agh.h"
 #include "aghservices.h"
 #include "messages.h"
@@ -20,6 +19,7 @@ void aghservices_messaging_setup(struct agh_thread *ct, gboolean no_context) {
 	ct->comm_timeout = g_timeout_source_new_seconds(2);
 	g_source_set_callback(ct->comm_timeout, aghservices_receive_messages, ct, NULL);
 	ct->comm_timeout_tag = g_source_attach(ct->comm_timeout, ct->evl_ctx);
+	g_source_unref(ct->comm_timeout);
 
 	return;
 }
@@ -35,6 +35,7 @@ void aghservices_core_messaging_setup(struct agh_state *mstate) {
 	mstate->comm_timeout = g_timeout_source_new_seconds(2);
 	g_source_set_callback(mstate->comm_timeout, aghservices_core_receive_messages, mstate, NULL);
 	mstate->comm_timeout_tag = g_source_attach(mstate->comm_timeout, mstate->ctx);
+	g_source_unref(mstate->comm_timeout);
 
 	return;
 }
@@ -58,7 +59,7 @@ void aghservices_handle_message(GQueue *handlers, struct agh_message *m, GAsyncQ
 	if (handlers)
 		num_handlers = g_queue_get_length(handlers);
 	else {
-		g_print("handlers: WARNING - a message has been received, but no handlers queue is allocated. This may be a problem.\n");
+		g_print("handlers: WARNING - a message has been received, but no handlers queue is allocated.\n");
 	}
 
 	if (num_handlers) {
@@ -114,12 +115,8 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 			msg_dealloc(m);
 		}
 
-		if (g_queue_get_length(handlers_answers)) {
-			g_print("AGH messages: did not process all messages. This is going to be a problem. We are leaking memory now.\n");
-		}
-
 		//g_print("Deallocating queue.\n");
-		g_queue_free(handlers_answers);
+		g_queue_free_full(handlers_answers, msg_dealloc_from_queue);
 
 	}
 
@@ -127,12 +124,11 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 }
 
 void aghservices_messaging_teardown(struct agh_thread *ct) {
-	/* XXX is this the right order? */
-
 	g_source_destroy(ct->comm_timeout);
 	ct->comm_timeout_tag = 0;
 	ct->comm_timeout = NULL;
 
+	/* XXX is this the right order? */
 	g_main_loop_unref(ct->evl);
 	if (ct->evl_ctx)
 		g_main_context_unref(ct->evl_ctx);

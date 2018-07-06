@@ -66,6 +66,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
+	g_source_unref(mstate->agh_main_unix_signals);
 
 	/* Communications with other threads */
 	aghservices_core_messaging_setup(mstate);
