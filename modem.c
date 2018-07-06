@@ -45,6 +45,7 @@ gpointer modem_thread_start(gpointer data) {
 	if (!mmstate->dbus_connection) {
 		g_print("%s: unable to connect to the D-Bus system bus; error was %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
 		agh_mm_freemem(mmstate, AGH_MM_NO_DBUS_CONNECTION);
+		aghservices_messaging_teardown(ct);
 		return data;
 	}
 
@@ -65,6 +66,7 @@ void modem_thread_deinit(gpointer data) {
 	if (!mmstate)
 		return;
 
+	aghservices_messaging_teardown(ct);
 	agh_mm_freemem(mmstate, AGH_MM_DEINIT);
 	g_free(mmstate);
 	handlers_finalize(ct->handlers);

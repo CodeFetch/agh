@@ -128,14 +128,19 @@ void aghservices_common_receive_messages(GAsyncQueue *comm, GQueue *handlers) {
 
 void aghservices_messaging_teardown(struct agh_thread *ct) {
 	/* XXX is this the right order? */
-	g_main_loop_unref(ct->evl);
-	g_main_context_unref(ct->evl_ctx);
-	ct->evl = NULL;
-	ct->evl_ctx = NULL;
 
 	g_source_destroy(ct->comm_timeout);
 	ct->comm_timeout_tag = 0;
 	ct->comm_timeout = NULL;
+
+	g_main_loop_unref(ct->evl);
+	if (ct->evl_ctx)
+		g_main_context_unref(ct->evl_ctx);
+	else
+		g_print("%s did use default main context\n",ct->thread_name);
+	ct->evl = NULL;
+	ct->evl_ctx = NULL;
+	g_async_queue_unref(ct->comm);
 
 	return;
 }

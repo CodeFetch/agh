@@ -5,6 +5,10 @@
 
 #define MAX_XMPP_QUEUED_MESSAGES 2
 
+#define AGH_XMPP_RUN_ONCE_INTERVAL 200
+
+#define AGH_XMPP_EARLY_DISCONNECT_TIME 20
+
 struct xmpp_state {
 	xmpp_ctx_t *xmpp_ctx;
 	xmpp_conn_t *xmpp_conn;
@@ -15,7 +19,8 @@ struct xmpp_state {
 	guint xmpp_evs_tag;
 	GQueue *outxmpp_messages;
 	guint64 msg_id;
-	xmpp_conn_event_t status;
+	guint xmpp_idle_state;
+	gboolean exit;
 };
 
 void xmpp_thread_init(gpointer data);
@@ -28,7 +33,7 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
 void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata);
 
-void xmpp_send_out_messages(gpointer data);
+void agh_xmpp_send_out_messages(gpointer data);
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 
 void xmpp_set_handlers_ext(struct agh_thread *ct);

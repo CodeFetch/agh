@@ -22,21 +22,6 @@ void xmpp_thread_init(gpointer data) {
 	aghservices_messaging_setup(ct, FALSE);
 	handlers_init(ct->handlers, ct);
 
-	g_print("XMPP library init\n");
-	xmpp_initialize();
-
-	/* Create XMPP library context */
-	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
-
-	/* First parameter is NULL since we don't provide our own memory allocator. */
-	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
-
-	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
-
-	xmpp_conn_set_jid(xstate->xmpp_conn, "mrkiko@jabber.linux.it");
-	xmpp_conn_set_pass(xstate->xmpp_conn, "dviselect_123_456");
-	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
-
 	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
@@ -50,9 +35,38 @@ gpointer xmpp_thread_start(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
 
-	xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, ct);
+	g_print("XMPP library init\n");
+	xmpp_initialize();
+
+	/* Create XMPP library context */
+	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_DEBUG);
+
+	/* First parameter is NULL since we don't provide our own memory allocator. */
+	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
+
+	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
+
+	xmpp_conn_set_jid(xstate->xmpp_conn, "mrkiko@jabber.linux.it");
+	xmpp_conn_set_pass(xstate->xmpp_conn, "dviselect_123_456");
+	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
+	xmpp_conn_set_keepalive(xstate->xmpp_conn, 60, 1);
+
+	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, ct);
+	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, ct);
+	g_print("%s: entering main loop\n",ct->thread_name);
 
 	g_main_loop_run(ct->evl);
+
+	g_print("XMPP deinit.\n");
+
+	xmpp_conn_release(xstate->xmpp_conn);
+	xmpp_ctx_free(xstate->xmpp_ctx);
+	xmpp_shutdown();
+
+	g_source_destroy(xstate->xmpp_evs);
+	xstate->xmpp_evs_tag = 0;
+
+	aghservices_messaging_teardown(ct);
 
 	return data;
 }
@@ -60,21 +74,11 @@ gpointer xmpp_thread_start(gpointer data) {
 void xmpp_thread_deinit(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
-	guint num_undelivered_messages;
 
-	g_print("XMPP deinit.\n");
-
-	xmpp_conn_release(xstate->xmpp_conn);
-	xmpp_ctx_free(xstate->xmpp_ctx);
-	xmpp_shutdown();
 	handlers_finalize(ct->handlers);
 	handlers_teardown(ct->handlers);
 	ct->handlers = NULL;
 
-	num_undelivered_messages = g_queue_get_length(xstate->outxmpp_messages);
-	if (num_undelivered_messages) {
-		g_print("XMPP handler: losing %" G_GUINT16_FORMAT" pending messages. This should not happen.\n",num_undelivered_messages);
-	}
 	g_queue_free_full(xstate->outxmpp_messages, g_free);
 	xstate->outxmpp_messages = NULL;
 	g_free(ct->thread_data);
@@ -93,18 +97,25 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 
 	ctx = xstate->xmpp_ctx;
 	pres = NULL;
-	xstate->status = status;
 
-	if (status == XMPP_CONN_CONNECT) {
-		xmpp_handler_add(conn, version_handler, "jabber:iq:version", "iq", NULL, ct);
-		xmpp_handler_add(conn, message_handler, NULL, "message", NULL, ct);
+	switch(status) {
+	case XMPP_CONN_CONNECT:
 		pres = xmpp_presence_new(ctx);
 		xmpp_send(xstate->xmpp_conn, pres);
 		xmpp_stanza_release(pres);
 		pres = NULL;
-	} else {
-		g_print("We are disconnected from XMPP.\n");
-		xmpp_stop(ctx);
+		g_print("%s (%s): connected\n",ct->thread_name,__FUNCTION__);
+		break;
+	case XMPP_CONN_DISCONNECT:
+		g_print("%s (%s): disconnected\n",ct->thread_name,__FUNCTION__);
+		xstate->xmpp_idle_state++;
+		break;
+	case XMPP_CONN_FAIL:
+		g_print("%s (%s): connection failed\n",ct->thread_name,__FUNCTION__);
+		xstate->xmpp_idle_state++;
+		break;
+	default:
+		g_print("%s (%s): unknown status\n",ct->thread_name,__FUNCTION__);
 	}
 
 	return;
@@ -163,38 +174,50 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	struct xmpp_state *xstate;
-	xmpp_ctx_t *ctx;
+	xmpp_ctx_t __attribute__((unused)) *ctx;
 	xmpp_stanza_t *body;
-	const char *type;
+	const gchar *type;
 	gchar *intext;
 	struct agh_message *m;
 	struct agh_thread *ct;
 	struct text_csp *tcsp;
 
+	m = NULL;
+	intext = NULL;
+	type = NULL;
+	body = NULL;
+	tcsp = NULL;
+
 	ct = userdata;
 	xstate = ct->thread_data;
 	ctx = xstate->xmpp_ctx;
-	tcsp = g_malloc0(sizeof(struct text_csp));
 
+	/* body should not be freed */
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
 	if (!body)
 		return 1;
 
+	/* If type is NULL or is an error, stop here; type should not be freed. */
 	type = xmpp_stanza_get_type(stanza);
-	if (type != NULL && g_strcmp0(type, "error") == 0)
+	if (type != NULL && !g_strcmp0(type, "error"))
 		return 1;
 
 	intext = xmpp_stanza_get_text(body);
 
 	m = msg_alloc();
 	msg_prepare(m, ct->comm, ct->agh_comm);
+	tcsp = g_malloc0(sizeof(struct text_csp));
 	m->csp = tcsp;
 
-	tcsp->text = g_strdup(intext);
+	tcsp->text = intext;
 	m->msg_type = MSG_RECVTEXT;
 	msg_send(m);
 
-	xmpp_free(ctx, intext);
+	/*
+	 * Given the current situation, we can avoid the
+	 * xmpp_free(ctx, intext);
+	 * that was here previously. This was true with libstrophe 0.9.2.
+	*/
 
 	return 1;
 }
@@ -202,24 +225,72 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 gboolean xmpp_idle(gpointer data) {
 	struct agh_thread *ct = data;
 	struct xmpp_state *xstate = ct->thread_data;
+	gint xmpp_client_connect_status;
+	guint i;
 
-	if (xstate->status == XMPP_CONN_CONNECT)
-		xmpp_send_out_messages(xstate);
+	xmpp_client_connect_status = 0;
 
-	xmpp_run_once(xstate->xmpp_ctx, 180);
+	switch(xstate->xmpp_idle_state) {
+	case 0:
+		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, ct);
+		if (xmpp_client_connect_status)
+			break;
+
+		xstate->xmpp_idle_state++;
+		/* fall through */
+	case 1:
+		agh_xmpp_send_out_messages(xstate);
+		/* run strophe event loop, once */
+		xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
+		break;
+	case 2:
+		if (!xstate->exit) {
+			xstate->xmpp_idle_state = 0;
+			break;
+		}
+		else {
+			g_main_loop_quit(ct->evl);
+			g_print("%s: asked to exit\n",ct->thread_name);
+			return FALSE;
+		}
+	default:
+		g_print("%s: unknown state %" G_GUINT16_FORMAT"\n",__FUNCTION__, xstate->xmpp_idle_state);
+		xstate->xmpp_idle_state = 0;
+	}
+
+	if (xstate->exit) {
+		/*
+		 * Since libstrophe will check the conneciton status for us, we don't bother doing so.
+		 * Also, we may call xmpp_disconnect more than once.
+		*/
+		xmpp_disconnect(xstate->xmpp_conn);
+
+		for (i=0;i<AGH_XMPP_EARLY_DISCONNECT_TIME;i++) {
+			xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
+		}
+
+		xstate->xmpp_idle_state = 2;
+
+	}
+
 	return TRUE;
 }
 
-void xmpp_send_out_messages(gpointer data) {
+void agh_xmpp_send_out_messages(gpointer data) {
 	struct xmpp_state *xstate = data;
 	guint num_messages;
 	xmpp_stanza_t *reply;
 	xmpp_ctx_t *ctx;
 	gchar *text;
-	gchar *id = NULL;
+	gchar *id;
+
+	id = NULL;
+	text = NULL;
+	reply = NULL;
 
 	ctx = xstate->xmpp_ctx;
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
+
 	if (num_messages) {
 
 		if (num_messages >= MAX_XMPP_QUEUED_MESSAGES) {
