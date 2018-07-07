@@ -49,12 +49,12 @@ gpointer modem_thread_start(gpointer data) {
 		return data;
 	}
 
-	/*
-	 * Asynchronously obtain a manager object, used to talk to ModemManager. This means we're "requesting" here the object, but the setup will happen once the main loop is started, and in the modem_manager_init function.
-	*/
-	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)modem_manager_init, ct);
+	mmstate->mm_watch_id = g_bus_watch_name_on_connection(mmstate->dbus_connection, MM_DBUS_NAME, G_BUS_NAME_WATCHER_FLAGS_NONE, agh_mm_appeared, agh_mm_vanished, ct, NULL);
 
 	g_main_loop_run(ct->evl);
+
+	g_bus_unwatch_name(mmstate->mm_watch_id);
+	mmstate->mm_watch_id = 0;
 
 	return data;
 }
@@ -96,6 +96,12 @@ void agh_mm_freemem(struct modem_state *mmstate, gint error) {
 		}
 		/* fall through */
 	case AGH_MM_NO_MANAGER_OBJECT:
+		if (g_dbus_connection_close_sync(mmstate->dbus_connection, NULL, &mmstate->gerror)) {
+			g_print("%s: unable to close the connection to the system bus; error was %s\n",__FUNCTION__, mmstate->gerror ? mmstate->gerror->message : "unknown error");
+		}
+
+		g_object_unref(mmstate->dbus_connection);
+		/* fall through */
 	case AGH_MM_NO_DBUS_CONNECTION:
 		if (mmstate->gerror) {
 			g_error_free(mmstate->gerror);
@@ -166,10 +172,8 @@ void modem_handlers_setup_ext(struct agh_thread *ct) {
 
 void modem_free_asyncstate(struct modem_state *mstate) {
 
-	if (!mstate->astate) {
-		g_print("Not deallocating a NULL async state: this is OK only during deinit.\n");
+	if (!mstate->astate)
 		return;
-	}
 
 	g_print("%s: freeing async state\n",__FUNCTION__);
 
@@ -188,7 +192,7 @@ void modem_free_asyncstate(struct modem_state *mstate) {
 void modem_new_asyncstate(struct modem_state *mstate) {
 
 	if (mstate->astate) {
-		g_print("An sync state is already allocated; not allocating a new one.\n");
+		g_print("%s: an async state is already allocated; not allocating a new one.\n",__FUNCTION__);
 		return;
 	}
 
@@ -324,4 +328,26 @@ MMModem *agh_modem_enable_process_list(struct modem_state *mmstate, GList **stat
 	} /* end of switch */
 
 	return m;
+}
+
+void agh_mm_appeared(GDBusConnection *connection, const gchar *name, const gchar *name_owner, gpointer user_data) {
+	struct agh_thread *ct = user_data;
+	struct modem_state *mmstate = ct->thread_data;
+
+	g_print("So, it seems ModemManager (%s) appeared. Have a good day!\n",name);
+
+	/*
+	 * Asynchronously obtain a manager object, used to talk to ModemManager. This means we're "requesting" here the object, but the setup will happen once the main loop is started, and in the modem_manager_init function.
+	*/
+	mm_manager_new(connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)modem_manager_init, ct);
+
+	return;
+}
+
+void agh_mm_vanished(GDBusConnection *connection, const gchar *name, gpointer user_data) {
+	struct agh_thread *ct = user_data;
+	struct modem_state *mmstate = ct->thread_data;
+
+	agh_mm_freemem(mmstate, AGH_MM_DEINIT);
+	return;
 }

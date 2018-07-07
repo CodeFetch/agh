@@ -40,7 +40,7 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_initialize();
 
 	/* Create XMPP library context */
-	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_DEBUG);
+	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
 
 	/* First parameter is NULL since we don't provide our own memory allocator. */
 	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
