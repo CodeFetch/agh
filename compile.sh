@@ -8,7 +8,6 @@ gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
 handlers.c \
 xmpp.c \
-aghservices.c \
 messages.c \
 commands.c \
 xmpp_handlers.c \

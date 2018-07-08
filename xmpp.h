@@ -3,11 +3,14 @@
 #include <strophe.h>
 #include "agh.h"
 
-#define MAX_XMPP_QUEUED_MESSAGES 2
+#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 2
 
 #define AGH_XMPP_RUN_ONCE_INTERVAL 200
 
 #define AGH_XMPP_EARLY_DISCONNECT_TIME 20
+
+#define AGH_XMPP_TCP_KEEPALIVE_TIMEOUT 60
+#define AGH_XMPP_TCP_KEEPALIVE_INTERVAL 1
 
 struct xmpp_state {
 	xmpp_ctx_t *xmpp_ctx;

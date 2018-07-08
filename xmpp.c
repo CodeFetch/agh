@@ -1,9 +1,12 @@
 #include <glib.h>
+/* hack include */
+#include "commands.h"
+/* end of hack include */
 #include "agh.h"
 #include "xmpp.h"
-#include "aghservices.h"
 #include "handlers.h"
 #include "xmpp_handlers.h"
+#include "messages.h"
 
 void xmpp_thread_init(gpointer data) {
 	struct agh_thread *ct = data;
@@ -19,7 +22,7 @@ void xmpp_thread_init(gpointer data) {
 	xmpp_set_handlers_ext(ct);
 
 	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
-	aghservices_messaging_setup(ct, FALSE);
+	agh_thread_eventloop_setup(ct, FALSE);
 	handlers_init(ct->handlers, ct);
 
 	xstate->xmpp_evs = g_idle_source_new();
@@ -28,6 +31,8 @@ void xmpp_thread_init(gpointer data) {
 	g_source_unref(xstate->xmpp_evs);
 
 	xstate->outxmpp_messages = g_queue_new();
+
+	ct->comm = agh_comm_setup(ct->handlers, ct->evl_ctx, ct->thread_name);
 
 	return;
 }
@@ -50,11 +55,19 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_conn_set_jid(xstate->xmpp_conn, "mrkiko@jabber.linux.it");
 	xmpp_conn_set_pass(xstate->xmpp_conn, "dviselect_123_456");
 	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
-	xmpp_conn_set_keepalive(xstate->xmpp_conn, 60, 1);
+	xmpp_conn_set_keepalive(xstate->xmpp_conn, AGH_XMPP_TCP_KEEPALIVE_TIMEOUT, AGH_XMPP_TCP_KEEPALIVE_INTERVAL);
 
 	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, ct);
 	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, ct);
 	g_print("%s: entering main loop\n",ct->thread_name);
+
+	/* hack */
+	struct command *ev;
+	ev = cmd_event_prepare();
+	cmd_answer_set_status(ev, 10);
+	cmd_answer_addtext(ev, "fuffa_event");
+	cmd_emit_event(ct->agh_comm, ev);
+	/* end of hack */
 
 	g_main_loop_run(ct->evl);
 
@@ -67,7 +80,8 @@ gpointer xmpp_thread_start(gpointer data) {
 	g_source_destroy(xstate->xmpp_evs);
 	xstate->xmpp_evs_tag = 0;
 
-	aghservices_messaging_teardown(ct);
+	agh_thread_eventloop_teardown(ct);
+	agh_comm_teardown(ct->comm);
 
 	return data;
 }
@@ -206,13 +220,15 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	intext = xmpp_stanza_get_text(body);
 
 	m = msg_alloc();
-	msg_prepare(m, ct->comm, ct->agh_comm);
 	tcsp = g_malloc0(sizeof(struct text_csp));
 	m->csp = tcsp;
 
 	tcsp->text = intext;
 	m->msg_type = MSG_RECVTEXT;
-	msg_send(m);
+	if (msg_send(m, ct->comm, ct->agh_comm)) {
+		g_print("%s: unable to send received XMPP message to core\n",__FUNCTION__);
+		msg_dealloc(m);
+	}
 
 	/*
 	 * Given the current situation, we can avoid the
@@ -294,9 +310,10 @@ void agh_xmpp_send_out_messages(gpointer data) {
 
 	if (num_messages) {
 
-		if (num_messages >= MAX_XMPP_QUEUED_MESSAGES) {
+		if (num_messages >= AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES) {
 			g_print("XMPP: maximum number of messages queued for sending has been received; discarding all of them.\n");
 			g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+			return;
 		}
 
 		if (xstate->msg_id == G_MAXUINT64)

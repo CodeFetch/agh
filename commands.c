@@ -422,27 +422,7 @@ void cmd_copy_textpart_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-struct agh_message *cmd_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest) {
-	struct agh_message *m;
-
-	m = NULL;
-
-	m = msg_alloc();
-	m->msg_type = MSG_SENDCMD;
-	if (msg_prepare(m, src, dest)) {
-		msg_dealloc(m);
-		m = NULL;
-	}
-	else
-	{
-		g_print("Attaching CMD to message.\n");
-		m->csp = cmd_copy(cmd);
-	}
-
-	return m;
-}
-
-struct agh_message *cmd_answer_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest) {
+struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 	struct agh_message *m;
 	struct text_csp *textcsp;
 
@@ -459,11 +439,8 @@ struct agh_message *cmd_answer_msg(struct command *cmd, GAsyncQueue *src, GAsync
 	m = msg_alloc();
 	m->csp = textcsp;
 	m->msg_type = MSG_SENDTEXT;
-
-	if (msg_prepare(m, src, dest)) {
-		msg_dealloc(m);
-		m = NULL;
-	}
+	m->src = src_comm;
+	m->dest = dest_comm;
 
 	return m;
 }
@@ -637,7 +614,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 	return g_string_free(output, FALSE);
 }
 
-void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd) {
+void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
 	struct agh_message *m;
 
 	m = NULL;
@@ -645,18 +622,19 @@ void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd) {
 	if (!cmd)
 		return;
 
-	if (!cmd->answer)
+	if (!cmd->answer) {
+		g_print("%s: can not emit event with no answer (cmd->answer)\n",__FUNCTION__);
 		return;
+	}
 
 	m = msg_alloc();
 	m->msg_type = MSG_EVENT;
 	m->csp = cmd;
-	if (msg_prepare(m, agh_comm, agh_comm)) {
+	if (msg_send(m, agh_core_comm, NULL)) {
+		g_print("%s: can not send message to core\n",__FUNCTION__);
 		msg_dealloc(m);
 		return;
 	}
-
-	msg_send(m);
 
 	return;
 }

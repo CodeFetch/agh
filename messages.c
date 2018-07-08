@@ -1,15 +1,17 @@
+#include <glib.h>
 #include "messages.h"
 #include "agh.h"
 #include "commands.h"
 
+/* Convenience function to allocate a message. Simply calls g_malloc0. */
 struct agh_message *msg_alloc(void) {
-	struct agh_message *m;
-
-	m = g_malloc0(sizeof(struct agh_message));
-
-	return m;
+	return g_malloc0(sizeof(struct agh_message));
 }
 
+/*
+ * Deallocates a message, and it's CSP, when known.
+ * The GmainContext object that's part of a message is not unreferenced.
+*/
 void msg_dealloc(struct agh_message *m) {
 	struct text_csp *csptext;
 	struct command *cmd;
@@ -17,74 +19,138 @@ void msg_dealloc(struct agh_message *m) {
 	csptext = NULL;
 	cmd = NULL;
 
+	if (!m)
+		return;
+
 	if (m->csp) {
 		switch(m->msg_type) {
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
-			//g_print("Deallocating text %s\n",csptext->text);
+			g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
 			g_free(csptext->text);
 			csptext = NULL;
-			g_free(m->csp);
 			break;
 		case MSG_SENDCMD:
 		case MSG_EVENT:
 			cmd = m->csp;
 			cmd_free(cmd);
 			break;
+		case MSG_INVALID:
+			g_print("%s: type %" G_GUINT16_FORMAT" message\n",__FUNCTION__,m->msg_type);
+			break;
 		default:
-			g_print("Unknown CSP type (%" G_GUINT16_FORMAT") detected while deallocating a message; leaking memory.\n", m->msg_type);
+			g_print("%s: unknown CSP type (%" G_GUINT16_FORMAT")\n", __FUNCTION__,m->msg_type);
 			break;
 		}
 	}
 
 	m->csp = NULL;
+	m->msg_type = MSG_INVALID;
+	m->src = NULL;
+	m->dest = NULL;
 	g_free(m);
 	return;
 }
 
-guint msg_prepare(struct agh_message *m, GAsyncQueue *src_comm, GAsyncQueue *dest_comm) {
-	guint result;
+gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 
-	if (!m || !src_comm || !dest_comm) {
-		g_print("AGH messages: received an undeliverable message: ");
-		if (!m)
-			g_print("message was NULL.\n");
-		if (!src_comm)
-			g_print("source COMM queue was NULL.\n");
-		if (!dest_comm)
-			g_print("dest COMM queue was NULL.\n");
+	if (!m)
+		return 1;
 
-		result = 1;
-	}
-	else {
-		m->dest_comm = dest_comm;
-		m->src_comm = src_comm;
-		result = 0;
-	}
-
-	return result;
-}
-
-void msg_send(struct agh_message *m) {
-	GQueue *envelope_queue;
-
-	if (!m->dest_comm) {
-		g_print("AGH messages: destination seems not ready. Message is being discarded.\n");
+	if ((!dest_comm) && (!src_comm)) {
+		g_print("%s: sender or recipient comms where NULL\n",__FUNCTION__);
 		msg_dealloc(m);
-	}
-	else {
-		envelope_queue = g_queue_new();
-		g_queue_push_tail(envelope_queue, m);
-		g_async_queue_push(m->dest_comm, envelope_queue);
+		return 1;
 	}
 
-	return;
+	if (!dest_comm)
+		dest_comm = src_comm;
+
+	m->src = src_comm;
+	m->dest = dest_comm;
+
+	g_print("%s: message %s -> %s\n",__FUNCTION__,m->src->name, m->dest->name);
+
+	g_main_context_invoke(m->dest->ctx, agh_handle_message_inside_dest_thread, m);
+
+	return 0;
 }
 
-void msg_dealloc_from_queue(gpointer data) {
+gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	struct agh_message *m = data;
+	guint num_handlers;
+	struct handler *h;
+	struct agh_message *answer;
+	guint i;
+	GQueue *handlers;
+
+	num_handlers = 0;
+	answer = NULL;
+	h = NULL;
+	handlers = m->dest->handlers;
+
+	if (!m) {
+		g_print("%s: NULL message\n",__FUNCTION__);
+		return FALSE;
+	}
+
+	if (handlers)
+		num_handlers = g_queue_get_length(handlers);
+	else {
+		g_print("%s: a message has been received, but no handlers queue is allocated\n",__FUNCTION__);
+		msg_dealloc(m);
+		return FALSE;
+	}
+
+	g_print("%s running in %s\n",__FUNCTION__,m->dest->name);
+
+	for (i=0;i<num_handlers;i++) {
+		h = g_queue_peek_nth(handlers, i);
+		if (h->enabled) {
+			//g_print("handle(%s)\n",h->name);
+			answer = h->handle(h, m);
+			if (answer) {
+				answer->src = m->dest;
+				answer->dest = m->src;
+				msg_send(answer, answer->src, answer->dest);
+			}
+		}
+	}
 
 	msg_dealloc(m);
+
+	return FALSE;
+}
+
+struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name) {
+	struct agh_comm *comm;
+
+	comm = NULL;
+
+	if (!handlers) {
+		g_print("%s: COMM setup for %s failed\n",__FUNCTION__, name ? name : "(unknown)");
+		return comm;
+	}
+
+	comm = g_malloc0(sizeof(struct agh_comm));
+
+	comm->name = name;
+	comm->handlers = handlers;
+	comm->ctx = ctx;
+
+	return comm;
+}
+
+void agh_comm_teardown(struct agh_comm *comm) {
+
+	/* agh_comm has been tought to be only a set of pointers */
+	if (comm) {
+		comm->name = NULL;
+		comm->handlers = NULL;
+		comm->ctx = NULL;
+		g_free(comm);
+	}
+
 	return;
 }

@@ -16,19 +16,15 @@ struct agh_state {
 	guint agh_main_unix_signals_tag;
 	gboolean sigint_received;
 
-	/* queue of threads */
+	/* our threads and handlers */
 	GQueue *agh_threads;
-
-	/* handlers */
 	GQueue *agh_handlers;
-
-	/* even core needs to receive messages */
-	GAsyncQueue *agh_comm;
-	GSource *comm_timeout;
-	guint comm_timeout_tag;
 
 	/* current event ID */
 	gint event_id;
+
+	/* comm */
+	struct agh_comm *comm;
 };
 
 struct agh_thread {
@@ -41,22 +37,24 @@ struct agh_thread {
 	/* Expose AGH main loop and context: useful for threads to cause the core to exit; arguably a good choice. */
 	GMainContext *agh_maincontext;
 	GMainLoop *agh_mainloop;
-	GAsyncQueue *agh_comm;
 
 	GMainLoop *evl;
 	GMainContext *evl_ctx;
-	GAsyncQueue *comm;
-	GSource *comm_timeout;
-	guint comm_timeout_tag;
+	GQueue *handlers;
+
+	/* thread data */
+	gpointer thread_data;
+
+	/* thread comm */
+	struct agh_comm *comm;
+
+	/* core agh comm ptr */
+	struct agh_comm *agh_comm;
 
 	/* callbacks */
 	void (*agh_thread_init)(gpointer data);
 	gpointer (*agh_thread_main)(gpointer data);
 	void (*agh_thread_deinit)(gpointer data);
-
-	/* thread data */
-	gpointer thread_data;
-	GQueue *handlers;
 };
 
 /* Function prototypes */
@@ -91,7 +89,7 @@ void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpoin
 void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data));
 void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data));
 
-gboolean agh_unix_signals_cb_dispatch(gpointer data);
+gboolean agh_unix_signals_cb(gpointer data);
 
 /* Core command handler */
 
@@ -102,6 +100,8 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
 
 void agh_thread_setup_ext(struct agh_state *mstate);
 void agh_core_handlers_setup_ext(struct agh_state *mstate);
+void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean no_context);
+void agh_thread_eventloop_teardown(struct agh_thread *ct);
 
 struct text_csp {
 	gchar *text;

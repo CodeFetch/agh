@@ -59,8 +59,7 @@ void cmd_free(struct command *cmd);
 struct command *cmd_copy(struct command *cmd);
 config_t *cmd_copy_cfg(config_t *src);
 void cmd_copy_textpart_single(gpointer data, gpointer user_data);
-struct agh_message *cmd_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest);
-struct agh_message *cmd_answer_msg(struct command *cmd, GAsyncQueue *src, GAsyncQueue *dest);
+struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
 /* Some useful functions to access commands data.
  *
@@ -76,7 +75,7 @@ void print_config_type(gint type);
 /* events */
 struct command *cmd_event_prepare(void);
 gchar *cmd_event_to_text(struct command *cmd, gint event_id);
-void cmd_emit_event(GAsyncQueue *agh_comm, struct command *cmd);
+void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd);
 
 /* And some useful functions to access events */
 const gchar *event_name(struct command *cmd);

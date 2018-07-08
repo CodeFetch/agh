@@ -4,22 +4,37 @@
 #include "agh.h"
 
 /* Message types */
-#define MSG_RECVTEXT 						0
-#define MSG_SENDTEXT						1
+#define MSG_INVALID							0
+#define MSG_RECVTEXT 						1
+#define MSG_SENDTEXT						2
 #define MSG_SENDCMD							3
-#define MSG_EVENT							4
+#define MSG_EVENT								4
 
-
+/*
+ * Why the GMainContext *src_ctx struct member?
+ * To allow handlers to answer a message with another, simply returning it.
+ * Suggestions on ways to to this betterare welcome.
+*/
 struct agh_message {
 	guint msg_type;
-	GAsyncQueue *src_comm;
-	GAsyncQueue *dest_comm;
+	struct agh_comm *src;
+	struct agh_comm *dest;
 	gpointer csp;
+};
+
+struct agh_comm {
+	GQueue *handlers;
+	GMainContext *ctx;
+	gchar *name;
 };
 
 struct agh_message *msg_alloc(void);
 void msg_dealloc(struct agh_message *m);
-guint msg_prepare(struct agh_message *m, GAsyncQueue *src_comm, GAsyncQueue *dest_comm);
-void msg_send(struct agh_message *m);
-void msg_dealloc_from_queue(gpointer data);
+gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm);
+gboolean agh_handle_message_inside_dest_thread(gpointer data);
+
+/* comm */
+struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
+void agh_comm_teardown(struct agh_comm *comm);
+
 #endif

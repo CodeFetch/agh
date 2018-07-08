@@ -1,11 +1,9 @@
 #include <glib.h>
-#include "commands.h"
 #include <glib-unix.h>
+#include "commands.h"
 #include "handlers.h"
-#include "agh.h"
 #include "xmpp.h"
 #include "modem.h"
-#include "aghservices.h"
 
 gint main(void) {
 
@@ -14,26 +12,27 @@ gint main(void) {
 	mstate = agh_state_setup();
 
 	mstate->agh_handlers = handlers_setup();
+	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, "AGH");
 
-	/* handlers are registered from within the function called here. */
+	/* This will need to be done in a better way; handlers are registered from within the function called here. */
 	agh_core_handlers_setup_ext(mstate);
 
 	agh_sources_setup(mstate);
 
 	agh_threads_setup(mstate);
 
-	/* This will need to be done in a better way. Threads are registered within the function called here. */
+	/* This will need to be done in a better way; threads are registered within the function called here. */
 	agh_thread_setup_ext(mstate);
 
 	agh_threads_prepare(mstate);
 
 	agh_threads_start(mstate);
 
-	g_print("AGH CORE: Entering main loop...\n");
+	g_print("%s: entering main loop\n",__FUNCTION__);
 
 	g_main_loop_run(mstate->agh_mainloop);
 
-	g_print("AGH CORE: Main loop exiting.\n");
+	g_print("%s: main loop exited\n",__FUNCTION__);
 
 	process_signals(mstate);
 
@@ -44,6 +43,7 @@ gint main(void) {
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
 	handlers_teardown(mstate->agh_handlers);
+	agh_comm_teardown(mstate->comm);
 	agh_state_teardown(mstate);
 	return 0;
 }
@@ -64,12 +64,9 @@ struct agh_state * agh_state_setup(void) {
 void agh_sources_setup(struct agh_state *mstate) {
 	/* Intercepts SIGINT UNIX signal. This is useful at least to exit the main loop gracefully (on ctrl+c press) */
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
-	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb_dispatch, mstate, NULL);
+	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 	g_source_unref(mstate->agh_main_unix_signals);
-
-	/* Communications with other threads */
-	aghservices_core_messaging_setup(mstate);
 
 	handlers_init(mstate->agh_handlers, mstate);
 
@@ -81,17 +78,17 @@ void agh_sources_teardown(struct agh_state *mstate) {
 	g_source_destroy(mstate->agh_main_unix_signals);
 	mstate->agh_main_unix_signals_tag = 0;
 	mstate->agh_main_unix_signals = NULL;
-	g_print("AGH CORE: SIGINT will not be handled from now on.\n");
-	aghservices_core_messaging_teardown(mstate);
+	g_print("%s: SIGINT will not be handled from now on\n",__FUNCTION__);
 	return;
 }
 
 void agh_state_teardown(struct agh_state *mstate) {
-	// XXX is this the proper order?
+	/* XXX is this the proper order? */
 	g_main_loop_unref(mstate->agh_mainloop);
 	g_main_context_unref(mstate->ctx);
 	mstate->agh_mainloop = NULL;
 	mstate->ctx = NULL;
+	mstate->comm = NULL;
 	g_free(mstate);
 	mstate = NULL;
 	return;
@@ -100,26 +97,27 @@ void agh_state_teardown(struct agh_state *mstate) {
 void process_signals(struct agh_state *mstate) {
 	if (mstate->sigint_received)
 		g_print("\nSIGINT!\n");
+	return;
 }
 
 void agh_threads_start(struct agh_state *mstate) {
-	g_print("AGH CORE: starting threads: ");
+	g_print("%s: starting threads: ",__FUNCTION__);
 	g_queue_foreach(mstate->agh_threads, agh_threads_start_single, mstate);
 	g_print("done\n");
 }
 
 void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
 	if (!ct) {
-		g_print("AGH CORE: ** INVALID THREAD REGISTRATION CALL: NULL VALUE NOT ACCEPTABLE AS A THREAD.\n");
+		g_print("%s: ** INVALID THREAD REGISTRATION CALL: NULL VALUE NOT ACCEPTABLE AS A THREAD\n",__FUNCTION__);
 		return;
 	}
 
 	if (!mstate->agh_threads) {
-		g_print("AGH CORE: ** INVALID THREAD REGISTRATION CALL: THREADS QUEUE NOT INITIALIZED.\n");
+		g_print("%s: ** INVALID THREAD REGISTRATION CALL: THREADS QUEUE NOT INITIALIZED\n",__FUNCTION__);
 		return;
 	}
 	
-	g_print("AGH CORE: registering %s thread: ",ct->thread_name);
+	g_print("%s: registering %s thread: ",__FUNCTION__,ct->thread_name);
 	g_queue_push_tail(mstate->agh_threads, ct);
 	g_print(" done\n");
 	return;
@@ -138,14 +136,14 @@ void agh_threads_setup(struct agh_state *mstate) {
 }
 
 void agh_threads_teardown(struct agh_state *mstate) {
-	g_print("AGH CORE: deallocating threads queue.\n");
+	g_print("%s: deallocating threads queue\n",__FUNCTION__);
 	g_queue_free(mstate->agh_threads);
 	mstate->agh_threads = NULL;
 	return;
 }
 
 void agh_threads_prepare(struct agh_state *mstate) {
-	g_print("AGH CORE: preparing threads \n");
+	g_print("%s: preparing threads \n",__FUNCTION__);
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
 	g_print(" done\n");
@@ -153,7 +151,7 @@ void agh_threads_prepare(struct agh_state *mstate) {
 }
 
 void agh_threads_deinit(struct agh_state *mstate) {
-	g_print("AGH CORE: invoking threads deinit functions ");
+	g_print("%s: invoking threads deinit functions ",__FUNCTION__);
 	g_queue_foreach(mstate->agh_threads, agh_threads_deinit_single, mstate);
 	g_print("done\n");
 	return;
@@ -165,12 +163,9 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 
 	g_print("%s\n",ct->thread_name);
 
-	/* Before starting our thread, provide basic facilities: the communication asynchronous queue and the main thread's GMainContext. */
 	ct->agh_maincontext = mstate->ctx;
 	ct->agh_mainloop = mstate->agh_mainloop;
-	ct->agh_comm = mstate->agh_comm;
-
-	ct->comm = g_async_queue_new();
+	ct->agh_comm = mstate->comm;
 	ct->handlers = NULL;
 
 	/* We would like to be informed about this situation: and if someone finds this useful we are going to remove this message
@@ -178,6 +173,8 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	*/
 	if (ct->agh_thread_init)
 		ct->agh_thread_init(ct);
+	else
+		g_print("%s: %s has no init function\n",__FUNCTION__,ct->thread_name);
 
 	return;
 }
@@ -190,15 +187,16 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	if (ct->agh_thread_deinit)
 		ct->agh_thread_deinit(ct);
 
-	if (ct->handlers) {
-		g_print("WARNING: %s thread may not be deinitializing its handlers correctly. This needs to be investigated.\n", ct->thread_name);
-	}
-	g_async_queue_unref(ct->comm);
+	g_print("%s: do we have something to do about messaging??\n",__FUNCTION__);
+
+	if (ct->handlers)
+		g_print("%s: WARNING: %s thread may not be deinitializing its handlers\n",__FUNCTION__, ct->thread_name);
+
 	ct->agh_maincontext = NULL;
 	ct->agh_mainloop = NULL;
 	ct->comm = NULL;
+	ct->agh_comm = NULL;
 
-	/* Due to the usage of on-stack structures, if the current thread is not using GLib main loop, I guess we're going to access uninitialized memory. This should be fixed. For now, just let the code remind us something is not right. */
 	if (ct->evl) {
 		g_main_loop_unref(ct->evl);
 
@@ -224,7 +222,7 @@ void agh_threads_start_single(gpointer data, gpointer user_data) {
 	if (ct->agh_thread_main)
 		ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
 	else
-		g_print("AGH CORE: so you found useful to create a thread that actually can't start (NULL main function). Contact us to discuss this, if you intend to leave your code this way, since we will need to do some changes for this to work as you expect, I guess.\n");
+		g_print("%s: %s has a NULL main function\n",__FUNCTION__,ct->thread_name);
 
 	return;
 }
@@ -239,9 +237,10 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 }
 
 /* Invoked upon SIGINT reception. */
-gboolean agh_unix_signals_cb_dispatch(gpointer data) {
+gboolean agh_unix_signals_cb(gpointer data) {
 	struct agh_state *mstate = data;
 	mstate->sigint_received = TRUE;
+	g_print("%s: look here please\n",__FUNCTION__);
 	g_main_loop_quit(mstate->agh_mainloop);
 	return FALSE;
 }
@@ -250,7 +249,7 @@ gboolean agh_unix_signals_cb_dispatch(gpointer data) {
  * This handler is meant to:
  * - receive text messages from components willing to send them
  * - build a command using the appropriate functions in commands.c
- * - if building a command succeeds, then build and send a message containing it
+ * - if building a command succeeds, then build and send around a message containing it
 */
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
@@ -274,8 +273,8 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 		cmd = text_to_cmd(csp->text);
 
 		if (cmd) {
-			/* Send this message around to all registered components. */
-			g_print("AGH: processing CMD.\n");
+			/* Send this message around. */
+			g_print("%s: processing CMD\n",__FUNCTION__);
 
 			num_threads = g_queue_get_length(mstate->agh_threads);
 			if (num_threads) {
@@ -284,15 +283,12 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 					command_message = msg_alloc();
 					command_message->msg_type = MSG_SENDCMD;
 					ct = g_queue_peek_nth(mstate->agh_threads, i);
-					//g_print("Sending command message to %s thread.\n",ct->thread_name);
-					if (msg_prepare(command_message, mstate->agh_comm, ct->comm)) {
-						g_print("AGH CORE: error while preparing message for sending to %s thread.\n",ct->thread_name);
-						msg_dealloc(command_message);
+					//g_print("Sending command message to %s thread\n",ct->thread_name);
+					command_message->csp = cmd_copy(cmd);
+					if (msg_send(command_message, mstate->comm, ct->comm)) {
+						g_print("%s: error while sending message to %s thread\n",__FUNCTION__,ct->thread_name);
 						continue;
 					}
-
-					command_message->csp = cmd_copy(cmd);
-					msg_send(command_message);
 
 				} /* end of for loop */
 
@@ -303,14 +299,9 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 			*/
 			command_message = msg_alloc();
 			command_message->msg_type = MSG_SENDCMD;
-			if (msg_prepare(command_message, mstate->agh_comm, mstate->agh_comm)) {
-				g_print("AGH CORE: error while preparing message for sending to core.\n");
-				msg_dealloc(command_message);
-			}
-			else {
-				command_message->csp = cmd;
-				msg_send(command_message);
-			}
+			command_message->csp = cmd;
+			if (msg_send(command_message, mstate->comm, NULL))
+				g_print("%s: error while sending message to self\n",__FUNCTION__);
 
 		} /* valid command was received */
 
@@ -320,7 +311,7 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 }
 
 /*
- * This handler receives MSG_SENDTEXT text messages from sources willing to send them, and broadcast them to all components.
+ * This handler receives MSG_SENDTEXT text messages from sources willing to send them, and broadcast them around.
 */
 gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
@@ -341,7 +332,7 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 
 	if (m->msg_type == MSG_SENDTEXT) {
 		/* Send this message around to all registered components. */
-		g_print("AGH: broadcasting text.\n");
+		g_print("%s: broadcasting text\n",__FUNCTION__);
 
 		num_threads = g_queue_get_length(mstate->agh_threads);
 		if (num_threads) {
@@ -349,18 +340,15 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 			for (i=0;i<num_threads;i++) {
 				text_message = msg_alloc();
 				text_message->msg_type = MSG_SENDTEXT;
-				ct = g_queue_peek_nth(mstate->agh_threads, i);
-				//g_print("Sending text message to %s thread.\n",ct->thread_name);
-				if (msg_prepare(text_message, mstate->agh_comm, ct->comm)) {
-					g_print("AGH CORE: error while preparing text message for sending to %s thread.\n",ct->thread_name);
-					msg_dealloc(text_message);
-					continue;
-				}
-
 				ncsp = g_malloc0(sizeof(struct text_csp));
 				ncsp->text = g_strdup(csp->text);
 				text_message->csp = ncsp;
-				msg_send(text_message);
+				ct = g_queue_peek_nth(mstate->agh_threads, i);
+				//g_print("Sending text message to %s thread\n",ct->thread_name);
+				if (msg_send(text_message, mstate->comm, ct->comm)) {
+					g_print("%s: error while sending text message to %s thread (not referring to an SMS message here)\n",__FUNCTION__,ct->thread_name);
+					continue;
+				}
 
 			} /* end of for loop */
 
@@ -389,6 +377,10 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
+/*
+ * This handler converts events to text, and then send the resulting messages to the core itself.
+ * The core is expected to broadcast them, for the benefit of other threads (e.g. XMPP).
+*/
 gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
@@ -409,14 +401,16 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	/* An event arrived - so we need to assign it an event ID. */
 	cmd = cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, mstate->event_id);
+
+	/* Note: we are incrementing mstate->event_id++ even when cmd_event_to_text returns NULL. Is this acceptable? */
 	mstate->event_id++;
 	if (mstate->event_id == CMD_EVENT_MAX_ID)
 		mstate->event_id = 0;
 
-	if (!evtext) {
-		cmd_free(cmd);
+	cmd_free(cmd);
+
+	if (!evtext)
 		return evmsg;
-	}
 
 	evmsg = msg_alloc();
 
@@ -425,12 +419,10 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	evmsg->csp = textcsp;
 	evmsg->msg_type = MSG_SENDTEXT;
 
-	if (msg_prepare(evmsg, mstate->agh_comm, mstate->agh_comm)) {
-		msg_dealloc(evmsg);
+	if (msg_send(evmsg, mstate->comm, NULL)) {
 		evmsg = NULL;
 	}
 
-	cmd_free(cmd);
 	return evmsg;
 }
 
@@ -455,7 +447,7 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 		return NULL;
 
 	/* An event arrived - so we'll broadcast it. */
-	g_print("AGH CORE: broadcasting event.\n");
+	g_print("%s: broadcasting event\n",__FUNCTION__);
 
 	num_threads = g_queue_get_length(mstate->agh_threads);
 	if (num_threads) {
@@ -463,19 +455,13 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 		for (i=0;i<num_threads;i++) {
 			evmsg = msg_alloc();
 			evmsg->msg_type = MSG_EVENT;
+			ncmd = cmd_copy(cmd);
+			evmsg->csp = ncmd;
 			ct = g_queue_peek_nth(mstate->agh_threads, i);
-			//g_print("Sending event message to %s thread.\n",ct->thread_name);
-			if (msg_prepare(evmsg, mstate->agh_comm, ct->comm)) {
-				g_print("AGH CORE: error while preparing event message for sending to %s thread.\n",ct->thread_name);
-				msg_dealloc(evmsg);
+			if (msg_send(evmsg, mstate->comm, ct->comm)) {
+				g_print("%s: error while sending event message to %s thread\n",__FUNCTION__,ct->thread_name);
 				continue;
 			}
-
-			ncmd = cmd_copy(cmd);
-
-			/* ncmd may well be NULL here */
-			evmsg->csp = ncmd;
-			msg_send(evmsg);
 
 		} /* end of for loop */
 
@@ -490,7 +476,7 @@ struct agh_thread *agh_thread_new(gchar *name) {
 	ct = NULL;
 
 	if (!name) {
-		g_print("AGH CORE: a thread may not have a NULL name.\n");
+		g_print("%s: a thread may not have a NULL name\n",__FUNCTION__);
 		return ct;
 	}
 
@@ -580,6 +566,35 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	handler_register(mstate->agh_handlers, core_cmd_handler);
 	handler_register(mstate->agh_handlers, core_event_to_text_handler);
 	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
+
+	return;
+}
+
+void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean no_context) {
+
+	if (!ct->handlers) {
+		g_print("%s: (%s) called us with a NULL handlers queue pointer\n\t(maybe you forgot to call handlers_setup ? )\n",__FUNCTION__,ct->thread_name);
+		return;
+	}
+
+	/* Sets up a new Main Loop Context (and related Main Loop of course). */
+	if (!no_context)
+		ct->evl_ctx = g_main_context_new();
+
+	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
+
+	return;
+}
+
+void agh_thread_eventloop_teardown(struct agh_thread *ct) {
+	/* XXX is this the right order? */
+	g_main_loop_unref(ct->evl);
+	if (ct->evl_ctx)
+		g_main_context_unref(ct->evl_ctx);
+	else
+		g_print("%s did use default main context\n",ct->thread_name);
+	ct->evl = NULL;
+	ct->evl_ctx = NULL;
 
 	return;
 }
