@@ -13,7 +13,7 @@
 #include "commands.h"
 #include "modem_handlers.h"
 
-void modem_thread_init(gpointer data) {
+gpointer modem_thread_start(gpointer data) {
 	struct agh_thread *ct = data;
 	struct modem_state *mmstate;
 
@@ -32,20 +32,15 @@ void modem_thread_init(gpointer data) {
 
 	handlers_init(ct->handlers, ct);
 
-	return;
-}
-
-gpointer modem_thread_start(gpointer data) {
-	struct agh_thread *ct = data;
-	struct modem_state *mmstate = ct->thread_data;
-
 	/* We need a connection to D-Bus to talk with ModemManager, of course. */
 	mmstate->dbus_connection = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &mmstate->gerror);
 
 	if (!mmstate->dbus_connection) {
-		g_print("%s: unable to connect to the D-Bus system bus; error was %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
+		g_print("%s: unable to connect to the D-Bus system bus; %s\n",ct->thread_name, mmstate->gerror ? mmstate->gerror->message : "unknown error");
 		agh_mm_freemem(mmstate, AGH_MM_NO_DBUS_CONNECTION);
 		agh_thread_eventloop_teardown(ct);
+		agh_comm_teardown(ct->comm);
+		g_free(mmstate);
 		return data;
 	}
 
@@ -67,6 +62,7 @@ void modem_thread_deinit(gpointer data) {
 		return;
 
 	agh_thread_eventloop_teardown(ct);
+	agh_comm_teardown(ct->comm);
 	agh_mm_freemem(mmstate, AGH_MM_DEINIT);
 	g_free(mmstate);
 	handlers_finalize(ct->handlers);
@@ -96,11 +92,10 @@ void agh_mm_freemem(struct modem_state *mmstate, gint error) {
 		}
 		/* fall through */
 	case AGH_MM_NO_MANAGER_OBJECT:
-		if (g_dbus_connection_close_sync(mmstate->dbus_connection, NULL, &mmstate->gerror)) {
-			g_print("%s: unable to close the connection to the system bus; error was %s\n",__FUNCTION__, mmstate->gerror ? mmstate->gerror->message : "unknown error");
+		if (mmstate->dbus_connection) {
+			g_object_unref(mmstate->dbus_connection);
+			mmstate->dbus_connection = NULL;
 		}
-
-		g_object_unref(mmstate->dbus_connection);
 		/* fall through */
 	case AGH_MM_NO_DBUS_CONNECTION:
 		if (mmstate->gerror) {

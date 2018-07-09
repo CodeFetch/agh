@@ -3,12 +3,13 @@
 #include <glib.h>
 #include "agh.h"
 
-/* Message types */
+/* Message types. */
 #define MSG_INVALID							0
 #define MSG_RECVTEXT 						1
 #define MSG_SENDTEXT						2
 #define MSG_SENDCMD							3
 #define MSG_EVENT								4
+/* End of message types. */
 
 /*
  * Why the GMainContext *src_ctx struct member?

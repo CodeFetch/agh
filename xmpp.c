@@ -1,16 +1,13 @@
 #include <glib.h>
-/* hack include */
-#include "commands.h"
-/* end of hack include */
 #include "agh.h"
 #include "xmpp.h"
 #include "handlers.h"
 #include "xmpp_handlers.h"
 #include "messages.h"
 
-void xmpp_thread_init(gpointer data) {
+gpointer xmpp_thread_start(gpointer data) {
 	struct agh_thread *ct = data;
-	struct xmpp_state *xstate;
+	struct xmpp_state *xstate = ct->thread_data;
 
 	/* Should a memory allocation failure occur, GLib will terminate the application. */
 	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
@@ -34,13 +31,6 @@ void xmpp_thread_init(gpointer data) {
 
 	ct->comm = agh_comm_setup(ct->handlers, ct->evl_ctx, ct->thread_name);
 
-	return;
-}
-
-gpointer xmpp_thread_start(gpointer data) {
-	struct agh_thread *ct = data;
-	struct xmpp_state *xstate = ct->thread_data;
-
 	g_print("XMPP library init\n");
 	xmpp_initialize();
 
@@ -61,14 +51,6 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, ct);
 	g_print("%s: entering main loop\n",ct->thread_name);
 
-	/* hack */
-	struct command *ev;
-	ev = cmd_event_prepare();
-	cmd_answer_set_status(ev, 10);
-	cmd_answer_addtext(ev, "fuffa_event");
-	cmd_emit_event(ct->agh_comm, ev);
-	/* end of hack */
-
 	g_main_loop_run(ct->evl);
 
 	g_print("XMPP deinit.\n");
@@ -77,7 +59,10 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_ctx_free(xstate->xmpp_ctx);
 	xmpp_shutdown();
 
-	g_source_destroy(xstate->xmpp_evs);
+	/*
+	 * Valgrind reported this should not be done. Why?
+	 * g_source_destroy(xstate->xmpp_evs);
+	*/
 	xstate->xmpp_evs_tag = 0;
 
 	agh_thread_eventloop_teardown(ct);
@@ -227,7 +212,6 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	m->msg_type = MSG_RECVTEXT;
 	if (msg_send(m, ct->comm, ct->agh_comm)) {
 		g_print("%s: unable to send received XMPP message to core\n",__FUNCTION__);
-		msg_dealloc(m);
 	}
 
 	/*
@@ -352,6 +336,7 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 
 	xmpp_sendmsg_handler = NULL;
 	xmpp_cmd_handler = NULL;
+	xmpp_event_handler = NULL;
 
 	xmpp_sendmsg_handler = handler_new("xmpp_sendmsg_handler");
 	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);

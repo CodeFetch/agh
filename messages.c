@@ -29,6 +29,7 @@ void msg_dealloc(struct agh_message *m) {
 			csptext = m->csp;
 			g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
 			g_free(csptext->text);
+			g_free(csptext);
 			csptext = NULL;
 			break;
 		case MSG_SENDCMD:
@@ -115,6 +116,7 @@ gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 				answer->dest = m->src;
 				msg_send(answer, answer->src, answer->dest);
 			}
+			answer = NULL;
 		}
 	}
 
@@ -129,7 +131,7 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 	comm = NULL;
 
 	if (!handlers) {
-		g_print("%s: COMM setup for %s failed\n",__FUNCTION__, name ? name : "(unknown)");
+		g_print("%s: COMM setup for %s failed: handlers GQueue was NULL\n",__FUNCTION__, name ? name : "(unknown)");
 		return comm;
 	}
 

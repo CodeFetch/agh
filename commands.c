@@ -289,6 +289,10 @@ void cmd_free(struct command *cmd) {
 		g_free(cmd->answer);
 		cmd->answer = NULL;
 	}
+
+	g_free(cmd);
+
+	return;
 }
 
 struct command *cmd_copy(struct command *cmd) {
@@ -580,7 +584,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 	output = g_string_new(CMD_EVENT_KEYWORD" = ( ");
 
 	/* Appends event ID, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
-	g_string_append_printf(output, "%" G_GINT16_FORMAT"", event_id);
+	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", event_id, cmd->answer->status);
 
 	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
@@ -632,7 +636,6 @@ void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
 	m->csp = cmd;
 	if (msg_send(m, agh_core_comm, NULL)) {
 		g_print("%s: can not send message to core\n",__FUNCTION__);
-		msg_dealloc(m);
 		return;
 	}
 

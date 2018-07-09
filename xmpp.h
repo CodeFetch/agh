@@ -26,7 +26,6 @@ struct xmpp_state {
 	gboolean exit;
 };
 
-void xmpp_thread_init(gpointer data);
 gpointer xmpp_thread_start(gpointer data);
 void xmpp_thread_deinit(gpointer data);
 gboolean xmpp_idle(gpointer data);

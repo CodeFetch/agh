@@ -423,7 +423,7 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 		evmsg = NULL;
 	}
 
-	return evmsg;
+	return NULL;
 }
 
 gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
@@ -512,13 +512,11 @@ void agh_thread_setup_ext(struct agh_state *mstate) {
 
 	/* XMPP */
 	xmpp_thread = agh_thread_new("XMPP");
-	agh_thread_set_init(xmpp_thread, xmpp_thread_init);
 	agh_thread_set_main(xmpp_thread, xmpp_thread_start);
 	agh_thread_set_deinit(xmpp_thread, xmpp_thread_deinit);
 
 	/* Modem */
 	modem_thread = agh_thread_new("Modem");
-	agh_thread_set_init(modem_thread, modem_thread_init);
 	agh_thread_set_main(modem_thread, modem_thread_start);
 	agh_thread_set_deinit(modem_thread, modem_thread_deinit);
 

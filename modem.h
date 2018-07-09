@@ -18,7 +18,6 @@
 /* ModemManager D-Bus name */
 #define MM_DBUS_NAME "org.freedesktop.ModemManager1"
 
-void modem_thread_init(gpointer data);
 gpointer modem_thread_start(gpointer data);
 void modem_thread_deinit(gpointer data);
 
