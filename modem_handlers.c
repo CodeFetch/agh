@@ -37,7 +37,6 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd_answer_prepare(cmd);
 
-/* migration start
 	if (mmstate->no_modems) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_NO_MODEMS);
@@ -48,11 +47,9 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	if (!mmstate->ready) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_NOT_READY);
-		answer = cmd_answer_msg(cmd, ct->agh_comm, ct->agh_core_comm);
+		answer = cmd_answer_msg(cmd, ct->comm, ct->agh_comm);
 		return answer;
 	}
-
-migration end */
 
 	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
 	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
@@ -1033,8 +1030,16 @@ void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd) {
 void agh_mm_list_disabled_modems(struct modem_state *mmstate, struct command *cmd) {
 	GList *modems;
 
-	cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
-	cmd_answer_addtext(cmd, "to_be_implemented");
+	if (!mmstate->disabled_modems) {
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
+		return;
+	}
+	else {
+		modems = mmstate->disabled_modems;
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		g_list_foreach(modems, agh_mm_list_modem_single, cmd);
+	}
 
 	return;
 }

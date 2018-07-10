@@ -178,6 +178,7 @@ void modem_free_asyncstate(struct modem_state *mstate) {
 	if (mstate->astate->mmobject)
 		g_object_unref(mstate->astate->mmobject);
 
+	g_free(mstate->astate);
 	mstate->astate = NULL;
 	mstate->async_pending = FALSE;
 
