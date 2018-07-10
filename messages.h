@@ -11,6 +11,9 @@
 #define MSG_EVENT								4
 /* End of message types. */
 
+/* GMainContext iteration on each thread before concluding no one will send messages anymore. */
+#define AGH_MAX_MESSAGEWAIT_ITERATIONS 380
+
 /*
  * Why the GMainContext *src_ctx struct member?
  * To allow handlers to answer a message with another, simply returning it.
@@ -27,6 +30,7 @@ struct agh_comm {
 	GQueue *handlers;
 	GMainContext *ctx;
 	gchar *name;
+	gboolean teardown_in_progress;
 };
 
 struct agh_message *msg_alloc(void);
@@ -37,5 +41,6 @@ gboolean agh_handle_message_inside_dest_thread(gpointer data);
 /* comm */
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
 void agh_comm_teardown(struct agh_comm *comm);
+void agh_comm_disable(struct agh_comm *comm, gboolean enabled);
 
 #endif

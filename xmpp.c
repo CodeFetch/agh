@@ -65,8 +65,8 @@ gpointer xmpp_thread_start(gpointer data) {
 	*/
 	xstate->xmpp_evs_tag = 0;
 
-	agh_thread_eventloop_teardown(ct);
 	agh_comm_teardown(ct->comm);
+	agh_thread_eventloop_teardown(ct);
 
 	return data;
 }

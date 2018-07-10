@@ -187,8 +187,6 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	if (ct->agh_thread_deinit)
 		ct->agh_thread_deinit(ct);
 
-	g_print("%s: do we have something to do about messaging??\n",__FUNCTION__);
-
 	if (ct->handlers)
 		g_print("%s: WARNING: %s thread may not be deinitializing its handlers\n",__FUNCTION__, ct->thread_name);
 

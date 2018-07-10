@@ -68,6 +68,12 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 	if (!dest_comm)
 		dest_comm = src_comm;
 
+	if (dest_comm->teardown_in_progress) {
+		g_print("%s: not sending message to %s due to teardown being in progress\n",__FUNCTION__,dest_comm->name);
+		msg_dealloc(m);
+		return 1;
+	}
+
 	m->src = src_comm;
 	m->dest = dest_comm;
 
@@ -89,10 +95,17 @@ gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	num_handlers = 0;
 	answer = NULL;
 	h = NULL;
-	handlers = m->dest->handlers;
 
 	if (!m) {
 		g_print("%s: NULL message\n",__FUNCTION__);
+		return FALSE;
+	}
+
+	handlers = m->dest->handlers;
+
+	if (m->dest->teardown_in_progress) {
+		g_print("%s (%s): deallocating message\n",__FUNCTION__,m->dest->name);
+		msg_dealloc(m);
 		return FALSE;
 	}
 
@@ -145,14 +158,31 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 }
 
 void agh_comm_teardown(struct agh_comm *comm) {
+	guint i;
 
-	/* agh_comm has been tought to be only a set of pointers */
-	if (comm) {
-		comm->name = NULL;
-		comm->handlers = NULL;
-		comm->ctx = NULL;
-		g_free(comm);
-	}
+	i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
 
+	if (!comm)
+		return;
+
+	comm->teardown_in_progress = TRUE;
+
+	do {
+		if (g_main_context_iteration(comm->ctx, FALSE))
+			i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
+
+		i--;
+	} while (i);
+
+	comm->name = NULL;
+	comm->handlers = NULL;
+	comm->ctx = NULL;
+	g_free(comm);
+
+	return;
+}
+
+void agh_comm_disable(struct agh_comm *comm, gboolean enabled) {
+	comm->teardown_in_progress = enabled;
 	return;
 }
