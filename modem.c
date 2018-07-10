@@ -149,18 +149,18 @@ void modem_manager_init(GDBusConnection *connection, GAsyncResult *res, struct a
 
 void modem_handlers_setup_ext(struct agh_thread *ct) {
 	struct handler *modem_cmd_handler;
-	struct handler *modem_quit_handler;
+	struct handler *modem_exit_handler;
 
 	modem_cmd_handler = handler_new("modem_cmd_handler");
 	handler_set_handle(modem_cmd_handler, modem_cmd_handle);
 	handler_enable(modem_cmd_handler, FALSE);
 
-	modem_quit_handler = handler_new("modem_quit_handler");
-	handler_set_handle(modem_quit_handler,modem_quit_handle);
-	handler_enable(modem_quit_handler, TRUE);
+	modem_exit_handler = handler_new("modem_exit_handler");
+	handler_set_handle(modem_exit_handler, agh_thread_default_exit_handle);
+	handler_enable(modem_exit_handler, TRUE);
 
 	handler_register(ct->handlers, modem_cmd_handler);
-	handler_register(ct->handlers, modem_quit_handler);
+	handler_register(ct->handlers, modem_exit_handler);
 
 	return;
 }

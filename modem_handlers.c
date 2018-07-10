@@ -101,26 +101,6 @@ gpointer modem_cmd_handle(gpointer data, gpointer hmessage) {
 	return answer;
 }
 
-gpointer modem_quit_handle(gpointer data, gpointer hmessage) {
-	struct agh_message *m = hmessage;
-	struct handler *h = data;
-	struct agh_thread *ct = h->handler_data;
-	struct command *cmd;
-
-	cmd = NULL;
-
-	if (m->msg_type != MSG_SENDCMD)
-		return NULL;
-
-	cmd = m->csp;
-
-	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
-		g_main_loop_quit(ct->evl);
-	}
-
-	return NULL;
-}
-
 /* Get and report a list of modems known by ModemManager. */
 void agh_mm_list_modems(struct modem_state *mmstate, struct command *cmd) {
 	GList *modems;

@@ -333,10 +333,12 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 	struct handler *xmpp_sendmsg_handler;
 	struct handler *xmpp_cmd_handler;
 	struct handler *xmpp_event_handler;
+	struct handler *xmpp_exit_handler;
 
 	xmpp_sendmsg_handler = NULL;
 	xmpp_cmd_handler = NULL;
 	xmpp_event_handler = NULL;
+	xmpp_exit_handler = NULL;
 
 	xmpp_sendmsg_handler = handler_new("xmpp_sendmsg_handler");
 	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
@@ -350,9 +352,14 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 	handler_set_handle(xmpp_event_handler,xmpp_event_handle);
 	handler_enable(xmpp_event_handler, FALSE);
 
+	xmpp_exit_handler = handler_new("xmpp_exit_handler");
+	handler_set_handle(xmpp_exit_handler, xmpp_exit_handle);
+	handler_enable(xmpp_exit_handler, TRUE);
+
 	handler_register(ct->handlers, xmpp_sendmsg_handler);
 	handler_register(ct->handlers, xmpp_cmd_handler);
 	handler_register(ct->handlers, xmpp_event_handler);
+	handler_register(ct->handlers, xmpp_exit_handler);
 
 	return;
 }

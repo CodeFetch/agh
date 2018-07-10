@@ -24,6 +24,11 @@ void msg_dealloc(struct agh_message *m) {
 
 	if (m->csp) {
 		switch(m->msg_type) {
+		case MSG_INVALID:
+			g_print("%s: type %" G_GUINT16_FORMAT" message\n",__FUNCTION__,m->msg_type);
+			break;
+		case MSG_EXIT:
+			break;
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
@@ -36,9 +41,6 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_EVENT:
 			cmd = m->csp;
 			cmd_free(cmd);
-			break;
-		case MSG_INVALID:
-			g_print("%s: type %" G_GUINT16_FORMAT" message\n",__FUNCTION__,m->msg_type);
 			break;
 		default:
 			g_print("%s: unknown CSP type (%" G_GUINT16_FORMAT")\n", __FUNCTION__,m->msg_type);
@@ -60,7 +62,7 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 		return 1;
 
 	if ((!dest_comm) && (!src_comm)) {
-		g_print("%s: sender or recipient comms where NULL\n",__FUNCTION__);
+		g_print("%s: sender and recipient comms where NULL\n",__FUNCTION__);
 		msg_dealloc(m);
 		return 1;
 	}

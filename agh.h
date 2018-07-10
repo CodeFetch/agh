@@ -102,6 +102,9 @@ void agh_thread_setup_ext(struct agh_state *mstate);
 void agh_core_handlers_setup_ext(struct agh_state *mstate);
 void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean no_context);
 void agh_thread_eventloop_teardown(struct agh_thread *ct);
+gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage);
+void agh_broadcast_exit(struct agh_state *mstate);
+void agh_exit(struct agh_state *mstate);
 
 struct text_csp {
 	gchar *text;

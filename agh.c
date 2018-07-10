@@ -34,6 +34,8 @@ gint main(void) {
 
 	g_print("%s: main loop exited\n",__FUNCTION__);
 
+	agh_exit(mstate);
+
 	process_signals(mstate);
 
 	agh_threads_stop(mstate);
@@ -74,11 +76,14 @@ void agh_sources_setup(struct agh_state *mstate) {
 }
 
 void agh_sources_teardown(struct agh_state *mstate) {
+
 	/* UNIX SIGINT signal source */
-	g_source_destroy(mstate->agh_main_unix_signals);
+	if (!mstate->sigint_received)
+		g_source_destroy(mstate->agh_main_unix_signals);
+
 	mstate->agh_main_unix_signals_tag = 0;
 	mstate->agh_main_unix_signals = NULL;
-	g_print("%s: SIGINT will not be handled from now on\n",__FUNCTION__);
+
 	return;
 }
 
@@ -95,8 +100,10 @@ void agh_state_teardown(struct agh_state *mstate) {
 }
 
 void process_signals(struct agh_state *mstate) {
+
 	if (mstate->sigint_received)
-		g_print("\nSIGINT!\n");
+		g_print("%s: exiting because of SIGINT!\n",__FUNCTION__);
+
 	return;
 }
 
@@ -237,9 +244,10 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 /* Invoked upon SIGINT reception. */
 gboolean agh_unix_signals_cb(gpointer data) {
 	struct agh_state *mstate = data;
-	mstate->sigint_received = TRUE;
-	g_print("%s: look here please\n",__FUNCTION__);
+
 	g_main_loop_quit(mstate->agh_mainloop);
+	mstate->sigint_received = TRUE;
+
 	return FALSE;
 }
 
@@ -592,5 +600,53 @@ void agh_thread_eventloop_teardown(struct agh_thread *ct) {
 	ct->evl = NULL;
 	ct->evl_ctx = NULL;
 
+	return;
+}
+
+gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
+	struct agh_message *m = hmessage;
+	struct handler *h = data;
+	struct agh_thread *ct = h->handler_data;
+
+	if (m->msg_type != MSG_EXIT)
+		return NULL;
+
+	agh_comm_disable(ct->comm, TRUE);
+	g_main_loop_quit(ct->evl);
+
+	return NULL;
+}
+
+void agh_broadcast_exit(struct agh_state *mstate) {
+	guint num_threads;
+	struct agh_message *m;
+	struct agh_thread *ct;
+	guint i;
+
+	num_threads = 0;
+	m = NULL;
+	ct = NULL;
+
+	if (!mstate->agh_threads)
+		return;
+
+	num_threads = g_queue_get_length(mstate->agh_threads);
+
+	for (i=0;i<num_threads;i++) {
+		m = msg_alloc();
+		m->msg_type = MSG_EXIT;
+		ct = g_queue_peek_nth(mstate->agh_threads, i);
+
+		if (msg_send(m, mstate->comm, ct->comm))
+			g_print("%s: error while sending exit message to %s\n",__FUNCTION__,ct->thread_name);
+
+	}
+
+	return;
+}
+
+void agh_exit(struct agh_state *mstate) {
+	agh_comm_disable(mstate->comm, TRUE);
+	agh_broadcast_exit(mstate);
 	return;
 }

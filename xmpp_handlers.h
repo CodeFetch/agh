@@ -4,5 +4,6 @@
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage);
 gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage);
 gpointer xmpp_event_handle(gpointer data, gpointer hmessage);
+gpointer xmpp_exit_handle(gpointer data, gpointer hmessage);
 
 #endif

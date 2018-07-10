@@ -56,7 +56,6 @@
 /* End of flags. */
 
 gpointer modem_cmd_handle(gpointer data, gpointer hmessage);
-gpointer modem_quit_handle(gpointer data, gpointer hmessage);
 
 void agh_mm_list_modems(struct modem_state *mmstate, struct command *cmd);
 void agh_mm_list_modem_single(gpointer data, gpointer user_data);

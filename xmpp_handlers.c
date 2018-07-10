@@ -27,9 +27,9 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
-	struct command *cmd;
+	struct command __attribute__((unused)) *cmd;
 	struct agh_thread *ct;
-	struct xmpp_state *xstate;
+	struct xmpp_state __attribute__((unused)) *xstate;
 
 	ct = h->handler_data;
 	xstate = ct->thread_data;
@@ -39,11 +39,7 @@ gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_SENDCMD)
 		return NULL;
 
-	/* quit */
-	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
-		xstate->exit = TRUE;
-	}
-
+	/* to be implemented */
 	return NULL;
 }
 
@@ -59,5 +55,18 @@ gpointer xmpp_event_handle(gpointer data, gpointer hmessage) {
 		return NULL;
 
 	//g_print("%s: an event has been intercepted.\n\t(operation is %s, arg1 is %s, arg2 is %s, arg3 is %s and arg4 is %s)",ct->thread_name,event_name(event),event_arg(event, 1),event_arg(event, 2),event_arg(event, 3),event_arg(event, 4));
+	return NULL;
+}
+
+gpointer xmpp_exit_handle(gpointer data, gpointer hmessage) {
+	struct handler *h = data;
+	struct agh_thread *ct = h->handler_data;
+	struct agh_message *m = hmessage;
+	struct xmpp_state *xstate = ct->thread_data;
+
+	if (m->msg_type != MSG_EXIT)
+		return NULL;
+
+	xstate->exit = TRUE;
 	return NULL;
 }

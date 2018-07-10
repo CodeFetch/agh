@@ -9,6 +9,7 @@
 #define MSG_SENDTEXT						2
 #define MSG_SENDCMD							3
 #define MSG_EVENT								4
+#define MSG_EXIT								5
 /* End of message types. */
 
 /* GMainContext iteration on each thread before concluding no one will send messages anymore. */
