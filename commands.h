@@ -34,6 +34,7 @@
 #define BUG_EMPTY_EVENT_TEXT "BUG_EMPTY_EVENT_TEXT"
 
 struct command_result {
+	gboolean is_data;
 	guint status;
 	GQueue *restextparts;
 };
@@ -48,6 +49,8 @@ struct command *text_to_cmd(gchar *content);
 /* command results */
 
 void cmd_answer_set_status(struct command *cmd, guint status);
+void cmd_answer_set_data(struct command *cmd, gboolean is_data);
+void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolean set_is_data);
 guint cmd_answer_get_status(struct command *cmd);
 guint cmd_answer_addtext(struct command *cmd, const gchar *text);
 guint cmd_answer_peektext(struct command *cmd, gchar *text);

@@ -60,7 +60,9 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_shutdown();
 
 	/*
-	 * Valgrind reported this should not be done. Why?
+	 * Valgrind reported this should not be done. I guess it's because when we return FALSE from the handler, since we already dropped our reference to the source, it is actually deallocated.
+	 * That said, when we reach here, the main loop is stopped, but not unreferenced yet. So something isn't clear yet.
+	 * Code was:
 	 * g_source_destroy(xstate->xmpp_evs);
 	*/
 	xstate->xmpp_evs_tag = 0;

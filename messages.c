@@ -32,7 +32,7 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
-			g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
+			//g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
 			g_free(csptext->text);
 			g_free(csptext);
 			csptext = NULL;
@@ -79,7 +79,7 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 	m->src = src_comm;
 	m->dest = dest_comm;
 
-	g_print("%s: message %s -> %s\n",__FUNCTION__,m->src->name, m->dest->name);
+	//g_print("%s: message %s -> %s\n",__FUNCTION__,m->src->name, m->dest->name);
 
 	g_main_context_invoke(m->dest->ctx, agh_handle_message_inside_dest_thread, m);
 
@@ -119,7 +119,7 @@ gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 		return FALSE;
 	}
 
-	g_print("%s running in %s\n",__FUNCTION__,m->dest->name);
+	//g_print("%s running in %s\n",__FUNCTION__,m->dest->name);
 
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);

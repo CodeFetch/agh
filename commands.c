@@ -197,14 +197,23 @@ gchar *cmd_answer_to_text(struct command *cmd) {
 		ntextparts++;
 	}
 
+	if (cmd->answer->is_data)
+		g_string_append_printf(output, ", \"DATA\" )");
+
 	for (i=0;i<ntextparts;i++) {
 		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
-		g_string_append_printf(output, ", \"%s\"", current_textpart);
+
+		if (!cmd->answer->is_data)
+			g_string_append_printf(output, ", \"%s\"", current_textpart);
+		else
+			g_string_append_printf(output, "%s", current_textpart);
+
 		g_free(current_textpart);
 	}
 
 	/* A space and a close round bracket are to be added to complete the answer. */
-	g_string_append_printf(output, " )");
+	if (!cmd->answer->is_data)
+		g_string_append_printf(output, " )");
 
 	/*
 	 * I should be honest: I did not think about this when I started using g_queue_pop_head in the above loop. Still, we are
@@ -229,7 +238,7 @@ guint cmd_answer_prepare(struct command *cmd) {
 	retval = 0;
 
 	if (!cmd) {
-		g_print("AGH CORE: can not prepare an answer to a NULL command.\n");
+		g_print("%s: can not prepare an answer to a NULL command\n",__FUNCTION__);
 		retval = 1;
 	}
 	else
@@ -673,4 +682,22 @@ const gchar *event_arg(struct command *cmd, guint arg_index) {
 	arg = g_queue_peek_nth(cmd->answer->restextparts, arg_index);
 
 	return arg;
+}
+
+void cmd_answer_set_data(struct command *cmd, gboolean is_data) {
+	cmd->answer->is_data = is_data;
+	return;
+}
+
+void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolean set_is_data) {
+	if (!cmd || !text)
+		return;
+
+	if (!g_queue_get_length(cmd->answer->restextparts)) {
+		cmd_answer_addtext(cmd, text);
+		cmd->answer->is_data = set_is_data;
+		cmd_answer_set_status(cmd, status);
+	}
+
+	return;
 }
