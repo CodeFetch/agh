@@ -16,6 +16,9 @@ struct agh_state {
 	guint agh_main_unix_signals_tag;
 	gboolean sigint_received;
 
+	/* ubus */
+	struct agh_ubus_ctx *uctx;
+
 	/* our threads and handlers */
 	GQueue *agh_threads;
 	GQueue *agh_handlers;

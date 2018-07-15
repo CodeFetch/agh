@@ -4,6 +4,8 @@
 #include "handlers.h"
 #include "xmpp.h"
 #include "modem.h"
+#include "agh_ubus.h"
+#include "agh_ubus_handler.h"
 
 gint main(void) {
 
@@ -21,8 +23,14 @@ gint main(void) {
 
 	agh_threads_setup(mstate);
 
-	/* This will need to be done in a better way; threads are registered within the function called here. */
+	/* This will need to be done in a better way, too; threads are registered within the function called here. */
 	agh_thread_setup_ext(mstate);
+
+	/* ubus connection */
+	mstate->uctx = agh_ubus_setup(mstate->ctx);
+	if (!mstate->uctx) {
+		g_print("%s: can not connect to ubus\n",__FUNCTION__);
+	}
 
 	agh_threads_prepare(mstate);
 
@@ -41,6 +49,10 @@ gint main(void) {
 	agh_threads_stop(mstate);
 	agh_threads_deinit(mstate);
 	agh_threads_teardown(mstate);
+
+	if (mstate->uctx) {
+		agh_ubus_teardown(mstate->uctx);
+	}
 
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
@@ -538,12 +550,14 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *core_cmd_handler;
 	struct handler *core_event_to_text_handler;
 	struct handler *core_event_broadcast_handler;
+	struct handler *core_ubus_cmd_handler;
 
 	core_recvtextcommand_handler = NULL;
 	core_cmd_handler = NULL;
 	core_sendtext_handler = NULL;
 	core_event_to_text_handler = NULL;
 	core_event_broadcast_handler = NULL;
+	core_ubus_cmd_handler = NULL;
 
 	core_recvtextcommand_handler = handler_new("core_recvtextcommand_handler");
 	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
@@ -565,11 +579,16 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
 	handler_enable(core_event_broadcast_handler, TRUE);
 
+	core_ubus_cmd_handler = handler_new("core_ubus_cmd_handler");
+	handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
+	handler_enable(core_ubus_cmd_handler, TRUE);
+
 	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
 	handler_register(mstate->agh_handlers, core_sendtext_handler);
 	handler_register(mstate->agh_handlers, core_cmd_handler);
 	handler_register(mstate->agh_handlers, core_event_to_text_handler);
 	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
+	handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
 
 	return;
 }
