@@ -36,6 +36,8 @@ gint main(void) {
 
 	agh_threads_start(mstate);
 
+	//g_usleep(40*G_USEC_PER_SEC);
+
 	g_print("%s: entering main loop\n",__FUNCTION__);
 
 	g_main_loop_run(mstate->agh_mainloop);
@@ -593,7 +595,7 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	return;
 }
 
-void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean no_context) {
+void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) {
 
 	if (!ct->handlers) {
 		g_print("%s: (%s) called us with a NULL handlers queue pointer\n\t(maybe you forgot to call handlers_setup ? )\n",__FUNCTION__,ct->thread_name);
@@ -601,10 +603,12 @@ void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean no_context) {
 	}
 
 	/* Sets up a new Main Loop Context (and related Main Loop of course). */
-	if (!no_context)
-		ct->evl_ctx = g_main_context_new();
+	ct->evl_ctx = g_main_context_new();
 
 	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
+
+	if (as_default_context)
+		g_main_context_push_thread_default(ct->evl_ctx);
 
 	return;
 }
@@ -615,7 +619,7 @@ void agh_thread_eventloop_teardown(struct agh_thread *ct) {
 	if (ct->evl_ctx)
 		g_main_context_unref(ct->evl_ctx);
 	else
-		g_print("%s did use default main context\n",ct->thread_name);
+		g_print("%s had a NULL ct->evl_ctx\n",ct->thread_name);
 	ct->evl = NULL;
 	ct->evl_ctx = NULL;
 
