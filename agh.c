@@ -27,10 +27,7 @@ gint main(void) {
 	agh_thread_setup_ext(mstate);
 
 	/* ubus connection */
-	mstate->uctx = agh_ubus_setup(mstate->ctx);
-	if (!mstate->uctx) {
-		g_print("%s: can not connect to ubus\n",__FUNCTION__);
-	}
+	mstate->uctx = agh_ubus_setup(mstate->comm);
 
 	agh_threads_prepare(mstate);
 
@@ -418,19 +415,18 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_EVENT)
 		return evmsg;
 
-	/* An event arrived - so we need to assign it an event ID. */
+	/* An event arrived, so we need to convert it to text, and add an event ID. We use cmd_copy / cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will be NULL). */
 	cmd = cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, mstate->event_id);
-
-	/* Note: we are incrementing mstate->event_id++ even when cmd_event_to_text returns NULL. Is this acceptable? */
-	mstate->event_id++;
-	if (mstate->event_id == CMD_EVENT_MAX_ID)
-		mstate->event_id = 0;
 
 	cmd_free(cmd);
 
 	if (!evtext)
 		return evmsg;
+
+	mstate->event_id++;
+	if (mstate->event_id == CMD_EVENT_MAX_ID)
+		mstate->event_id = 0;
 
 	evmsg = msg_alloc();
 

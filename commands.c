@@ -326,6 +326,8 @@ struct command *cmd_copy(struct command *cmd) {
 		cmd_answer->restextparts = g_queue_new();
 
 		g_queue_foreach(cmd->answer->restextparts, cmd_copy_textpart_single, cmd_answer->restextparts);
+
+		cmd_answer->is_data = cmd->answer->is_data;
 		ocmd->answer = cmd_answer;
 	}
 
@@ -585,6 +587,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 	gchar *current_textpart;
 
 	ntextparts = 0;
+	current_textpart = NULL;
 
 	if (!cmd)
 		return NULL;
@@ -599,18 +602,32 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
 
 	if (!ntextparts) {
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_EVENT_TEXT));
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_EVENT_NAME));
 		ntextparts++;
+	}
+
+	if (cmd->answer->is_data) {
+		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
+		g_string_append_printf(output, ", %s, \"DATA\" )", current_textpart);
+		ntextparts--;
+		g_free(current_textpart);
 	}
 
 	for (i=0;i<ntextparts;i++) {
 		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
-		g_string_append_printf(output, ", \"%s\"", current_textpart);
+
+		if (!cmd->answer->is_data)
+			g_string_append_printf(output, ", \"%s\"", current_textpart);
+		else
+			g_string_append_printf(output, "%s", current_textpart);
+
 		g_free(current_textpart);
+
 	}
 
 	/* A space and a close round bracket are to be added to complete the answer. */
-	g_string_append_printf(output, " )");
+	if (!cmd->answer->is_data)
+		g_string_append_printf(output, " )");
 
 	/*
 	* See cmd_answer_to_text for clarification.

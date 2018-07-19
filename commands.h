@@ -31,7 +31,7 @@
 
 /* bugs */
 #define BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
-#define BUG_EMPTY_EVENT_TEXT "BUG_EMPTY_EVENT_TEXT"
+#define BUG_EMPTY_EVENT_NAME "BUG_EMPTY_EVENT_NAME"
 
 struct command_result {
 	gboolean is_data;

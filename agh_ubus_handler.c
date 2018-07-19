@@ -38,9 +38,11 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd_answer_prepare(cmd);
 
-	if (!uctx) {
+	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_UBUS_NO_CONNECTION);
+		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		return answer;
 	}
 
 	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
@@ -56,6 +58,8 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 		agh_ubus_cmd_handler_cb = agh_ubus_list;
 	if (!g_strcmp0(argstr, AGH_CMD_UBUS_CALL))
 		agh_ubus_cmd_handler_cb = agh_ubus_call;
+	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LISTEN))
+		agh_ubus_cmd_handler_cb = agh_ubus_listen;
 
 	if (!agh_ubus_cmd_handler_cb) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
@@ -208,6 +212,98 @@ void agh_ubus_call(struct agh_ubus_ctx *uctx, struct command *cmd) {
 	cmd_answer_set_data(cmd, TRUE);
 
 	cmd_answer_if_empty(cmd, CMD_ANSWER_STATUS_FAIL, AGH_UBUS_NO_DATA, FALSE);
+
+	return;
+}
+
+void agh_ubus_listen(struct agh_ubus_ctx *uctx, struct command *cmd) {
+	config_setting_t *arg;
+	const gchar *arg_str;
+	guint i;
+	guint num_events;
+	const gchar *current_event_mask;
+
+	arg = NULL;
+	arg_str = NULL;
+	i = 0;
+	num_events = 0;
+	current_event_mask = NULL;
+
+	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+
+	/* If no subcommand, then show current status. */
+	if (!arg) {
+		if (!uctx->event_masks) {
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_NOT_ENABLED);
+			return;
+		}
+
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		num_events = g_queue_get_length(uctx->event_masks);
+
+		for (i=0;i<num_events;i++) {
+			current_event_mask = g_queue_peek_nth(uctx->event_masks, i);
+			cmd_answer_addtext(cmd, current_event_mask);
+		}
+
+		return;
+	}
+
+	arg_str = config_setting_get_string(arg);
+
+	/* Or maybe we want to add anew event mask? */
+	if (!g_strcmp0(arg_str, AGH_CMD_UBUS_LISTEN_ADD)) {
+
+		arg = cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
+
+		if (!arg)
+			current_event_mask = "*";
+		else
+			current_event_mask = config_setting_get_string(arg);
+		
+		if (agh_ubus_event_add(uctx, agh_ubus_handler_receive_event, current_event_mask)) {
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_FAILED);
+			return;
+		}
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_OK);
+		return;
+	}
+
+	/* Or disable events reporting. */
+	if (!g_strcmp0(arg_str, AGH_CMD_UBUS_LISTEN_STOP)) {
+		if (agh_ubus_event_disable(uctx)) {
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_FAILED);
+			return;
+		}
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_OK);
+		return;
+	}
+
+	cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+	cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_UNKNOWN_SUBCOMMAND);
+	return;
+}
+
+void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg) {
+	struct command *agh_event;
+	gchar *event_message;
+
+	agh_event = cmd_event_prepare();
+	event_message = NULL;
+
+	event_message = blobmsg_format_json(msg, true);
+
+	cmd_answer_set_data(agh_event, TRUE);
+	cmd_answer_set_status(agh_event, CMD_ANSWER_STATUS_OK);
+	cmd_answer_addtext(agh_event, AGH_UBUS_HANDLER_UBUS_EVENTs_NAME);
+	cmd_answer_peektext(agh_event, g_strdup_printf("\n{ \"%s\": %s }\n", type, event_message));
+	cmd_emit_event(agh_ubus_aghcomm, agh_event);
+	g_free(event_message);
 
 	return;
 }
