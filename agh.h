@@ -54,6 +54,9 @@ struct agh_thread {
 	/* core agh comm ptr */
 	struct agh_comm *agh_comm;
 
+	/* core ubus connection ptr */
+	struct agh_ubus_ctx *agh_uctx;
+
 	/* callbacks */
 	void (*agh_thread_init)(gpointer data);
 	gpointer (*agh_thread_main)(gpointer data);
