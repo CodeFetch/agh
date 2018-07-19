@@ -7,6 +7,14 @@
 #define AGH_UBUS_UNIX_SOCKET "/var/run/ubus.sock"
 #define AGH_UBUS_POLL_INTERVAL 800
 
+/* ubus calls failure reasons */
+#define AGH_UBUS_CALL_MISSING_PATH 1
+#define AGH_UBUS_CALL_MISSING_METHOD 2
+#define AGH_UBUS_CALL_BLOB_BUF_INIT_FAILURE 3
+#define AGH_UBUS_CALL_INVALID_JSON_MESSAGE 4
+#define AGH_UBUS_CALL_METHOD_NOT_FOUND 5
+/* end of ubus calls failure reasons */
+
 /* agh_ubus_handle_events states */
 #define AGH_UBUS_STATE_INIT 0
 #define AGH_UBUS_STATE_CONNECTED 1
@@ -32,6 +40,8 @@ void agh_ubus_teardown(struct agh_ubus_ctx *uctx);
 gboolean agh_ubus_handle_events(gpointer data);
 void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg);
 void agh_ubus_disconnect_cb(struct ubus_context *ctx);
+gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message);
+gchar *agh_ubus_get_call_result(void);
 
 /* ubus events */
 gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg), const gchar *mask);

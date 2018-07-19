@@ -16,12 +16,12 @@ struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
 
 	if (!comm) {
 		g_print("%s: NULL comm\n",__FUNCTION__);
-		return NULL;
+		return uctx;
 	}
 
 	if (!comm->ctx) {
 		g_print("%s: NULL gmctx\n",__FUNCTION__);
-		return NULL;
+		return uctx;
 	}
 
 	agh_ubus_connection_state = 0;
@@ -168,6 +168,7 @@ gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_contex
 	retval = ubus_register_event_handler(uctx->ctx, uctx->event_handler, mask);
 	if (retval) {
 		uctx->event_handler->cb = NULL;
+		return retval;
 	}
 
 	if (!uctx->event_masks)
@@ -190,13 +191,72 @@ gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx) {
 		return retval;
 
 	retval = ubus_unregister_event_handler(uctx->ctx, uctx->event_handler);
+	if (retval)
+		return retval;
 
 	g_queue_free_full(uctx->event_masks, g_free);
 	uctx->event_masks = NULL;
 	uctx->event_handler->cb = NULL;
 
-	if (retval)
-		g_print("%s: yes, it happens.\n",__FUNCTION__);
-
 	return retval;
+}
+
+gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message) {
+	struct blob_buf *bbuf;
+	guint32 id;
+
+	bbuf = NULL;
+	id = 0;
+
+	if (agh_ubus_call_data_str) {
+		g_free(agh_ubus_call_data_str);
+		agh_ubus_call_data_str = NULL;
+	}
+
+	if (!path)
+		return AGH_UBUS_CALL_MISSING_PATH;
+
+	if (!method)
+		return AGH_UBUS_CALL_MISSING_METHOD;
+
+	bbuf = g_malloc0(sizeof(struct blob_buf));
+
+	if (blob_buf_init(bbuf, 0)) {
+		g_free(bbuf);
+		return AGH_UBUS_CALL_BLOB_BUF_INIT_FAILURE;
+	}
+
+	if (message) {
+		if (!blobmsg_add_json_from_string(bbuf, message)) {
+			blob_buf_free(bbuf);
+			g_free(bbuf);
+			return AGH_UBUS_CALL_INVALID_JSON_MESSAGE;
+		}
+	}
+
+	if (ubus_lookup_id(uctx->ctx, path, &id)) {
+		blob_buf_free(bbuf);
+		g_free(bbuf);
+		return AGH_UBUS_CALL_METHOD_NOT_FOUND;
+	}
+
+	ubus_invoke(uctx->ctx, id, method, bbuf->head, agh_receive_call_result_data, NULL, 2 * 1000);
+
+	blob_buf_free(bbuf);
+	g_free(bbuf);
+	return 0;
+}
+
+gchar *agh_ubus_get_call_result(void) {
+	gchar *res;
+
+	res = NULL;
+
+	if (agh_ubus_call_data_str) {
+		res = g_strdup(agh_ubus_call_data_str);
+		g_free(agh_ubus_call_data_str);
+		agh_ubus_call_data_str = NULL;
+	}
+
+	return res;
 }
