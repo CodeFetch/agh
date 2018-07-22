@@ -29,6 +29,7 @@ struct agh_ubus_ctx {
 	struct ubus_context *ctx;
 	struct ubus_event_handler *event_handler;
 	GQueue *event_masks;
+	struct agh_ubus_logstream_ctx *logstream_ctx;
 };
 
 extern gchar *agh_ubus_call_data_str;

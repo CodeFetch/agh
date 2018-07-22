@@ -5,6 +5,7 @@
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 #include "agh_ubus_helpers.h"
+#include "agh_ubus_logstream.h"
 
 gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
@@ -60,6 +61,8 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 		agh_ubus_cmd_handler_cb = agh_ubus_handler_call;
 	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LISTEN))
 		agh_ubus_cmd_handler_cb = agh_ubus_handler_listen;
+	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LOGSTREAM))
+		agh_ubus_cmd_handler_cb = agh_ubus_handler_logstream;
 
 	if (!agh_ubus_cmd_handler_cb) {
 		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
@@ -91,42 +94,6 @@ void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct command *cmd) {
 	ubus_lookup(uctx->ctx, path, agh_ubus_handler_list_receive_results, cmd);
 
 	cmd_answer_if_empty(cmd, CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
-
-	return;
-}
-
-/* The name and much of the code in this function has been inspired by ubus cli.c, function "receive_list_result". This is GPL. */
-void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus_object_data *obj, gpointer data) {
-	struct command *cmd = data;
-
-	guint rem;
-	struct blob_attr *cur;
-	gchar *tmp;
-
-	cur = NULL;
-	tmp = NULL;
-	rem = 0;
-
-	cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
-	cmd_answer_peektext(cmd, g_strdup_printf("\n\"OBJECT=%s, ID=@%08x\"\n", obj->path, obj->id));
-
-	if (!obj->signature) {
-		g_print("%s: no signature fo %s\n",__FUNCTION__,obj->path);
-		return;
-	}
-
-	blob_for_each_attr(cur, obj->signature, rem) {
-		tmp = blobmsg_format_json_with_cb(cur, false, agh_ubus_helper_format_type, NULL, -1);
-
-		if (tmp) {
-			cmd_answer_peektext(cmd, g_strdup_printf("%s\n", tmp));
-			g_free(tmp);
-			tmp = NULL;
-		}
-
-	}
-
-	cmd_answer_set_data(cmd, TRUE);
 
 	return;
 }
@@ -281,10 +248,67 @@ void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_
 
 	cmd_answer_set_data(agh_event, TRUE);
 	cmd_answer_set_status(agh_event, CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(agh_event, AGH_UBUS_HANDLER_UBUS_EVENTs_NAME);
+	cmd_answer_addtext(agh_event, "\""AGH_UBUS_HANDLER_UBUS_EVENTs_NAME"\"");
 	cmd_answer_peektext(agh_event, g_strdup_printf("\n{ \"%s\": %s }\n", type, event_message));
 	cmd_emit_event(agh_ubus_aghcomm, agh_event);
 	g_free(event_message);
+
+	return;
+}
+
+void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct command *cmd) {
+	config_setting_t *arg;
+	const gchar *argstr;
+	gint logstream_ret;
+
+	arg = NULL;
+	logstream_ret = -1;
+	argstr = NULL;
+
+	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+
+	if (!arg) {
+		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_MISSING_SUBCOMMAND);
+		return;
+	}
+
+	argstr = config_setting_get_string(arg);
+
+	/* Enable logstream. */
+	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LOGSTREAM_ACTIVATE)) {
+		logstream_ret = agh_ubus_logstream_init(uctx);
+	}
+
+	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LOGSTREAM_DEACTIVATE)) {
+		logstream_ret = agh_ubus_logstream_deinit(uctx);
+	}
+
+	switch(logstream_ret) {
+		case 0:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_OK);
+			break;
+		case 1:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
+			break;
+		case 2:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_ACTIVE);
+			break;
+		case 4:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
+			break;
+		case 5:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_DEACTIVATED);
+			break;
+		default:
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INVALID_SUBCOMMAND);
+	}
 
 	return;
 }

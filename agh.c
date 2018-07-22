@@ -184,7 +184,6 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	ct->agh_maincontext = mstate->ctx;
 	ct->agh_mainloop = mstate->agh_mainloop;
 	ct->agh_comm = mstate->comm;
-	ct->agh_uctx = mstate->uctx;
 	ct->handlers = NULL;
 
 	/* We would like to be informed about this situation: and if someone finds this useful we are going to remove this message
@@ -213,7 +212,6 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	ct->agh_mainloop = NULL;
 	ct->comm = NULL;
 	ct->agh_comm = NULL;
-	ct->agh_uctx = NULL;
 
 	if (ct->evl) {
 		g_main_loop_unref(ct->evl);

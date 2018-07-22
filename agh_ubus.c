@@ -2,6 +2,7 @@
 #include <libubox/blobmsg_json.h>
 #include "agh_ubus.h"
 #include "messages.h"
+#include "agh_ubus_logstream.h"
 
 gchar *agh_ubus_call_data_str;
 gint agh_ubus_connection_state;
@@ -24,7 +25,7 @@ struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
 		return uctx;
 	}
 
-	agh_ubus_connection_state = 0;
+	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
 
 	uctx = g_malloc0(sizeof(struct agh_ubus_ctx));
 
@@ -64,14 +65,19 @@ void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
 	}
 	uctx->agh_ubus_timeoutsrc_tag = 0;
 
-	if (uctx->event_masks)
+	if (uctx->event_masks) {
 		g_queue_free_full(uctx->event_masks, g_free);
+		uctx->event_masks = NULL;
+	}
 
 	if (uctx->event_handler) {
 		g_free(uctx->event_handler);
 		uctx->event_handler = NULL;
 	}
-	agh_ubus_connection_state = 0;
+	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
+
+	if (uctx->logstream_ctx)
+		agh_ubus_logstream_deinit(uctx);
 
 	g_free(uctx);
 
@@ -97,6 +103,10 @@ gboolean agh_ubus_handle_events(gpointer data) {
 			ubus_handle_event(uctx->ctx);
 			break;
 		case AGH_UBUS_STATE_RECONNECTING:
+			if (uctx->logstream_ctx)
+				if (uctx->logstream_ctx->logstream_state != 2)
+					uctx->logstream_ctx->logstream_state = 3;
+
 			if (!ubus_reconnect(uctx->ctx, AGH_UBUS_UNIX_SOCKET)) {
 				g_print("%s: ubus connection re-established with local ID %08x\n",__FUNCTION__,uctx->ctx->local_id);
 				agh_ubus_connection_state--;
