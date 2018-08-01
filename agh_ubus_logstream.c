@@ -177,7 +177,11 @@ void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainC
 	//lctx->logstream_channel_tag = g_io_add_watch(lctx->logstream_channel, G_IO_IN, agh_ubus_logstream_channel_io, lctx);
 
 	lctx->logwatcher = g_io_create_watch(lctx->logstream_channel, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP);
-	g_source_set_callback(lctx->logwatcher, (GSourceFunc)agh_ubus_logstream_channel_io, lctx, NULL);
+	/*
+	 * When GLib 2.58 will be out, you will be able to suppress the warning happening here as follows:
+	 * g_source_set_callback(lctx->logwatcher, G_SOURCE_FUNC(agh_ubus_logstream_channel_io), lctx, NULL);
+	*/
+	g_source_set_callback(lctx->logwatcher, ((GSourceFunc) (void (*)(void)) (agh_ubus_logstream_channel_io)), lctx, NULL);
 	lctx->logwatcher_id = g_source_attach(lctx->logwatcher, gmctx);
 	g_source_unref(lctx->logwatcher);
 
