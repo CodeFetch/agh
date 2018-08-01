@@ -249,30 +249,25 @@ gboolean xmpp_idle(gpointer data) {
 	case 2:
 		if (!xstate->exit) {
 			xstate->xmpp_idle_state = 0;
-			break;
 		}
-		else {
-			g_main_loop_quit(ct->evl);
-			g_print("%s: asked to exit\n",ct->thread_name);
-			return FALSE;
-		}
+		break;
 	default:
 		g_print("%s: unknown state %" G_GUINT16_FORMAT"\n",__FUNCTION__, xstate->xmpp_idle_state);
 		xstate->xmpp_idle_state = 0;
 	}
 
 	if (xstate->exit) {
-		/*
-		 * Since libstrophe will check the conneciton status for us, we don't bother doing so.
-		 * Also, we may call xmpp_disconnect more than once.
-		*/
+		i = xstate->xmpp_idle_state;
 		xmpp_disconnect(xstate->xmpp_conn);
 
-		for (i=0;i<AGH_XMPP_EARLY_DISCONNECT_TIME;i++) {
+		do {
 			xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
-		}
+		} while (i == xstate->xmpp_idle_state);
 
 		xstate->xmpp_idle_state = 2;
+		g_main_loop_quit(ct->evl);
+		g_print("%s: asked to exit\n",ct->thread_name);
+		return FALSE;
 
 	}
 
