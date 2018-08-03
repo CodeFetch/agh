@@ -19,12 +19,17 @@ gint main(void) {
 	/* This will need to be done in a better way; handlers are registered from within the function called here. */
 	agh_core_handlers_setup_ext(mstate);
 
+	/*
+	 * We init XMPP here to give a chance to XMPP code to set up its handlers.
+	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to be active.
+	*/
+	agh_xmpp_init(mstate);
+
 	agh_sources_setup(mstate);
 
 	agh_threads_setup(mstate);
 
-	/* This will need to be done in a better way, too; threads are registered within the function called here. */
-	agh_thread_setup_ext(mstate);
+	/* Here you can set up threads. */
 
 	/* ubus connection */
 	mstate->uctx = agh_ubus_setup(mstate->comm);
@@ -53,6 +58,8 @@ gint main(void) {
 		agh_ubus_teardown(mstate->uctx);
 	}
 
+	agh_xmpp_deinit(mstate);
+
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
 	handlers_teardown(mstate->agh_handlers);
@@ -68,7 +75,7 @@ struct agh_state * agh_state_setup(void) {
 	mstate = g_malloc0(sizeof *mstate);
 
 	/* Set up the main event loop */
-	mstate->ctx = g_main_context_new();
+	mstate->ctx = g_main_context_default();
 	mstate->agh_mainloop = g_main_loop_new(mstate->ctx, FALSE);
 
 	return mstate;
@@ -256,8 +263,8 @@ void agh_threads_stop_single(gpointer data, gpointer user_data) {
 gboolean agh_unix_signals_cb(gpointer data) {
 	struct agh_state *mstate = data;
 
-	g_main_loop_quit(mstate->agh_mainloop);
 	mstate->sigint_received = TRUE;
+	agh_start_exit(mstate);
 
 	return FALSE;
 }
@@ -388,7 +395,7 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 		return NULL;
 
 	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
-		g_main_loop_quit(mstate->agh_mainloop);
+		agh_start_exit(mstate);
 	}
 
 	return NULL;
@@ -513,31 +520,6 @@ void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(g
 
 void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) {
 	ct->agh_thread_deinit = agh_thread_deinit_cb;
-	return;
-}
-
-/*
- * This function exists solely because I don't know a better way to do this.
-*/
-void agh_thread_setup_ext(struct agh_state *mstate) {
-	struct agh_thread *xmpp_thread;
-	struct agh_thread *modem_thread;
-
-	xmpp_thread = NULL;
-	modem_thread = NULL;
-
-	/* XMPP */
-	xmpp_thread = agh_thread_new("XMPP");
-	agh_thread_set_main(xmpp_thread, xmpp_thread_start);
-	agh_thread_set_deinit(xmpp_thread, xmpp_thread_deinit);
-
-	/* Modem */
-	modem_thread = agh_thread_new("Modem");
-	agh_thread_set_main(modem_thread, modem_thread_start);
-	agh_thread_set_deinit(modem_thread, modem_thread_deinit);
-
-	agh_thread_register(mstate, xmpp_thread);
-	agh_thread_register(mstate, modem_thread);
 	return;
 }
 
@@ -668,4 +650,32 @@ void agh_exit(struct agh_state *mstate) {
 	agh_comm_disable(mstate->comm, TRUE);
 	agh_broadcast_exit(mstate);
 	return;
+}
+
+void agh_start_exit(struct agh_state *mstate) {
+	mstate->exiting = 1;
+
+	/* Install exit process idle source. */
+	if (mstate->exitsrc)
+		return;
+
+	mstate->exitsrc = g_idle_source_new();
+	g_source_set_callback(mstate->exitsrc, exitsrc_idle_cb, mstate, NULL);
+	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
+	g_source_unref(mstate->exitsrc);
+
+	return;
+}
+
+gboolean exitsrc_idle_cb(gpointer data) {
+	struct agh_state *mstate = data;
+
+	if (mstate->mainloop_needed)
+		return TRUE;
+	else {
+		mstate->exitsrc = NULL;
+		g_main_loop_quit(mstate->agh_mainloop);
+	}
+
+	return FALSE;
 }

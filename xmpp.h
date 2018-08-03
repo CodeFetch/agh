@@ -21,11 +21,10 @@ struct xmpp_state {
 	GQueue *outxmpp_messages;
 	guint64 msg_id;
 	guint xmpp_idle_state;
-	gboolean exit;
 };
 
-gpointer xmpp_thread_start(gpointer data);
-void xmpp_thread_deinit(gpointer data);
+gpointer agh_xmpp_init(gpointer data);
+void agh_xmpp_deinit(gpointer data);
 gboolean xmpp_idle(gpointer data);
 
 /* libstrophe XMPP handlers */
@@ -36,6 +35,6 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 void agh_xmpp_send_out_messages(gpointer data);
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 
-void xmpp_set_handlers_ext(struct agh_thread *ct);
+void xmpp_set_handlers_ext(struct agh_state *mstate);
 
 #endif

@@ -5,31 +5,19 @@
 #include "xmpp_handlers.h"
 #include "messages.h"
 
-gpointer xmpp_thread_start(gpointer data) {
-	struct agh_thread *ct = data;
-	struct xmpp_state *xstate = ct->thread_data;
+gpointer agh_xmpp_init(gpointer data) {
+	struct agh_state *mstate = data;
+	struct xmpp_state *xstate;
 
 	/* Should a memory allocation failure occur, GLib will terminate the application. */
-	ct->thread_data = g_malloc0(sizeof(struct xmpp_state));
-	xstate = ct->thread_data;
+	mstate->xstate = g_malloc0(sizeof(struct xmpp_state));
+	mstate->mainloop_needed++;
 
-	ct->handlers = handlers_setup();
+	xstate = mstate->xstate;
 
-	/* Handlers are registered from inside the function called here. */
-	xmpp_set_handlers_ext(ct);
-
-	/* We can perform messaging setup here, since no sources are called for now; but clearly, things like the outgoing XMPP messages queue (outxmpp_messages) should be initialized and thus ready to use by that time. */
-	agh_thread_eventloop_setup(ct, FALSE);
-	handlers_init(ct->handlers, ct);
-
-	xstate->xmpp_evs = g_idle_source_new();
-	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, ct, NULL);
-	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, ct->evl_ctx);
-	g_source_unref(xstate->xmpp_evs);
+	xmpp_set_handlers_ext(mstate);
 
 	xstate->outxmpp_messages = g_queue_new();
-
-	ct->comm = agh_comm_setup(ct->handlers, ct->evl_ctx, ct->thread_name);
 
 	g_print("XMPP library init\n");
 	xmpp_initialize();
@@ -47,11 +35,20 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
 	xmpp_conn_set_keepalive(xstate->xmpp_conn, AGH_XMPP_TCP_KEEPALIVE_TIMEOUT, AGH_XMPP_TCP_KEEPALIVE_INTERVAL);
 
-	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, ct);
-	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, ct);
-	g_print("%s: entering main loop\n",ct->thread_name);
+	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, mstate);
+	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, mstate);
 
-	g_main_loop_run(ct->evl);
+	xstate->xmpp_evs = g_idle_source_new();
+	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, mstate, NULL);
+	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, mstate->ctx);
+	g_source_unref(xstate->xmpp_evs);
+
+	return data;
+}
+
+void agh_xmpp_deinit(gpointer data) {
+	struct agh_state *mstate = data;
+	struct xmpp_state *xstate = mstate->xstate;
 
 	g_print("XMPP deinit.\n");
 
@@ -59,31 +56,13 @@ gpointer xmpp_thread_start(gpointer data) {
 	xmpp_ctx_free(xstate->xmpp_ctx);
 	xmpp_shutdown();
 
-	/*
-	 * Valgrind reported this should not be done. I guess it's because when we return FALSE from the handler, since we already dropped our reference to the source, it is actually deallocated.
-	 * That said, when we reach here, the main loop is stopped, but not unreferenced yet. So something isn't clear yet.
-	 * Code was:
-	 * g_source_destroy(xstate->xmpp_evs);
-	*/
 	xstate->xmpp_evs_tag = 0;
-
-	agh_comm_teardown(ct->comm);
-	agh_thread_eventloop_teardown(ct);
-
-	return data;
-}
-
-void xmpp_thread_deinit(gpointer data) {
-	struct agh_thread *ct = data;
-	struct xmpp_state *xstate = ct->thread_data;
-
-	handlers_finalize(ct->handlers);
-	handlers_teardown(ct->handlers);
-	ct->handlers = NULL;
 
 	g_queue_free_full(xstate->outxmpp_messages, g_free);
 	xstate->outxmpp_messages = NULL;
-	g_free(ct->thread_data);
+
+	g_free(xstate);
+
 	xstate = NULL;
 	return;
 }
@@ -92,10 +71,10 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 	struct xmpp_state *xstate;
 	xmpp_stanza_t *pres;
 	xmpp_ctx_t *ctx;
-	struct agh_thread *ct;
+	struct agh_state *mstate;
 
-	ct = userdata;
-	xstate = ct->thread_data;
+	mstate = userdata;
+	xstate = mstate->xstate;
 
 	ctx = xstate->xmpp_ctx;
 	pres = NULL;
@@ -106,18 +85,16 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 		xmpp_send(xstate->xmpp_conn, pres);
 		xmpp_stanza_release(pres);
 		pres = NULL;
-		g_print("%s (%s): connected\n",ct->thread_name,__FUNCTION__);
 		break;
 	case XMPP_CONN_DISCONNECT:
-		g_print("%s (%s): disconnected\n",ct->thread_name,__FUNCTION__);
 		xstate->xmpp_idle_state++;
 		break;
 	case XMPP_CONN_FAIL:
-		g_print("%s (%s): connection failed\n",ct->thread_name,__FUNCTION__);
+		g_print("%s: connection failed\n",__FUNCTION__);
 		xstate->xmpp_idle_state++;
 		break;
 	default:
-		g_print("%s (%s): unknown status\n",ct->thread_name,__FUNCTION__);
+		g_print("%s: unknown status\n",__FUNCTION__);
 	}
 
 	return;
@@ -126,12 +103,12 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	xmpp_stanza_t *reply, *query, *name, *version, *text;
 	const char *ns;
-	struct agh_thread *ct;
+	struct agh_state *mstate;
 	struct xmpp_state *xstate;
 	xmpp_ctx_t *ctx;
 
-	ct = userdata;
-	xstate = ct->thread_data;
+	mstate = userdata;
+	xstate = mstate->xstate;
 	ctx = xstate->xmpp_ctx;
 
 	g_print("Received version request from %s\n", xmpp_stanza_get_from(stanza));
@@ -152,7 +129,7 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xmpp_stanza_release(name);
 
 	text = xmpp_stanza_new(ctx);
-	xmpp_stanza_set_text(text, "AGH");
+	xmpp_stanza_set_text(text, "AGH ("AGH_RELEASE_NAME")");
 	xmpp_stanza_add_child(name, text);
 	xmpp_stanza_release(text);
 
@@ -162,7 +139,7 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xmpp_stanza_release(version);
 
 	text = xmpp_stanza_new(ctx);
-	xmpp_stanza_set_text(text, "0.01");
+	xmpp_stanza_set_text(text, AGH_VERSION);
 	xmpp_stanza_add_child(version, text);
 	xmpp_stanza_release(text);
 
@@ -181,7 +158,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	const gchar *type;
 	gchar *intext;
 	struct agh_message *m;
-	struct agh_thread *ct;
+	struct agh_state *mstate;
 	struct text_csp *tcsp;
 
 	m = NULL;
@@ -190,8 +167,8 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	body = NULL;
 	tcsp = NULL;
 
-	ct = userdata;
-	xstate = ct->thread_data;
+	mstate = userdata;
+	xstate = mstate->xstate;
 	ctx = xstate->xmpp_ctx;
 
 	/* body should not be freed */
@@ -212,7 +189,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 	tcsp->text = intext;
 	m->msg_type = MSG_RECVTEXT;
-	if (msg_send(m, ct->comm, ct->agh_comm)) {
+	if (msg_send(m, mstate->comm, NULL)) {
 		g_print("%s: unable to send received XMPP message to core\n",__FUNCTION__);
 	}
 
@@ -226,8 +203,8 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 }
 
 gboolean xmpp_idle(gpointer data) {
-	struct agh_thread *ct = data;
-	struct xmpp_state *xstate = ct->thread_data;
+	struct agh_state *mstate = data;
+	struct xmpp_state *xstate = mstate->xstate;
 	gint xmpp_client_connect_status;
 	guint i;
 
@@ -235,28 +212,28 @@ gboolean xmpp_idle(gpointer data) {
 
 	switch(xstate->xmpp_idle_state) {
 	case 0:
-		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, ct);
+		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, NULL, 0, xmpp_connection_handler, mstate);
 		if (xmpp_client_connect_status)
 			break;
 
 		xstate->xmpp_idle_state++;
 		/* fall through */
 	case 1:
-		agh_xmpp_send_out_messages(xstate);
 		/* run strophe event loop, once */
 		xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
+		agh_xmpp_send_out_messages(xstate);
 		break;
 	case 2:
-		if (!xstate->exit) {
+		if (!mstate->exiting)
 			xstate->xmpp_idle_state = 0;
-		}
+
 		break;
 	default:
 		g_print("%s: unknown state %" G_GUINT16_FORMAT"\n",__FUNCTION__, xstate->xmpp_idle_state);
 		xstate->xmpp_idle_state = 0;
 	}
 
-	if (xstate->exit) {
+	if (mstate->exiting) {
 		i = xstate->xmpp_idle_state;
 		xmpp_disconnect(xstate->xmpp_conn);
 
@@ -265,8 +242,9 @@ gboolean xmpp_idle(gpointer data) {
 		} while (i == xstate->xmpp_idle_state);
 
 		xstate->xmpp_idle_state = 2;
-		g_main_loop_quit(ct->evl);
-		g_print("%s: asked to exit\n",ct->thread_name);
+		g_print("%s: asked to exit\n",__FUNCTION__);
+		mstate->mainloop_needed--;
+		xstate->xmpp_evs = NULL;
 		return FALSE;
 
 	}
@@ -326,16 +304,12 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 	return;
 }
 
-void xmpp_set_handlers_ext(struct agh_thread *ct) {
+void xmpp_set_handlers_ext(struct agh_state *mstate) {
 	struct handler *xmpp_sendmsg_handler;
 	struct handler *xmpp_cmd_handler;
-	struct handler *xmpp_event_handler;
-	struct handler *xmpp_exit_handler;
 
 	xmpp_sendmsg_handler = NULL;
 	xmpp_cmd_handler = NULL;
-	xmpp_event_handler = NULL;
-	xmpp_exit_handler = NULL;
 
 	xmpp_sendmsg_handler = handler_new("xmpp_sendmsg_handler");
 	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
@@ -345,18 +319,8 @@ void xmpp_set_handlers_ext(struct agh_thread *ct) {
 	handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
 	handler_enable(xmpp_cmd_handler, TRUE);
 
-	xmpp_event_handler = handler_new("xmpp_event_handler");
-	handler_set_handle(xmpp_event_handler,xmpp_event_handle);
-	handler_enable(xmpp_event_handler, FALSE);
-
-	xmpp_exit_handler = handler_new("xmpp_exit_handler");
-	handler_set_handle(xmpp_exit_handler, xmpp_exit_handle);
-	handler_enable(xmpp_exit_handler, TRUE);
-
-	handler_register(ct->handlers, xmpp_sendmsg_handler);
-	handler_register(ct->handlers, xmpp_cmd_handler);
-	handler_register(ct->handlers, xmpp_event_handler);
-	handler_register(ct->handlers, xmpp_exit_handler);
+	handler_register(mstate->agh_handlers, xmpp_sendmsg_handler);
+	handler_register(mstate->agh_handlers, xmpp_cmd_handler);
 
 	return;
 }

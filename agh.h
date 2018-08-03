@@ -6,6 +6,10 @@
 /* command used to "quit" AGH */
 #define AGH_CMD_QUIT "quit"
 
+#define AGH_RELEASE_NAME "Looking for the sea"
+
+#define AGH_VERSION "0.01"
+
 /* Data structures */
 struct agh_state {
 	GMainLoop *agh_mainloop;
@@ -18,6 +22,19 @@ struct agh_state {
 
 	/* ubus */
 	struct agh_ubus_ctx *uctx;
+
+	/* XMPP */
+	struct xmpp_state *xstate;
+
+	/* For parts of the program, like XMPP, who need the main loop to be running to properly deinitit. */
+	guint mainloop_needed;
+
+	/* Used to  signal we are going to exit. */
+	gint exiting;
+
+	/* Idle source for exiting. */
+	GSource *exitsrc;
+	guint exitsrc_tag;
 
 	/* our threads and handlers */
 	GQueue *agh_threads;
@@ -93,21 +110,21 @@ void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(g
 void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data));
 
 gboolean agh_unix_signals_cb(gpointer data);
+gboolean exitsrc_idle_cb(gpointer data);
 
 /* Core command handler */
-
 gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
 gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
 
-void agh_thread_setup_ext(struct agh_state *mstate);
 void agh_core_handlers_setup_ext(struct agh_state *mstate);
 void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context);
 void agh_thread_eventloop_teardown(struct agh_thread *ct);
 gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage);
 void agh_broadcast_exit(struct agh_state *mstate);
 void agh_exit(struct agh_state *mstate);
+void agh_start_exit(struct agh_state *mstate);
 
 struct text_csp {
 	gchar *text;

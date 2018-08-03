@@ -16,9 +16,12 @@
 /* AGH_CMD_UBUS_LISTEN subcommands */
 #define AGH_CMD_UBUS_LISTEN_ADD "add"
 #define AGH_CMD_UBUS_LISTEN_STOP "reset"
+/* end of AGH_CMD_UBUS_LISTEN subcommands */
+
+/* AGH_CMD_UBUS_LOGSTREAM subcommands. */
 #define AGH_CMD_UBUS_LOGSTREAM_ACTIVATE "+"
 #define AGH_CMD_UBUS_LOGSTREAM_DEACTIVATE "-"
-/* end of AGH_CMD_UBUS_LISTEN subcommands */
+/* End of AGH_CMD_UBUS_LOGSTREAM subcommands. */
 
 /* Errors. */
 #define AGH_UBUS_HANDLER_INVALID_SUBCOMMAND "INVALID_SUBCOMMAND"
