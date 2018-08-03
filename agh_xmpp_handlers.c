@@ -1,8 +1,8 @@
-#include "handlers.h"
-#include "xmpp.h"
-#include "xmpp_handlers.h"
-#include "messages.h"
-#include "commands.h"
+#include "agh_handlers.h"
+#include "agh_xmpp.h"
+#include "agh_xmpp_handlers.h"
+#include "agh_messages.h"
+#include "agh_commands.h"
 
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;

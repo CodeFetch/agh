@@ -1,7 +1,7 @@
 #include <libubox/blobmsg_json.h>
-#include "handlers.h"
-#include "messages.h"
-#include "commands.h"
+#include "agh_handlers.h"
+#include "agh_messages.h"
+#include "agh_commands.h"
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 #include "agh_ubus_helpers.h"

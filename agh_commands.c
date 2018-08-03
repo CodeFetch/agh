@@ -1,7 +1,7 @@
 #include <string.h>
 #include <libconfig.h>
-#include "commands.h"
-#include "messages.h"
+#include "agh_commands.h"
+#include "agh_messages.h"
 
 struct command *text_to_cmd(gchar *content) {
 	struct command *ocmd;

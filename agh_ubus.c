@@ -1,7 +1,7 @@
 #include <glib-unix.h>
 #include <libubox/blobmsg_json.h>
 #include "agh_ubus.h"
-#include "messages.h"
+#include "agh_messages.h"
 #include "agh_ubus_logstream.h"
 
 gchar *agh_ubus_call_data_str;

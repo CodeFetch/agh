@@ -1,8 +1,8 @@
-#ifndef __commands_h__
+#ifndef __agh_commands_h__
 #include <glib.h>
-#define __commands_h__
+#define __agh_commands_h__
 #include <libconfig.h>
-#include "messages.h"
+#include "agh_messages.h"
 
 /* How many characters are acceptable as part of an operation name.*/
 #define CMD_MAX_OP_NAME_LEN 10

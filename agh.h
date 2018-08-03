@@ -1,7 +1,7 @@
 #ifndef __agh_h__
 #define __agh_h__
 #include <glib.h>
-#include "handlers.h"
+#include "agh_handlers.h"
 
 /* command used to "quit" AGH */
 #define AGH_CMD_QUIT "quit"
@@ -25,6 +25,9 @@ struct agh_state {
 
 	/* XMPP */
 	struct xmpp_state *xstate;
+
+	/* Modem */
+	struct agh_mm_state *mmstate;
 
 	/* For parts of the program, like XMPP, who need the main loop to be running to properly deinitit. */
 	guint mainloop_needed;

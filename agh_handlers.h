@@ -1,5 +1,5 @@
-#ifndef __callbacks_h__
-#define __callbacks_h__
+#ifndef __agh_handlers_h__
+#define __agh_handlers_h__
 
 #include <glib.h>
 

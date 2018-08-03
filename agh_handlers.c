@@ -1,7 +1,7 @@
 /* handlers */
-#include "handlers.h"
+#include "agh_handlers.h"
 #include <glib.h>
-#include "messages.h"
+#include "agh_messages.h"
 
 GQueue *handlers_setup(void) {
 	GQueue *hq;

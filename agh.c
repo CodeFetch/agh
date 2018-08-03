@@ -1,9 +1,9 @@
 #include <glib.h>
 #include <glib-unix.h>
-#include "commands.h"
-#include "handlers.h"
-#include "xmpp.h"
-#include "modem.h"
+#include "agh_commands.h"
+#include "agh_handlers.h"
+#include "agh_xmpp.h"
+#include "agh_modem.h"
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
@@ -24,6 +24,7 @@ gint main(void) {
 	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to be active.
 	*/
 	agh_xmpp_init(mstate);
+	//agh_modem_init(mstate);
 
 	agh_sources_setup(mstate);
 
@@ -59,6 +60,7 @@ gint main(void) {
 	}
 
 	agh_xmpp_deinit(mstate);
+	//agh_mm_deinit(mstate);
 
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);

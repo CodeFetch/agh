@@ -1,5 +1,5 @@
-#ifndef __messages_h__
-#define __messages_h__
+#ifndef __agh_messages_h__
+#define __agh_messages_h__
 #include <glib.h>
 #include "agh.h"
 

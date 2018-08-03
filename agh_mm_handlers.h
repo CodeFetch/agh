@@ -1,5 +1,6 @@
-#ifndef __modem_handlers_h__
-#define __modem_handlers_h__
+#ifndef __agh_mm_handlers_h__
+#define __agh_mm_handlers_h__
+#include "agh_commands.h"
 
 /* String error responses. */
 #define AGH_MM_MSG_DATA_NOT_AVAILABLE "NOT_AVAILABLE"
@@ -55,12 +56,12 @@
 #define AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT "is_recent"
 /* End of flags. */
 
-gpointer modem_cmd_handle(gpointer data, gpointer hmessage);
+gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 
-void agh_mm_list_modems(struct modem_state *mmstate, struct command *cmd);
+void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd);
 void agh_mm_list_modem_single(gpointer data, gpointer user_data);
 gchar *agh_mm_modem_to_index(const gchar *modem_path);
-MMObject *agh_mm_index_to_modem(struct modem_state *mmstate, gint modem_index);
+MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index);
 void agh_modem_do(MMObject *modem, struct command *cmd);
 
 /* MMModem3gpp */
@@ -96,6 +97,6 @@ void agh_modem_get_current_bands(MMObject *modem, struct command *cmd);
 void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd);
 void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd);
 void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd);
-void agh_mm_list_disabled_modems(struct modem_state *mmstate, struct command *cmd);
+void agh_mm_list_disabled_modems(struct agh_mm_state *mmstate, struct command *cmd);
 
 #endif

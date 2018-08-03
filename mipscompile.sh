@@ -17,14 +17,14 @@ export PKG_CONFIG_SYSROOT_DIR
 
 mipsel-openwrt-linux-gcc -Wall -Wextra -ggdb -Wno-unused-variable -Wno-unused-parameter \
 agh.c \
-handlers.c \
-xmpp.c \
-messages.c \
-commands.c \
-xmpp_handlers.c \
-modem.c \
-modem_handlers.c \
-modem_mm_helpers.c \
+agh_handlers.c \
+agh_xmpp.c \
+agh_messages.c \
+agh_commands.c \
+agh_xmpp_handlers.c \
+agh_modem.c \
+agh_mm_handlers.c \
+agh_mm_helpers.c \
 agh_ubus.c \
 agh_ubus_handler.c \
 agh_ubus_helpers.c \
@@ -32,7 +32,7 @@ agh_ubus_logstream.c \
 `pkg-config --cflags --libs glib-2.0 libconfig gio-2.0 mm-glib` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
 -Wl,-L/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -Wl,-rpath-link=/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
--lstrophe -lubus -lblobmsg_json -lubox -DG_DISABLE_DEPRECATED \
+-lstrophe -lubus -lblobmsg_json -lubox -luci -DG_DISABLE_DEPRECATED \
 -o agh || exit 1
 
 #pkg-config --cflags --libs glib-2.0

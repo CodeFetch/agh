@@ -9,8 +9,8 @@
 
 #include <libmm-glib.h>
 #include "agh.h"
-#include "modem.h"
-#include "modem_mm_helpers.h"
+#include "agh_modem.h"
+#include "agh_mm_helpers.h"
 
 gchar *agh_mm_common_build_capabilities_string(const MMModemCapability *capabilities, guint n_capabilities) {
 	GString *str;
@@ -26,7 +26,7 @@ gchar *agh_mm_common_build_capabilities_string(const MMModemCapability *capabili
 	str = g_string_new(NULL);
 
 	for (i = 0; i < n_capabilities; i++) {
-		tmp = VALIDATE_UNKNOWN(mm_modem_capability_build_string_from_mask(capabilities[i]));
+		tmp = AGH_MM_VALIDATE_UNKNOWN(mm_modem_capability_build_string_from_mask(capabilities[i]));
 		g_string_append_printf(str, "%s%s", i ? " " : "", tmp);
 		g_free(tmp);
 		tmp = NULL;
@@ -49,7 +49,7 @@ gchar *agh_mm_common_build_ports_string(const MMModemPortInfo *ports, guint n_po
 	str = g_string_new(NULL);
 
 	for (i = 0; i < n_ports; i++) {
-		tmp = VALIDATE_UNKNOWN(mm_modem_port_type_get_string(ports[i].type));
+		tmp = AGH_MM_VALIDATE_UNKNOWN(mm_modem_port_type_get_string(ports[i].type));
 		g_string_append_printf(str, "%s%s (%s)", i ? " " : "", ports[i].name, tmp);
 		tmp = NULL;
 	}

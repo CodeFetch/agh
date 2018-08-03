@@ -1,9 +1,9 @@
 #include <glib.h>
 #include "agh.h"
-#include "xmpp.h"
-#include "handlers.h"
-#include "xmpp_handlers.h"
-#include "messages.h"
+#include "agh_xmpp.h"
+#include "agh_handlers.h"
+#include "agh_xmpp_handlers.h"
+#include "agh_messages.h"
 
 gpointer agh_xmpp_init(gpointer data) {
 	struct agh_state *mstate = data;

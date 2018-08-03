@@ -1,9 +1,9 @@
-#ifndef __xmpp_h__
-#define __xmpp_h__
+#ifndef __agh_xmpp_h__
+#define __agh_xmpp_h__
 #include <strophe.h>
 #include "agh.h"
 
-#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 2
+#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 30
 
 #define AGH_XMPP_RUN_ONCE_INTERVAL 200
 

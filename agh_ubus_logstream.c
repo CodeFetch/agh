@@ -1,6 +1,6 @@
 #include "agh_ubus_logstream.h"
 #include "agh_ubus_helpers.h"
-#include "commands.h"
+#include "agh_commands.h"
 
 gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	struct agh_ubus_logstream_ctx *lctx;

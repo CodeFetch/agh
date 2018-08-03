@@ -1,7 +1,7 @@
 #include <glib.h>
-#include "messages.h"
+#include "agh_messages.h"
 #include "agh.h"
-#include "commands.h"
+#include "agh_commands.h"
 
 /* Convenience function to allocate a message. Simply calls g_malloc0. */
 struct agh_message *msg_alloc(void) {

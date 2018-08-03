@@ -13,7 +13,7 @@
 #include <libubox/blobmsg_json.h>
 #include "agh_ubus_helpers.h"
 #include "agh_ubus.h"
-#include "commands.h"
+#include "agh_commands.h"
 
 
 
