@@ -33,5 +33,6 @@ gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e);
 void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data);
 void agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres);
 xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate);
+gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data);
 
 #endif
