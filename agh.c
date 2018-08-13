@@ -533,6 +533,7 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *core_event_to_text_handler;
 	struct handler *core_event_broadcast_handler;
 	struct handler *core_ubus_cmd_handler;
+	struct handler *xmppmsg_to_text;
 
 	core_recvtextcommand_handler = NULL;
 	core_cmd_handler = NULL;
@@ -540,6 +541,7 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	core_event_to_text_handler = NULL;
 	core_event_broadcast_handler = NULL;
 	core_ubus_cmd_handler = NULL;
+	xmppmsg_to_text = NULL;
 
 	core_recvtextcommand_handler = handler_new("core_recvtextcommand_handler");
 	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
@@ -565,12 +567,17 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
 	handler_enable(core_ubus_cmd_handler, TRUE);
 
+	xmppmsg_to_text = handler_new("xmppmsg_to_text");
+	handler_set_handle(xmppmsg_to_text, xmppmsg_to_text_handle);
+	handler_enable(xmppmsg_to_text, TRUE);
+
 	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
 	handler_register(mstate->agh_handlers, core_sendtext_handler);
 	handler_register(mstate->agh_handlers, core_cmd_handler);
 	handler_register(mstate->agh_handlers, core_event_to_text_handler);
 	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
 	handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
+	handler_register(mstate->agh_handlers, xmppmsg_to_text);
 
 	return;
 }
@@ -680,4 +687,49 @@ gboolean exitsrc_idle_cb(gpointer data) {
 	}
 
 	return FALSE;
+}
+
+void agh_copy_textparts(gpointer data, gpointer user_data) {
+	GQueue *destqueue = user_data;
+
+	/*
+	 * The function calling us should check if the destination queue actually has been allocated. Anyway, it seems g_queue_new
+	 * can not fail.
+	*/
+	g_queue_push_tail(destqueue, g_strdup(data));
+	return;
+}
+
+gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
+	struct agh_message *m = hmessage;
+	struct handler *h = data;
+	struct agh_state *mstate = h->handler_data;
+
+	struct text_csp *tcsp;
+	struct xmpp_csp *xcsp;
+	struct agh_message *tm;
+
+	tcsp = NULL;
+	xcsp = NULL;
+	tm = NULL;
+
+	if (m->msg_type != MSG_XMPPTEXT)
+		return NULL;
+
+	xcsp = m->csp;
+
+	if (!xcsp->text)
+		return NULL;
+
+	tm = msg_alloc();
+	tcsp = g_malloc0(sizeof(struct text_csp));
+	tcsp->text = g_strdup(xcsp->text);
+	tm->csp = tcsp;
+	tm->msg_type = MSG_RECVTEXT;
+
+	if (msg_send(tm, mstate->comm, NULL)) {
+		g_print("%s: unable to send message\n",__FUNCTION__);
+	}
+
+	return NULL;
 }

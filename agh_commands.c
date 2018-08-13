@@ -325,7 +325,7 @@ struct command *cmd_copy(struct command *cmd) {
 
 		cmd_answer->restextparts = g_queue_new();
 
-		g_queue_foreach(cmd->answer->restextparts, cmd_copy_textpart_single, cmd_answer->restextparts);
+		g_queue_foreach(cmd->answer->restextparts, agh_copy_textparts, cmd_answer->restextparts);
 
 		cmd_answer->is_data = cmd->answer->is_data;
 		ocmd->answer = cmd_answer;
@@ -424,17 +424,6 @@ wayout:
 	g_free(ncfg);
 	ncfg = NULL;
 	return ncfg;
-}
-
-void cmd_copy_textpart_single(gpointer data, gpointer user_data) {
-	GQueue *destqueue = user_data;
-
-	/*
-	 * The function calling us should check if the destination queue actually has been allocated. Anyway, it seems g_queue_new
-	 * can not fail.
-	*/
-	g_queue_push_tail(destqueue, g_strdup(data));
-	return;
 }
 
 struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {

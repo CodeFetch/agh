@@ -2,6 +2,7 @@
 #include "agh_messages.h"
 #include "agh.h"
 #include "agh_commands.h"
+#include "agh_xmpp.h"
 
 /* Convenience function to allocate a message. Simply calls g_malloc0. */
 struct agh_message *msg_alloc(void) {
@@ -15,9 +16,11 @@ struct agh_message *msg_alloc(void) {
 void msg_dealloc(struct agh_message *m) {
 	struct text_csp *csptext;
 	struct command *cmd;
+	struct xmpp_csp *xmppdata;
 
 	csptext = NULL;
 	cmd = NULL;
+	xmppdata = NULL;
 
 	if (!m)
 		return;
@@ -41,6 +44,31 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_EVENT:
 			cmd = m->csp;
 			cmd_free(cmd);
+			break;
+		case MSG_XMPPTEXT:
+			xmppdata = m->csp;
+			if (xmppdata->from) {
+				g_free(xmppdata->from);
+				xmppdata->from = NULL;
+			}
+
+			if (xmppdata->to) {
+				g_free(xmppdata->to);
+				xmppdata->to = NULL;
+			}
+
+			if (xmppdata->text) {
+				g_free(xmppdata->text);
+				xmppdata->text = NULL;
+			}
+
+			if (xmppdata->id) {
+				g_free(xmppdata->id);
+				xmppdata->id = NULL;
+			}
+
+			g_free(xmppdata);
+
 			break;
 		default:
 			g_print("%s: unknown CSP type (%" G_GUINT16_FORMAT")\n", __FUNCTION__,m->msg_type);

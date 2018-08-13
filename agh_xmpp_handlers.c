@@ -39,6 +39,6 @@ gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_SENDCMD)
 		return NULL;
 
-	/* to be implemented */
+	/* to be implemented; and remember to check if we are connected... */
 	return NULL;
 }

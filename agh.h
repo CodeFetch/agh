@@ -6,7 +6,7 @@
 /* command used to "quit" AGH */
 #define AGH_CMD_QUIT "quit"
 
-#define AGH_RELEASE_NAME "Looking for the sea"
+#define AGH_RELEASE_NAME "Gato"
 
 #define AGH_VERSION "0.01"
 
@@ -128,6 +128,8 @@ gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage);
 void agh_broadcast_exit(struct agh_state *mstate);
 void agh_exit(struct agh_state *mstate);
 void agh_start_exit(struct agh_state *mstate);
+void agh_copy_textparts(gpointer data, gpointer user_data);
+gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage);
 
 struct text_csp {
 	gchar *text;

@@ -61,7 +61,6 @@ guint cmd_answer_prepare(struct command *cmd);
 void cmd_free(struct command *cmd);
 struct command *cmd_copy(struct command *cmd);
 config_t *cmd_copy_cfg(config_t *src);
-void cmd_copy_textpart_single(gpointer data, gpointer user_data);
 struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
 /* Some useful functions to access commands data.

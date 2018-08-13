@@ -153,10 +153,12 @@ void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct command *cmd) {
 	}
 	else {
 		res = agh_ubus_get_call_result();
-		cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
-		cmd_answer_set_data(cmd, TRUE);
-		cmd_answer_peektext(cmd, g_strdup_printf("\n%s", res));
-		g_free(res);
+		if (res) {
+			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+			cmd_answer_set_data(cmd, TRUE);
+			cmd_answer_peektext(cmd, g_strdup_printf("\n%s", res));
+			g_free(res);
+		}
 	}
 
 	cmd_answer_if_empty(cmd, CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
