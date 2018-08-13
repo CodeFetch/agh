@@ -245,8 +245,8 @@ gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
 	if (e->features)
 		g_queue_foreach(e->features, agh_copy_textparts, features_str);
 
-	g_queue_sort(entities_str, (GCompareDataFunc)g_strcmp0, NULL);
-	g_queue_sort(features_str, (GCompareDataFunc)g_strcmp0, NULL);
+	g_queue_sort(entities_str, agh_xmpp_caps_gcmp0_wrapper, NULL);
+	g_queue_sort(features_str, agh_xmpp_caps_gcmp0_wrapper, NULL);
 
 	num_elems = g_queue_get_length(entities_str);
 
@@ -396,4 +396,14 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 	}
 
 	return capsdata;
+}
+
+/*
+ * Only to make GCC 8+ happy. And in any case, stay on the safe side for now, avoiding to play with function casts.
+*/
+gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
+	const gchar *f = a;
+	const gchar *g = b;
+
+	return g_strcmp0(f, g);
 }
