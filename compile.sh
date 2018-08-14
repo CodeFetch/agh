@@ -19,5 +19,6 @@ agh_ubus_handler.c \
 agh_ubus_helpers.c \
 agh_ubus_logstream.c \
 agh_xmpp_caps.c \
-`pkg-config --cflags --libs glib-2.0 libstrophe libconfig gio-2.0 mm-glib` -lubus -lblobmsg_json -lubox -luci -DG_DISABLE_DEPRECATED \
+agh_mm_manager.c \
+`pkg-config --cflags --libs glib-2.0 libstrophe libconfig gio-2.0 mm-glib nettle` -lubus -lblobmsg_json -lubox -luci -DG_DISABLE_DEPRECATED \
 -o agh

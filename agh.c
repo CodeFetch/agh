@@ -24,7 +24,7 @@ gint main(void) {
 	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to be active.
 	*/
 	agh_xmpp_init(mstate);
-	//agh_modem_init(mstate);
+	agh_mm_init(mstate);
 
 	agh_sources_setup(mstate);
 
@@ -60,7 +60,7 @@ gint main(void) {
 	}
 
 	agh_xmpp_deinit(mstate);
-	//agh_mm_deinit(mstate);
+	agh_mm_deinit(mstate);
 
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);

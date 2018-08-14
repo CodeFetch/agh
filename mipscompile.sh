@@ -30,7 +30,8 @@ agh_ubus_handler.c \
 agh_ubus_helpers.c \
 agh_ubus_logstream.c \
 agh_xmpp_caps.c \
-`pkg-config --cflags --libs glib-2.0 libconfig gio-2.0 mm-glib` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
+agh_mm_manager.c \
+`pkg-config --cflags --libs glib-2.0 libconfig gio-2.0 mm-glib nettle` -I $PKG_CONFIG_SYSROOT_DIR/usr/include/ \
 -Wl,-L/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -Wl,-rpath-link=/mnt/hdd/sdata/openwrt/staging_dir/target-mipsel_74kc_musl/usr/lib/ \
 -lstrophe -lubus -lblobmsg_json -lubox -luci -DG_DISABLE_DEPRECATED \
