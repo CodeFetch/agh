@@ -447,6 +447,8 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 
 	}
 
+	g_print("%s: connecting %s\n",__FUNCTION__,s->e.name);
+
 	mm_modem_create_bearer(modem, props, NULL, (GAsyncReadyCallback)agh_mm_sm_connect_bearer, mstate);
 	g_object_unref(props);
 	props = NULL;
@@ -648,14 +650,20 @@ void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, g
 void agh_mm_sm_keep_trying_to_connect(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	struct agh_mm_asyncstate *a = user_data;
 	gboolean success;
+	gboolean stop_retrying;
+
+	stop_retrying = FALSE;
 
 	success = mm_bearer_connect_finish(b, res, &a->mstate->mmstate->gerror);
 	if (!success) {
+		stop_retrying = g_error_matches(a->mstate->mmstate->gerror, G_DBUS_ERROR, G_DBUS_ERROR_UNKNOWN_METHOD);
 		agh_mm_sm_report_failure_modem(a->mstate, a->modem, AGH_MM_SM_BEARER_CONNECT_FAILURE);
 
 		/* retry */
-		mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_sm_keep_trying_to_connect, a);
-		return;
+		if (!stop_retrying) {
+			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_sm_keep_trying_to_connect, a);
+			return;
+		}
 	}
 	g_free(a);
 	a = NULL;
