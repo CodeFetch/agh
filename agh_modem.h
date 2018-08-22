@@ -29,15 +29,26 @@ struct agh_mm_state {
 	MMManager *manager;
 	gchar *name_owner;
 	guint watch_id;
+	gulong manager_signal_modem_added_id;
+	gulong manager_signal_modem_removed_id;
+	struct uci_context *mctx;
+	struct uci_package *package;
+};
+
+struct agh_mm_asyncstate {
+	GList *blist;
+	struct agh_state *mstate;
+	MMModem *modem;
 };
 
 void agh_mm_freemem(struct agh_mm_state *mmstate, gint error);
 
 void agh_mm_handlers_setup_ext(struct agh_state *mstate);
 
-void agh_mm_modem_properties_changed(GDBusProxy *manager, GVariant *changed_props, GStrv inv_props, gpointer user_data);
-
 void agh_mm_init(struct agh_state *mstate);
 void agh_mm_deinit(struct agh_state *mstate);
+void agh_mm_start_deinit(struct agh_state *mstate);
+void agh_mm_select_modems(gpointer data, gpointer user_data);
+void agh_mm_disable_all_modems(MMModem *modem, GAsyncResult *res, gpointer user_data);
 
 #endif

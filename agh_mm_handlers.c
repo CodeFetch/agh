@@ -11,7 +11,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	struct agh_state *mstate = h->handler_data;
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	struct command *cmd;
-	const gchar *string_arg;
+	const gchar __attribute__((unused)) *string_arg;
 	gint current_modem;
 	config_setting_t *arg;
 	struct agh_message *answer;
@@ -35,6 +35,9 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_MODEM))
 		return NULL;
 
+	if (mstate->exiting || !mmstate->manager)
+		return NULL;
+
 	cmd_answer_prepare(cmd);
 
 	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
@@ -45,7 +48,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 		modem = agh_mm_index_to_modem(mmstate, current_modem);
 
 		if (modem) {
-			g_print("Modem %" G_GINT16_FORMAT" has been specified.\n",current_modem);
+			//g_print("Modem %" G_GINT16_FORMAT" has been specified.\n",current_modem);
 			agh_modem_do(modem, cmd);
 			g_object_unref(modem);
 			modem = NULL;
@@ -62,10 +65,8 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 
 	if (arg) {
 		string_arg = config_setting_get_string(arg);
-		g_print("General subcommand was specified: %s\n",string_arg);
 
-		if (!g_strcmp0(string_arg, AGH_CMD_MM_LIST_DISABLED_MODEMS))
-			general_subcommand_cb = agh_mm_list_disabled_modems;
+		/* Implement general subcommands here. */
 
 		if (!general_subcommand_cb) {
 			cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
@@ -81,8 +82,6 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	agh_mm_list_modems(mmstate, cmd);
 
 	answer = cmd_answer_msg(cmd, mstate->comm, NULL);
-
-	/* I acknowledge answer may be NULL. */
 
 	return answer;
 }
@@ -992,8 +991,3 @@ void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd) {
 	g_object_unref(object);
 	return;
 }
-
-void agh_mm_list_disabled_modems(struct agh_mm_state *mmstate, struct command *cmd) {
-	return;
-}
-

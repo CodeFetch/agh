@@ -20,5 +20,8 @@ agh_ubus_helpers.c \
 agh_ubus_logstream.c \
 agh_xmpp_caps.c \
 agh_mm_manager.c \
+agh_modem_config.c \
+agh_mm_sm.c \
+agh_mm_helpers_sm.c \
 `pkg-config --cflags --libs glib-2.0 libstrophe libconfig gio-2.0 mm-glib nettle` -lubus -lblobmsg_json -lubox -luci -DG_DISABLE_DEPRECATED \
 -o agh

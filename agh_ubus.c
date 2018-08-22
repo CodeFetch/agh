@@ -250,7 +250,7 @@ gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *me
 		return AGH_UBUS_CALL_METHOD_NOT_FOUND;
 	}
 
-	ubus_invoke(uctx->ctx, id, method, bbuf->head, agh_receive_call_result_data, NULL, 2 * 1000);
+	ubus_invoke(uctx->ctx, id, method, bbuf->head, agh_receive_call_result_data, NULL, 10 * 1000);
 
 	blob_buf_free(bbuf);
 	g_free(bbuf);

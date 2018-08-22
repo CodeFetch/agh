@@ -11,6 +11,7 @@
 #include "agh.h"
 #include "agh_modem.h"
 #include "agh_mm_helpers.h"
+#include "agh_mm_handlers.h"
 
 gchar *agh_mm_common_build_capabilities_string(const MMModemCapability *capabilities, guint n_capabilities) {
 	GString *str;
@@ -129,4 +130,22 @@ gchar *agh_mm_common_build_bands_string(const MMModemBand *bands, guint n_bands)
 	}
 
 	return g_string_free(str, FALSE);
+}
+
+/* from mmcli */
+const gchar *agh_mm_get_statechange_reason_string(MMModemStateChangeReason reason) {
+	switch (reason) {
+		case MM_MODEM_STATE_CHANGE_REASON_UNKNOWN:
+			return "unknown";
+		case MM_MODEM_STATE_CHANGE_REASON_USER_REQUESTED:
+			return "requested";
+		case MM_MODEM_STATE_CHANGE_REASON_SUSPEND:
+			return "suspend";
+		case MM_MODEM_STATE_CHANGE_REASON_FAILURE:
+			return "failure";
+		default:
+			return "internal_issue";
+	}
+
+	return NULL;
 }

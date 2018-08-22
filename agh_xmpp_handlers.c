@@ -17,7 +17,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	csp = m->csp;
 
 	if (m->msg_type == MSG_SENDTEXT) {
-		g_print("Enqueuing text %s;\n",csp->text);
+		//g_print("Enqueuing text %s;\n",csp->text);
 		g_queue_push_tail(xstate->outxmpp_messages, g_strdup(csp->text));
 	}
 

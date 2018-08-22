@@ -358,7 +358,7 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 
 	if (m->msg_type == MSG_SENDTEXT) {
 		/* Send this message around to all registered components. */
-		g_print("%s: broadcasting text\n",__FUNCTION__);
+		//g_print("%s: broadcasting text\n",__FUNCTION__);
 
 		num_threads = g_queue_get_length(mstate->agh_threads);
 		if (num_threads) {
@@ -472,7 +472,7 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 		return NULL;
 
 	/* An event arrived - so we'll broadcast it. */
-	g_print("%s: broadcasting event\n",__FUNCTION__);
+	//g_print("%s: broadcasting event\n",__FUNCTION__);
 
 	num_threads = g_queue_get_length(mstate->agh_threads);
 	if (num_threads) {
@@ -672,6 +672,8 @@ void agh_start_exit(struct agh_state *mstate) {
 	g_source_set_callback(mstate->exitsrc, exitsrc_idle_cb, mstate, NULL);
 	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
 	g_source_unref(mstate->exitsrc);
+
+	agh_mm_start_deinit(mstate);
 
 	return;
 }

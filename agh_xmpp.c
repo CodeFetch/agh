@@ -359,10 +359,12 @@ void agh_xmpp_send_out_messages(gpointer data) {
 	xmpp_ctx_t *ctx;
 	gchar *text;
 	gchar *id;
+	const gchar *from;
 
 	id = NULL;
 	text = NULL;
 	reply = NULL;
+	from = NULL;
 
 	ctx = xstate->xmpp_ctx;
 	num_messages = g_queue_get_length(xstate->outxmpp_messages);
@@ -375,6 +377,10 @@ void agh_xmpp_send_out_messages(gpointer data) {
 			return;
 		}
 
+		from = xmpp_conn_get_bound_jid(xstate->xmpp_conn);
+		if (!from)
+			return;
+
 		if (xstate->msg_id == G_MAXUINT64)
 			xstate->msg_id = 0;
 
@@ -382,7 +388,7 @@ void agh_xmpp_send_out_messages(gpointer data) {
 		reply = xmpp_message_new(ctx, "chat", xstate->controller, id);
 		text = g_queue_pop_head(xstate->outxmpp_messages);
 		xmpp_message_set_body(reply, text);
-		xmpp_stanza_set_from(reply, xmpp_conn_get_bound_jid(xstate->xmpp_conn));
+		xmpp_stanza_set_from(reply, from);
 		xmpp_send(xstate->xmpp_conn, reply);
 		xmpp_stanza_release(reply);
 		g_free(text);

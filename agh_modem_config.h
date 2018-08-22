@@ -1,5 +1,6 @@
 #ifndef __agh_modem_config_h__
 #define __agh_modem_config_h__
+#include <uci.h>
 
 /* config package name */
 #define AGH_MODEM_UCI_CONFIG_PACKAGE "agh_modem"
@@ -21,26 +22,28 @@
 #define AGH_MM_SECTION_MODEM_MAXBEARERS 2
 
 /* config options for AGH_MM_SECTION_MODEM. */
-#define AGH_MM_SECTION_MODEM_OPTION_IMEI "IMEI"
 #define AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID "Equipment_Identifier"
-#define AGH_MM_SECTION_MODEM_OPTION_ENABLE "enabled"
+#define AGH_MM_SECTION_MODEM_OPTION_ENABLE "enable"
 #define AGH_MM_SECTION_MODEM_OPTION_SIMLIST_NAME "expected_simcards"
 #define AGH_MM_SECTION_MODEM_OPTION_BEARERSLIST "modem_bearers"
-#define AGH_MM_SECTION_MODEM_OPTION_DEFAULT_BEARER "modem_default_bearer"
+#define AGH_MM_SECTION_MODEM_OPTION_REPORT_PROPSCHANGES "report_changes"
 /* End of config options for AGH_MM_SECTION_MODEM. */
 
 /* Config options for AGH_MM_SECTION_SIMCARD. */
-#define AGH_MM_SECTION_SIMCARD_OPTION_ICCID "ICCID"
+#define AGH_MM_SECTION_SIMCARD_OPTION_SIM_ID "id"
 #define AGH_MM_SECTION_SIMCARD_OPTION_BEARERSLIST "sim_bearers"
-#define AGH_MM_SECTION_SIMCARD_OPTION_DEFAULT_BEARER "sim_default_bearer"
+#define AGH_MM_SECTION_SIMCARD_OPTION_PIN_CODE "PIN_code"
 /* End of config options for AGH_MM_SECTION_SIMCARD. */
 
 /* Config options for AGH_MM_SECTION_BEARER. */
-#define AGH_MM_SECTION_BEARER_OPTION_USERNAME "username"
+#define AGH_MM_SECTION_BEARER_OPTION_USERNAME "user"
 #define AGH_MM_SECTION_BEARER_OPTION_PASSWORD "password"
-#define AGH_MM_SECTION_BEARER_OPTION_APN "APN"
-#define AGH_MM_SECTION_BEARER_OPTION_IP_TYPE "IP_type"
-#define AGH_MM_SECTION_BEARER_OPTION_AUTH_METHOD "auth_method"
+#define AGH_MM_SECTION_BEARER_OPTION_APN "apn"
+#define AGH_MM_SECTION_BEARER_OPTION_IP_TYPE "ip_type"
+#define AGH_MM_SECTION_BEARER_OPTION_AUTH_METHOD "allowed_auth"
+#define AGH_MM_SECTION_BEARER_OPTION_NUMBER "number"
+#define AGH_MM_SECTION_BEARER_OPTION_ALLOW_ROAMING "allow_roaming"
+#define AGH_MM_SECTION_BEARER_OPTION_RM_PROTOCOL "rm_protocol"
 /* End of config option for AGH_MM_SECTION_BEARER. */
 
 /* Config validation errors. */
@@ -62,24 +65,16 @@
 #define AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED_DESC "Maximum number of bearers exceeded"
 
 /* AGH_MM_SECTION_MODEM section related issues */
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_IMEI_OR_EQUIPMENT_ID_NOT_SPECIFIED 10
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_IMEI_OR_EQUIPMENT_ID_NOT_SPECIFIED_DESC "IMEI or Equipment ID not specified, modem can not be identified"
+#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED 10
+#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED_DESC "Equipment ID not specified, modem can not be identified"
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY 20
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY_DESC "modem bearers GQueue was created, but is empty; this should not happen, but it did"
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_DEFAULT_BEARER_MISSING 21
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_DEFAULT_BEARER_MISSING_DESC "more than one bearer is defined for this modem, but no default one was specified"
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_NONEXISTENT_DEFAULT_BEARER 22
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_NONEXISTENT_DEFAULT_BEARER_DESC "Can not find specified default bearer amongst those listed for this modem"
 
 /* AGH_MM_SECTION_SIMCARD issues */
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_ICCID_NOT_SPECIFIED 11
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_ICCID_NOT_SPECIFIED_DESC "SIM ICCID not found"
+#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED 11
+#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED_DESC "SIM ID not found"
 #define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY 12
 #define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY_DESC "SIM bearers GQueue was created, but is empty; this should not happen, but it did"
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_DEFAULT_BEARER_MISSING 13
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_DEFAULT_BEARER_MISSING_DESC "more than one bearer defined for this SIM, but no default one specified"
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_NONEXISTENT_DEFAULT_BEARER 14
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_NONEXISTENT_DEFAULT_BEARER_DESC "Can not find specified default bearer amongst those defined for this SIM"
 
 /* AGH_MM_SECTION_BEARER issues */
 #define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND 15
@@ -92,7 +87,7 @@ struct agh_modem_config_validation_error {
 	gchar *error_desc;
 };
 
-void agh_modem_validate_config(gchar *package_name, struct agh_modem_config_validation_error **validation_error);
+void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, struct agh_modem_config_validation_error **validation_error);
 gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers);
 gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers);
 gint agh_modem_validate_config_bearer_section(struct uci_section *s);

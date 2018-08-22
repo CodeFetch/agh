@@ -48,13 +48,30 @@
 #define AGH_CMD_MM_GET_ACCESS_TECHNOLOGIES "access_technologies"
 /* end of subcommands for a specific modem. */
 
-/* General subcommands. */
-#define AGH_CMD_MM_LIST_DISABLED_MODEMS "list_disabled_modems"
-/* End of general subcommands. */
+/* General subcommands "stuff" goes here. */
 
 /* Flags. */
 #define AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT "is_recent"
 /* End of flags. */
+
+/* modem event name */
+#define AGH_MM_MODEM_EVENT_NAME "modem"
+
+/* bearer related events */
+#define AGH_MM_BEARER_EVENT_NAME "bearer"
+
+/* SIM event name */
+#define AGH_MM_SIM_EVENT_NAME "modem_sim"
+
+/* modem properties changed */
+#define AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME "modem_changes"
+
+/* other defines, used in agh_mm_sm.c */
+#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE "initfailure"
+#define AGH_MM_SM_MODEM_DEINIITSTATE_FAILURE "deinitfailure"
+#define AGH_MM_SM_GENERIC_FAILURE "agh_mm_failure"
+#define AGH_MM_SM_BEARER_SETUP_FAILURE "bearer_setup_failure"
+#define AGH_MM_SM_BEARER_CONNECT_FAILURE "bearer_connect_failure"
 
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 
