@@ -143,9 +143,11 @@ struct uci_section *agh_mm_sm_get_sim_section(struct agh_state *mstate, MMModem 
 	sim_id = mm_sim_get_identifier(sim);
 	if (!sim_id) {
 		g_list_free(simlist);
+		g_print("%s: can not match against a NULL sim ID\n",__FUNCTION__);
 		return NULL;
 	}
 
+	g_print("%s: sim id is %s\n",__FUNCTION__,sim_id);
 	for (process_simlist = simlist; process_simlist; process_simlist = g_list_next(simlist)) {
 		sim_section = process_simlist->data;
 		opt = uci_lookup_option(mstate->mmstate->mctx, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_SIM_ID);
@@ -310,7 +312,7 @@ GList *agh_mm_sm_get_referenced_sections(struct agh_state *mstate, struct uci_se
 	e = NULL;
 	current_list_option = NULL;
 
-	if (!section_name)
+	if ((!section) || (!section_name))
 		return slist;
 
 	current_list_option = uci_lookup_option(mstate->mmstate->mctx, section, section_name);
