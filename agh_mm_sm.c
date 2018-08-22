@@ -219,12 +219,14 @@ void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct a
 	else {
 		default_bearer = agh_mm_sm_get_default_bearer(mstate);
 		if (default_bearer) {
-			g_print("Try to connect with default bearer.\n");
+			agh_mm_sm_build_bearer(mstate, modem, default_bearer);
 			g_object_unref(sim);
 			return;
 		}
-		else
-			g_print("No connection settings defined.\n");
+		else {
+			g_print("%s: no connection settings found.\n",__FUNCTION__);
+			agh_mm_sm_report_failure_modem(mstate, modem, AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS);
+		}
 	}
 
 	g_object_unref(sim);

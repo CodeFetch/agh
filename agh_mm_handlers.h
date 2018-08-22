@@ -72,6 +72,7 @@
 #define AGH_MM_SM_GENERIC_FAILURE "agh_mm_failure"
 #define AGH_MM_SM_BEARER_SETUP_FAILURE "bearer_setup_failure"
 #define AGH_MM_SM_BEARER_CONNECT_FAILURE "bearer_connect_failure"
+#define AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS "bearer_connect_failure_no_settings"
 
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 
