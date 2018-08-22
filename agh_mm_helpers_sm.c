@@ -642,9 +642,7 @@ void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, g
 	struct agh_state *mstate = user_data;
 	gboolean f;
 
-	f = mm_bearer_get_connected(b);
-	if (f)
-		agh_mm_sm_call_outside_helper(mstate, b);
+	agh_mm_sm_call_outside_helper(mstate, b);
 
 	return;
 }
@@ -862,29 +860,26 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV4", FALSE);
 			g_string_append(s, str_tmp);
 			g_free(str_tmp);
-			ipv4_config = mm_bearer_get_ipv4_config(b);
 			break;
 		case MM_BEARER_IP_FAMILY_IPV6:
 			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV6", FALSE);
 			g_string_append(s, str_tmp);
 			g_free(str_tmp);
-			ipv6_config = mm_bearer_get_ipv6_config(b);
 			break;
 		case MM_BEARER_IP_FAMILY_IPV4V6:
 			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV4V6", FALSE);
 			g_string_append(s, str_tmp);
 			g_free(str_tmp);
-			ipv4_config = mm_bearer_get_ipv4_config(b);
-			ipv6_config = mm_bearer_get_ipv6_config(b);
 			break;
 		case MM_BEARER_IP_FAMILY_ANY:
 			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "any", FALSE);
 			g_string_append(s, str_tmp);
 			g_free(str_tmp);
-			ipv4_config = mm_bearer_get_ipv4_config(b);
-			ipv6_config = mm_bearer_get_ipv6_config(b);
 			break;
 	}
+
+	ipv4_config = mm_bearer_get_ipv4_config(b);
+	ipv6_config = mm_bearer_get_ipv6_config(b);
 
 	g_object_unref(props);
 	props = NULL;
