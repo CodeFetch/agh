@@ -57,7 +57,7 @@ void handlers_init(GQueue *handlers, gpointer data) {
 	num_handlers = g_queue_get_length(handlers);
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);
-		g_print("handlers: init %s\n",h->name);
+		//g_print("handlers: init %s\n",h->name);
 
 		h->handlers_queue = handlers;
 

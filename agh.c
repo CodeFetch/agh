@@ -128,9 +128,9 @@ void process_signals(struct agh_state *mstate) {
 }
 
 void agh_threads_start(struct agh_state *mstate) {
-	g_print("%s: starting threads: ",__FUNCTION__);
+	//g_print("%s: starting threads: ",__FUNCTION__);
 	g_queue_foreach(mstate->agh_threads, agh_threads_start_single, mstate);
-	g_print("done\n");
+	//g_print("done\n");
 }
 
 void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
@@ -170,10 +170,10 @@ void agh_threads_teardown(struct agh_state *mstate) {
 }
 
 void agh_threads_prepare(struct agh_state *mstate) {
-	g_print("%s: preparing threads \n",__FUNCTION__);
+	//g_print("%s: preparing threads \n",__FUNCTION__);
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
-	g_print(" done\n");
+	//g_print(" done\n");
 	return;
 }
 
