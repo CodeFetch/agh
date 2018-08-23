@@ -24,7 +24,6 @@ void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemStat
 		case MM_MODEM_STATE_ENABLED:
 			break;
 		case MM_MODEM_STATE_REGISTERED:
-			g_usleep(10*1000000);
 			agh_mm_sm_bearers_init(mstate, modem);
 			agh_mm_sm_general_init(mstate, modem);
 			break;
