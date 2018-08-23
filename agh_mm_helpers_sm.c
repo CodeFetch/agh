@@ -624,7 +624,6 @@ void agh_mm_sm_bearer_connected_changed(MMBearer *b, GParamSpec *pspec, gpointer
 
 		modem_state = mm_modem_get_state(modem);
 		switch(modem_state) {
-			case MM_MODEM_STATE_REGISTERED:
 			case MM_MODEM_STATE_CONNECTED:
 				g_print("%s: trying to reconnect\n",__FUNCTION__);
 				mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_sm_keep_trying_to_connect_from_signal, modem);

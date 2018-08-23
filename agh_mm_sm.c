@@ -276,11 +276,7 @@ void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh
 	success = mm_modem_delete_bearer_finish(modem, res, &a->mstate->mmstate->gerror);
 	if (!success) {
 		agh_mm_sm_report_failure_modem(a->mstate, modem, "agh_mm_sm_bearers_delete_next");
-		g_list_free_full(a->blist, g_object_unref);
-		a->blist = NULL;
-		g_free(a);
-		a = NULL;
-		return;
+		/* Try to go on even in the face of errors here. We'll see how this works. */
 	}
 
 	if (!a->blist) {
