@@ -24,6 +24,7 @@ void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemStat
 		case MM_MODEM_STATE_ENABLED:
 			break;
 		case MM_MODEM_STATE_REGISTERED:
+			g_usleep(10*1000000);
 			agh_mm_sm_bearers_init(mstate, modem);
 			agh_mm_sm_general_init(mstate, modem);
 			break;
@@ -278,6 +279,7 @@ void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh
 		agh_mm_sm_report_failure_modem(a->mstate, modem, "agh_mm_sm_bearers_delete_next");
 		g_list_free_full(a->blist, g_object_unref);
 		a->blist = NULL;
+		mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_sm_bearers_init_get_list, a->mstate);
 		g_free(a);
 		a = NULL;
 		return;

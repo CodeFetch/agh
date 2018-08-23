@@ -785,7 +785,7 @@ void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 
 	ubus_call_bearers_info_message = agh_mm_sm_call_outside_build_message(mstate, b);
 
-	ubus_message = g_strdup_printf("{\"command\":\"/tmp/myscript\",\"env\":%s}", ubus_call_bearers_info_message);
+	ubus_message = g_strdup_printf("{\"command\":\"/tmp/bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
 	//g_print("%s: message: \n%s\n",__FUNCTION__,ubus_message);
 
 	status = agh_ubus_call(mstate->uctx, "file", "exec", ubus_message);
@@ -925,7 +925,7 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 		dns_tmp = mm_bearer_ip_config_get_dns(ipv4_config);
 		if (dns_tmp) {
 			while (*dns_tmp) {
-				dns_str_tmp = g_strdup_printf("DNS_%" G_GUINT16_FORMAT"",dns_counter);
+				dns_str_tmp = g_strdup_printf("BEARER_IP_DNS_%" G_GUINT16_FORMAT"",dns_counter);
 				str_tmp = agh_mm_sm_call_outside_build_message_add_element(dns_str_tmp, *dns_tmp, FALSE);
 				g_string_append(s, str_tmp);
 				dns_counter++;
@@ -993,7 +993,7 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 		dns_tmp = mm_bearer_ip_config_get_dns(ipv6_config);
 		if (dns_tmp) {
 			while (*dns_tmp) {
-				dns_str_tmp = g_strdup_printf("DNSV6_%" G_GUINT16_FORMAT"",dns_counter);
+				dns_str_tmp = g_strdup_printf("BEARER_IP_DNSV6_%" G_GUINT16_FORMAT"",dns_counter);
 				str_tmp = agh_mm_sm_call_outside_build_message_add_element(dns_str_tmp, *dns_tmp, FALSE);
 				g_string_append(s, str_tmp);
 				dns_counter++;
