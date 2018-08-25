@@ -44,6 +44,7 @@
 #define AGH_MM_SECTION_BEARER_OPTION_NUMBER "number"
 #define AGH_MM_SECTION_BEARER_OPTION_ALLOW_ROAMING "allow_roaming"
 #define AGH_MM_SECTION_BEARER_OPTION_RM_PROTOCOL "rm_protocol"
+#define AGH_MM_SECTION_BEARER_OPTION_OPERATOR_ID "operator_id"
 /* End of config option for AGH_MM_SECTION_BEARER. */
 
 /* Config validation errors. */

@@ -73,6 +73,8 @@
 #define AGH_MM_SM_BEARER_SETUP_FAILURE "bearer_setup_failure"
 #define AGH_MM_SM_BEARER_CONNECT_FAILURE "bearer_connect_failure"
 #define AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS "bearer_connect_failure_no_settings"
+#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_OPERATOR_ID "no_operator_id_available"
+#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_SIM_ID "no_sim_id_available"
 
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 

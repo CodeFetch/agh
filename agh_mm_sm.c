@@ -190,12 +190,14 @@ void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct a
 	MMSim *sim;
 	GList *blist;
 	struct uci_section *default_bearer;
+	struct uci_section *autoselected_bearer;
 
 	modem_section = NULL;
 	sim_section = NULL;
 	sim = NULL;
 	blist = NULL;
 	default_bearer = NULL;
+	autoselected_bearer = NULL;
 
 	sim = mm_modem_get_sim_finish(modem, res, &mstate->mmstate->gerror);
 	if (!sim) {
@@ -224,8 +226,15 @@ void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct a
 			return;
 		}
 		else {
-			g_print("%s: no connection settings found.\n",__FUNCTION__);
-			agh_mm_sm_report_failure_modem(mstate, modem, AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS);
+			g_print("%s: no connection settings found, trying generic profiles\n",__FUNCTION__);
+			autoselected_bearer = agh_mm_sm_select_generic(mstate, modem, sim);
+			if (autoselected_bearer) {
+				agh_mm_sm_build_bearer(mstate, modem, autoselected_bearer);
+				g_object_unref(sim);
+				return;
+			}
+			else
+				agh_mm_sm_report_failure_modem(mstate, modem, AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS);
 		}
 	}
 

@@ -144,6 +144,7 @@ struct uci_section *agh_mm_sm_get_sim_section(struct agh_state *mstate, MMModem 
 	if (!sim_id) {
 		g_list_free(simlist);
 		g_print("%s: can not match against a NULL sim ID\n",__FUNCTION__);
+		agh_mm_sm_report_failure_modem(mstate, modem, AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_SIM_ID);
 		return NULL;
 	}
 
@@ -1044,4 +1045,43 @@ gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const
 		res = g_strdup_printf("\"%s\":\"%s\"",name,value);
 
 	return res;
+}
+
+struct uci_section *agh_mm_sm_select_generic(struct agh_state *mstate, MMModem *modem, MMSim *sim) {
+	struct uci_section *section;
+	const gchar *operator_id;
+	struct uci_element *e;
+	struct uci_section *current_section;
+	struct uci_option *opt;
+
+	section = NULL;
+	operator_id = NULL;
+	e = NULL;
+	current_section = NULL;
+	opt = NULL;
+
+	if (!sim)
+		return section;
+
+	operator_id = mm_sim_get_operator_identifier(sim);
+	if (!operator_id) {
+		g_print("%s: can not get operator id\n",__FUNCTION__);
+		agh_mm_sm_report_failure_modem(mstate, modem, AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_OPERATOR_ID);
+		return section;
+	}
+
+	uci_foreach_element(&mstate->mmstate->package->sections, e) {
+		current_section = uci_to_section(e);
+		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_BEARER_NAME)) {
+			opt = uci_lookup_option(mstate->mmstate->mctx, current_section, AGH_MM_SECTION_BEARER_OPTION_OPERATOR_ID);
+			if (opt && opt->type == UCI_TYPE_STRING) {
+				if (!g_strcmp0(opt->v.string, operator_id)) {
+					section = current_section;
+					break;
+				}
+			}
+		}
+	}
+
+	return section;
 }

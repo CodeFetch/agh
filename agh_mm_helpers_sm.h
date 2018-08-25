@@ -41,5 +41,6 @@ void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv
 void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b);
 gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *b);
 gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const gchar *value, gboolean last);
+struct uci_section *agh_mm_sm_select_generic(struct agh_state *mstate, MMModem *modem, MMSim *sim);
 
 #endif
