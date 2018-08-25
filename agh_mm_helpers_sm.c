@@ -219,12 +219,12 @@ GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *sec
 				l = g_list_append(l, sim_section);
 			}
 		}
-	}
-	else {
-		uci_foreach_element(&mstate->mmstate->package->sections, e) {
-			sim_section = uci_to_section(e);
-			if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
-				l = g_list_append(l, sim_section);
+		else {
+			uci_foreach_element(&mstate->mmstate->package->sections, e) {
+				sim_section = uci_to_section(e);
+				if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
+					l = g_list_append(l, sim_section);
+				}
 			}
 		}
 	}
