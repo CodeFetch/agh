@@ -528,7 +528,7 @@ gint agh_mm_sm_build_bearer_set_auth_method(struct agh_state *mstate, struct uci
 		ah = MM_BEARER_ALLOWED_AUTH_MSCHAP;
 	else if (!g_strcmp0(o->v.string, "MSCHAPV2"))
 		ah = MM_BEARER_ALLOWED_AUTH_MSCHAPV2;
-	else if (!g_strcmp0(o->v.string, "MM_BEARER_ALLOWED_AUTH_EAP"))
+	else if (!g_strcmp0(o->v.string, "EAP"))
 		ah = MM_BEARER_ALLOWED_AUTH_EAP;
 	else
 		return 1;
