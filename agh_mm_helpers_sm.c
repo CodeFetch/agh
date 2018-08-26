@@ -785,7 +785,7 @@ void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 
 	ubus_call_bearers_info_message = agh_mm_sm_call_outside_build_message(mstate, b);
 
-	ubus_message = g_strdup_printf("{\"command\":\"/tmp/bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
+	ubus_message = g_strdup_printf("{\"command\":\"/opt/bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
 	//g_print("%s: message: \n%s\n",__FUNCTION__,ubus_message);
 
 	status = agh_ubus_call(mstate->uctx, "file", "exec", ubus_message);

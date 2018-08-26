@@ -8,7 +8,7 @@
 #define CMD_MAX_OP_NAME_LEN 10
 
 /* Overall command input text length limit. */
-#define CMD_MAX_TEXT_LEN 120
+#define CMD_MAX_TEXT_LEN 300
 
 /* IN keyword: should be used for incoming commands */
 #define CMD_IN_KEYWORD "AT"

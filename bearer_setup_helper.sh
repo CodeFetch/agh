@@ -126,6 +126,8 @@ interface_complete_common() {
 
 	echo "ifup $logical_intf_name"
 	ifup "$logical_intf_name"
+	uci add_list "firewall.@zone[1].network=$logical_intf_name"
+	/etc/init.d/firewall restart
 }
 
 # exit values: 1=success, 0=failure
@@ -149,7 +151,9 @@ check_and_maybe_destroy_intf() {
 
 	if [ $is_up -eq 0 ]; then
 		uci_remove network "$logical_intfname"
+		uci del_list "firewall.@zone[1].network=$logical_intfname"
 		ubus call network reload
+		/etc/init.d/firewall restart
 	else
 		exit_status=1
 	fi
@@ -173,8 +177,10 @@ teardown_interface() {
 		if [ "$BEARER_PATH" = "$bpath" ]; then
 			echo "ifdown $current_interface"
 			ifdown "$current_interface"
+			uci del_list "firewall.@zone[1].network=$current_interface"
 			uci_remove network "$current_interface"
 			ubus call network reload
+			/etc/init.d/firewall restart
 		fi
 	fi
 }
