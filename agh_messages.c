@@ -212,8 +212,10 @@ void agh_comm_teardown(struct agh_comm *comm) {
 
 	i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
 
-	if (!comm)
+	if (!comm) {
+		g_print("%s: NULL COMM passed in for teardown\n",__FUNCTION__);
 		return;
+	}
 
 	comm->teardown_in_progress = TRUE;
 
