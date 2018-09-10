@@ -19,6 +19,13 @@ gint main(void) {
 
 	mstate->agh_handlers = handlers_setup();
 	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, "AGH");
+	if (!mstate->comm) {
+		g_print("%s: can not allocate COMM for core\n",__FUNCTION__);
+		handlers_teardown(mstate->agh_handlers);
+		agh_comm_teardown(mstate->comm);
+		agh_state_teardown(mstate);
+		return 1;
+	}
 
 	/* This will need to be done in a better way; handlers are registered from within the function called here. */
 	agh_core_handlers_setup_ext(mstate);
