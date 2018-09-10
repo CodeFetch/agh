@@ -44,5 +44,6 @@ gboolean agh_handle_message_inside_dest_thread(gpointer data);
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
 void agh_comm_teardown(struct agh_comm *comm);
 void agh_comm_disable(struct agh_comm *comm, gboolean enabled);
+gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content);
 
 #endif

@@ -38,6 +38,8 @@ struct agh_state {
 	/* Idle source for exiting. */
 	GSource *exitsrc;
 	guint exitsrc_tag;
+	GSource *hacksrc;
+	guint hacksrc_tag;
 
 	/* our threads and handlers */
 	GQueue *agh_threads;
@@ -133,6 +135,9 @@ gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage);
 
 struct text_csp {
 	gchar *text;
+	gchar *source_id;
 };
+
+gboolean hacksrc_idle_cb(gpointer data);
 
 #endif

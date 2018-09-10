@@ -3,7 +3,7 @@
 #include "agh_commands.h"
 #include "agh_messages.h"
 
-struct command *text_to_cmd(gchar *content) {
+struct command *text_to_cmd(gchar *from, gchar *content) {
 	struct command *ocmd;
 	gchar *atext;
 	config_t *cmd_cfg;
@@ -13,6 +13,7 @@ struct command *text_to_cmd(gchar *content) {
 	config_setting_t *op;
 	const gchar *cmd_operation;
 	guint lengths;
+	gchar *afrom;
 
 	ocmd = NULL;
 	atext = NULL;
@@ -22,6 +23,7 @@ struct command *text_to_cmd(gchar *content) {
 	op = NULL;
 	cmd_operation = NULL;
 	lengths = 0;
+	afrom = NULL;
 
 	lengths = strlen(content);
 	if (lengths > CMD_MAX_TEXT_LEN) {
@@ -88,7 +90,7 @@ struct command *text_to_cmd(gchar *content) {
 	/* 4 - Command ID, should be gint and != 0. */
 	id = config_setting_get_elem(in_keyword, 0);
 	cmd_id = config_setting_get_int(id);
-	if (cmd_id<1) {
+	if (cmd_id < 1) {
 		g_print("Invalid command ID.\n");
 		goto wayout;
 	}
@@ -114,10 +116,27 @@ struct command *text_to_cmd(gchar *content) {
 		goto wayout;
 	}
 
+	if (from) {
+		afrom = g_str_to_ascii(from, "C");
+
+		lengths = strlen(afrom);
+
+		if (lengths < 1 || lengths > CMD_MAX_FROM_LEN) {
+			g_print("Invalid source identifier.\n");
+			g_free(afrom);
+			afrom = NULL;
+			goto wayout;
+		}
+
+	}
+
 	g_print("OK.\n");
 
 	ocmd = g_malloc0(sizeof(struct command));
 	ocmd->cmd = cmd_cfg;
+
+	if (afrom)
+		ocmd->cmd_source_id = afrom;
 
 	/* Makes me feel more peaceful, but it's useless. */
 	ocmd->answer = NULL;
@@ -299,6 +318,11 @@ void cmd_free(struct command *cmd) {
 		cmd->answer = NULL;
 	}
 
+	if (cmd->cmd_source_id) {
+		g_free(cmd->cmd_source_id);
+		cmd->cmd_source_id = NULL;
+	}
+
 	g_free(cmd);
 
 	return;
@@ -336,13 +360,17 @@ struct command *cmd_copy(struct command *cmd) {
 		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
 		ocmd = NULL;
 	}
+	else {
+		if (cmd->cmd_source_id)
+			ocmd->cmd_source_id = g_strdup(cmd->cmd_source_id);
+	}
 
 	return ocmd;
 }
 
 /*
- * this function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
- * function. Other config_t structures will not be copied correctly. Any better way to do this is apreciated.
+ * This function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
+ * function. Other config_t structures will not be handled correctly. Any better way to do this is apreciated.
 */
 config_t *cmd_copy_cfg(config_t *src) {
 	config_t *ncfg;
@@ -439,6 +467,9 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
 		g_free(textcsp);
 		return m;
 	}
+
+	if (cmd->cmd_source_id)
+		textcsp->source_id = g_strdup(cmd->cmd_source_id);
 
 	m = msg_alloc();
 	m->csp = textcsp;

@@ -148,7 +148,7 @@ void agh_mm_sm_enable(struct agh_state *mstate, MMModem *modem) {
 	section = agh_mm_sm_get_modem_section(mstate, modem);
 	if (section) {
 		opt = uci_lookup_option(mstate->mmstate->mctx, section, AGH_MM_SECTION_MODEM_OPTION_ENABLE);
-		if (opt) {
+		if (opt && opt->type == UCI_TYPE_STRING) {
 			if (!g_strcmp0(opt->v.string, "0")) {
 				enable = FALSE;
 			}

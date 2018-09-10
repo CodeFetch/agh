@@ -36,7 +36,18 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_SENDTEXT:
 			csptext = m->csp;
 			//g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
-			g_free(csptext->text);
+			if (csptext->text) {
+				g_free(csptext->text);
+				csptext->text = NULL;
+			}
+			else
+				g_print("%s: received a message with NULL text\n",__FUNCTION__);
+
+			if (csptext->source_id) {
+				g_free(csptext->source_id);
+				csptext->source_id = NULL;
+			}
+			
 			g_free(csptext);
 			csptext = NULL;
 			break;
@@ -215,4 +226,31 @@ void agh_comm_teardown(struct agh_comm *comm) {
 void agh_comm_disable(struct agh_comm *comm, gboolean enabled) {
 	comm->teardown_in_progress = enabled;
 	return;
+}
+
+gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content) {
+	gchar *saveptr;
+	gchar *local_source_id;
+	gchar *local_source_name;
+	gchar *local_source_content;
+
+	saveptr = NULL;
+
+	if ((!source_id) || (*source_name) || (*source_content))
+		return 1;
+
+	local_source_id = g_strdup(source_id);
+
+	local_source_name = strtok_r(local_source_id, "=", &saveptr);
+
+	local_source_content = strtok_r(NULL, "=", &saveptr);
+
+	if (local_source_content && local_source_name) {
+		*source_name = g_strdup(local_source_name);
+		*source_content = g_strdup(local_source_content);
+	}
+
+	g_free(local_source_id);
+
+	return 0;
 }

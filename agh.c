@@ -1,17 +1,21 @@
 #include <glib.h>
 #include <glib-unix.h>
 #include "agh_commands.h"
-#include "agh_handlers.h"
 #include "agh_xmpp.h"
 #include "agh_modem.h"
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
+//#if 0
 gint main(void) {
 
 	struct agh_state *mstate;
 
 	mstate = agh_state_setup();
+	if (!mstate) {
+		g_print("%s: can not allocate AGH state\n",__FUNCTION__);
+		return 1;
+	}
 
 	mstate->agh_handlers = handlers_setup();
 	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, "AGH");
@@ -69,12 +73,14 @@ gint main(void) {
 	agh_state_teardown(mstate);
 	return 0;
 }
+//#endif
 
 struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
 
-	/* Note: GLib will terminate the application should this memory allocation fail. */
-	mstate = g_malloc0(sizeof *mstate);
+	mstate = g_try_malloc0(sizeof *mstate);
+	if (!mstate)
+		return mstate;
 
 	/* Set up the main event loop */
 	mstate->ctx = g_main_context_default();
@@ -296,7 +302,7 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 
 	if (m->msg_type == MSG_RECVTEXT) {
 		/* Parse incoming text. */
-		cmd = text_to_cmd(csp->text);
+		cmd = text_to_cmd(csp->source_id, csp->text);
 
 		if (cmd) {
 			/* Send this message around. */
@@ -368,6 +374,10 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 				text_message->msg_type = MSG_SENDTEXT;
 				ncsp = g_malloc0(sizeof(struct text_csp));
 				ncsp->text = g_strdup(csp->text);
+
+				if (csp->source_id)
+					ncsp->source_id = g_strdup(csp->source_id);
+
 				text_message->csp = ncsp;
 				ct = g_queue_peek_nth(mstate->agh_threads, i);
 				//g_print("Sending text message to %s thread\n",ct->thread_name);
@@ -424,7 +434,7 @@ gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_EVENT)
 		return evmsg;
 
-	/* An event arrived, so we need to convert it to text, and add an event ID. We use cmd_copy / cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will be NULL). */
+	/* An event arrived, so we need to convert it to text, and add an event ID. We use cmd_copy / cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will then be NULL). */
 	cmd = cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, mstate->event_id);
 
@@ -726,6 +736,11 @@ gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
 	tm = msg_alloc();
 	tcsp = g_malloc0(sizeof(struct text_csp));
 	tcsp->text = g_strdup(xcsp->text);
+
+	if (xcsp->from) {
+		tcsp->source_id = g_strdup_printf("XMPP=%s",xcsp->from);
+	}
+
 	tm->csp = tcsp;
 	tm->msg_type = MSG_RECVTEXT;
 

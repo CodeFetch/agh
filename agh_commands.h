@@ -8,7 +8,10 @@
 #define CMD_MAX_OP_NAME_LEN 10
 
 /* Overall command input text length limit. */
-#define CMD_MAX_TEXT_LEN 300
+#define CMD_MAX_TEXT_LEN 400
+
+/* command source identifier max length */
+#define CMD_MAX_FROM_LEN 70
 
 /* IN keyword: should be used for incoming commands */
 #define CMD_IN_KEYWORD "AT"
@@ -42,9 +45,10 @@ struct command_result {
 struct command {
 	config_t *cmd;
 	struct command_result *answer;
+	gchar *cmd_source_id;
 };
 
-struct command *text_to_cmd(gchar *content);
+struct command *text_to_cmd(gchar *from, gchar *content);
 
 /* command results */
 

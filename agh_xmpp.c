@@ -6,6 +6,7 @@
 #include "agh_xmpp_handlers.h"
 #include "agh_messages.h"
 #include "agh_xmpp_caps.h"
+#include "agh_commands.h"
 
 gpointer agh_xmpp_init(gpointer data) {
 	struct agh_state *mstate = data;
@@ -24,20 +25,6 @@ gpointer agh_xmpp_init(gpointer data) {
 	xmpp_initialize();
 
 	/* Create XMPP library context */
-	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
-
-	/* First parameter is NULL since we don't provide our own memory allocator. */
-	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
-
-	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
-
-	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
-
-	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, mstate);
-	xmpp_handler_add(xstate->xmpp_conn, discoinfo_handler, XMPP_NS_DISCO_INFO, "iq", NULL, mstate);
-	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, mstate);
-	xmpp_handler_add(xstate->xmpp_conn, pong_handler, AGH_XMPP_STANZA_NS_PING, "iq", AGH_XMPP_STANZA_TYPE_GET, mstate);
-	xmpp_handler_add(xstate->xmpp_conn, iq_result_handler, NULL, "iq", AGH_XMPP_STANZA_TYPE_RESULT, mstate);
 	agh_xmpp_config_init(mstate);
 
 	if (xstate->uci_ctx) {
@@ -58,14 +45,17 @@ void agh_xmpp_deinit(gpointer data) {
 		xmpp_timed_handler_delete(xstate->xmpp_conn, ping_handler);
 	}
 
-	xmpp_conn_release(xstate->xmpp_conn);
+	if (xstate->xmpp_conn)
+		xmpp_conn_release(xstate->xmpp_conn);
 
 	if (xstate->jid) {
 		xmpp_free(xstate->xmpp_ctx, xstate->jid);
 		xstate->jid = NULL;
 	}
 
-	xmpp_ctx_free(xstate->xmpp_ctx);
+	if (xstate->xmpp_ctx)
+		xmpp_ctx_free(xstate->xmpp_ctx);
+
 	xmpp_shutdown();
 	agh_xmpp_caps_entity_dealloc(xstate->e);
 	xstate->e = NULL;
@@ -74,9 +64,11 @@ void agh_xmpp_deinit(gpointer data) {
 
 	xstate->xmpp_evs_tag = 0;
 
-	g_queue_free_full(xstate->outxmpp_messages, g_free);
+	g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+	g_queue_free(xstate->outxmpp_messages);
 	xstate->outxmpp_messages = NULL;
-	xstate->controller = NULL;
+	g_queue_free(xstate->controllers);
+	xstate->controllers = NULL;
 	xstate->ping_timeout = 0;
 	xstate->ping_interval = 0;
 
@@ -196,6 +188,15 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xmpp_stanza_t *receipt_message;
 	xmpp_stanza_t *receipt_response;
 	gchar *from_barejid;
+	gboolean is_a_controller;
+	guint i;
+	guint controllers_queue_len;
+	gchar *current_controller;
+	gchar *receipt_response_id;
+
+	mstate = userdata;
+	xstate = mstate->xstate;
+	ctx = xstate->xmpp_ctx;
 
 	m = NULL;
 	intext = NULL;
@@ -207,10 +208,11 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	receipt_message = NULL;
 	receipt_response = NULL;
 	from_barejid = NULL;
-
-	mstate = userdata;
-	xstate = mstate->xstate;
-	ctx = xstate->xmpp_ctx;
+	is_a_controller = FALSE;
+	i = 0;
+	controllers_queue_len = 0;
+	current_controller = NULL;
+	receipt_response_id = NULL;
 
 	/* body should not be freed */
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
@@ -231,7 +233,15 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 		return 1;
 
 	from_barejid = xmpp_jid_bare(ctx, from);
-	if (g_strcmp0(from_barejid, xstate->controller)) {
+	controllers_queue_len = g_queue_get_length(xstate->controllers);
+	for (i = 0; i<controllers_queue_len;i++) {
+		current_controller = g_queue_peek_nth(xstate->controllers, i);
+		if (!g_strcmp0(from_barejid, current_controller)) {
+			is_a_controller = TRUE;
+			break;
+		}
+	}
+	if (!is_a_controller) {
 		xmpp_free(ctx, from_barejid);
 		from_barejid = NULL;
 		return 1;
@@ -244,7 +254,11 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	if (receipt_request) {
 		g_print("%s: receipt request received.\n",__FUNCTION__);
 
-		receipt_message = xmpp_message_new(ctx, NULL, from, msg_id);
+		if (xstate->msg_id == G_MAXUINT64)
+			xstate->msg_id = 0;
+
+		receipt_response_id = g_strdup_printf("AGH_%" G_GUINT64_FORMAT"",xstate->msg_id);
+		receipt_message = xmpp_message_new(ctx, NULL, from, receipt_response_id);
 
 		receipt_response = xmpp_stanza_new(ctx);
 		xmpp_stanza_set_name(receipt_response, "received");
@@ -256,6 +270,9 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 
 		xmpp_send(conn, receipt_message);
 		xmpp_stanza_release(receipt_message);
+		xstate->msg_id++;
+		g_free(receipt_response_id);
+		receipt_response_id = NULL;
 	}
 
 	to = xmpp_stanza_get_to(stanza);
@@ -286,12 +303,14 @@ gboolean xmpp_idle(gpointer data) {
 	gint altport;
 	const gchar *altport_tmp;
 	gchar *eptr;
+	const gchar *stress_mode;
 
 	xmpp_client_connect_status = 0;
 	altdomain = NULL;
 	altport = 0;
 	eptr = NULL;
 	altport_tmp = NULL;
+	stress_mode = NULL;
 
 	switch(xstate->xmpp_idle_state) {
 	case 0:
@@ -311,6 +330,13 @@ gboolean xmpp_idle(gpointer data) {
 			eptr = NULL;
 		}
 
+		stress_mode = agh_xmpp_getoption(xstate, AGH_XMPP_UCI_OPTION_STRESS_MODE);
+		if (stress_mode && !g_strcmp0(stress_mode, AGH_XMPP_UCI_OPTION_STRESS_MODE_ACTIVATE_KEYWORD)) {
+			agh_xmpp_start_stressing(mstate);
+		}
+
+		agh_xmpp_config_init(mstate);
+
 		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, altdomain, altport, xmpp_connection_handler, mstate);
 		if (xmpp_client_connect_status)
 			break;
@@ -320,7 +346,7 @@ gboolean xmpp_idle(gpointer data) {
 	case 1:
 		/* run strophe event loop, once */
 		xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
-		agh_xmpp_send_out_messages(xstate);
+		agh_xmpp_send_out_messages(mstate);
 		break;
 	case 2:
 		if (!mstate->exiting)
@@ -352,62 +378,112 @@ gboolean xmpp_idle(gpointer data) {
 	return TRUE;
 }
 
-void agh_xmpp_send_out_messages(gpointer data) {
-	struct xmpp_state *xstate = data;
-	guint num_messages;
+void agh_xmpp_send_out_messages(struct agh_state *mstate) {
+	struct xmpp_state *xstate = mstate->xstate;
+	struct text_csp *tcsp;
+	struct agh_message *artificial_message;
+	gchar *agh_message_source_name;
+	gchar *agh_message_source_from;
+	guint i;
+	guint controllers_queue_len;
+	gchar *current_controller;
+
+	tcsp = NULL;
+	artificial_message = NULL;
+	agh_message_source_from = NULL;
+	agh_message_source_name = NULL;
+	i = 0;
+	controllers_queue_len = 0;
+	current_controller = NULL;
+
+	if (!xstate->outxmpp_messages)
+		return;
+
+	//g_print("%s: currently %" G_GUINT16_FORMAT" messages on queue\n",__FUNCTION__, g_queue_get_length(xstate->outxmpp_messages));
+
+	if (!g_queue_get_length(xstate->outxmpp_messages))
+		return;
+
+	/* Get a message */
+	artificial_message = g_queue_pop_head(xstate->outxmpp_messages);
+
+	/* We expect only MSG_SENDTEXT messages, or in any case, messages with a text_csp. */
+	tcsp = artificial_message->csp;
+
+	if (tcsp->source_id) {
+		agh_message_source(tcsp->source_id, &agh_message_source_name, &agh_message_source_from);
+
+		if (agh_message_source_from) {
+			if (!g_strcmp0(agh_message_source_name, "XMPP"))
+				agh_xmpp_send_message(mstate, agh_message_source_from, tcsp->text);
+			g_free(agh_message_source_from);
+			g_free(agh_message_source_name);
+			agh_message_source_from = NULL;
+			agh_message_source_name = NULL;
+		}
+	}
+	else {
+		//g_print("Broadcast this message.\n");
+		controllers_queue_len = g_queue_get_length(xstate->controllers);
+		for (i=0;i<controllers_queue_len;i++) {
+			current_controller = g_queue_peek_nth(xstate->controllers, i);
+			agh_xmpp_send_message(mstate, current_controller, tcsp->text);
+		}
+	}
+
+	msg_dealloc(artificial_message);
+
+	return;
+}
+
+void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, const gchar *text) {
+	struct xmpp_state *xstate = mstate->xstate;
+	xmpp_ctx_t *ctx = xstate->xmpp_ctx;
+
 	xmpp_stanza_t *reply;
-	xmpp_ctx_t *ctx;
-	gchar *text;
 	gchar *id;
 	const gchar *from;
+	gchar *local_text;
 
 	id = NULL;
-	text = NULL;
 	reply = NULL;
 	from = NULL;
+	local_text = NULL;
 
-	ctx = xstate->xmpp_ctx;
-	num_messages = g_queue_get_length(xstate->outxmpp_messages);
+	from = xmpp_conn_get_bound_jid(xstate->xmpp_conn);
+	if ((xstate->xmpp_idle_state != 1) || !from || !to || !text)
+		return;
 
-	if (num_messages) {
+	if (xstate->msg_id == G_MAXUINT64)
+		xstate->msg_id = 0;
 
-		if (num_messages >= AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES) {
-			g_print("%s: maximum number of messages queued for sending has been received; discarding all of them.\n",__FUNCTION__);
-			g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
-			return;
-		}
+	id = g_strdup_printf("AGH_%" G_GUINT64_FORMAT"",xstate->msg_id);
 
-		from = xmpp_conn_get_bound_jid(xstate->xmpp_conn);
-		if (!from)
-			return;
-
-		if (xstate->msg_id == G_MAXUINT64)
-			xstate->msg_id = 0;
-
-		id = g_strdup_printf("AGH_%" G_GUINT64_FORMAT"",xstate->msg_id);
-		reply = xmpp_message_new(ctx, "chat", xstate->controller, id);
-		text = g_queue_pop_head(xstate->outxmpp_messages);
-		xmpp_message_set_body(reply, text);
-		xmpp_stanza_set_from(reply, from);
-		xmpp_send(xstate->xmpp_conn, reply);
-		xmpp_stanza_release(reply);
-		g_free(text);
-		g_free(id);
-		xstate->msg_id++;
-	}
+	reply = xmpp_message_new(ctx, "chat", to, id);
+	local_text = g_strdup(text);
+	xmpp_message_set_body(reply, local_text);
+	xmpp_stanza_set_from(reply, from);
+	xmpp_send(xstate->xmpp_conn, reply);
+	xmpp_stanza_release(reply);
+	g_free(local_text);
+	g_free(id);
+	xstate->msg_id++;
 
 	return;
 }
 
 void discard_xmpp_messages(gpointer data, gpointer userdata) {
 	struct xmpp_state *xstate = userdata;
-	gchar *xmpp_message_text = data;
+	struct agh_message *artificial_message = data;
+	struct text_csp *tcsp;
 
-	g_print("Discarding element: %s\n", xmpp_message_text);
-	g_queue_remove(xstate->outxmpp_messages, data);
+	tcsp = artificial_message->csp;
 
-	/* Should I use "text" here? */
-	g_free(data);
+	g_print("[%s]: %s\n",tcsp->source_id ? tcsp->source_id : "unknown source", tcsp->text ? tcsp->text : "unknown text?");
+
+	g_queue_remove(xstate->outxmpp_messages, artificial_message);
+
+	msg_dealloc(artificial_message);
 
 	return;
 }
@@ -518,6 +594,7 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 	gchar *eptr;
 	gint ping_timeout;
 	gint ping_interval;
+	GQueue *controllers;
 
 	package = NULL;
 	section = NULL;
@@ -531,6 +608,15 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 	eptr = NULL;
 	ping_timeout = 0;
 	ping_interval = 0;
+	controllers = NULL;
+
+	if (xstate->uci_ctx) {
+		uci_unload(xstate->uci_ctx, xstate->xpackage);
+		uci_free_context(xstate->uci_ctx);
+		xstate->uci_ctx = NULL;
+		xstate->xpackage = NULL;
+		xstate->xsection = NULL;
+	}
 
 	xstate->uci_ctx = uci_alloc_context();
 	if (!xstate->uci_ctx) {
@@ -605,11 +691,14 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 	if (!(!eptr || *eptr == '\0'))
 		goto out;
 
-	optval = agh_xmpp_getoption(xstate, AGH_XMPP_UCI_OPTION_CONTROLLER);
-	if (!optval)
+	controllers = agh_xmpp_getoption_list(xstate, AGH_XMPP_UCI_OPTION_CONTROLLER);
+	if (!controllers)
 		goto out;
 
-	xstate->controller = optval;
+	if (xstate->controllers)
+		g_queue_free(xstate->controllers);
+
+	xstate->controllers = controllers;
 
 	optval = agh_xmpp_getoption(xstate, AGH_XMPP_UCI_OPTION_XMPP_PING_TIMEOUT);
 
@@ -637,6 +726,7 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 	}
 
 	agh_xmpp_conn_setup(mstate, jid_node, jid_domain, jid_resource, pass, ka_interval, ka_timeout);
+
 	return;
 
 out:
@@ -685,15 +775,77 @@ const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name) {
 	return content;
 }
 
+GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name) {
+	struct uci_option *option;
+	GQueue *res;
+	struct uci_element *e;
+
+	option = NULL;
+	res = NULL;
+	e = NULL;
+
+	if (!xstate->xsection)
+		return res;
+
+	option = uci_lookup_option(xstate->uci_ctx, xstate->xsection, name);
+
+	if ((!option) || (option->type != UCI_TYPE_LIST))
+		return res;
+
+	res = g_queue_new();
+	uci_foreach_element(&option->v.list, e) {
+		g_queue_push_tail(res, e->name);
+	}
+
+	return res;
+}
+
 void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout) {
 	struct xmpp_state *xstate = mstate->xstate;
 	gchar *jid;
 
 	jid = NULL;
 
-	jid = xmpp_jid_new(xstate->xmpp_ctx, node, domain, resource);
-	if (!jid)
+	if (xstate->xmpp_conn) {
+		xmpp_conn_release(xstate->xmpp_conn);
+		xstate->xmpp_conn = NULL;
+	}
+
+	if (xstate->xmpp_ctx) {
+		if (xstate->jid)
+			xmpp_free(xstate->xmpp_ctx, xstate->jid);
+
+		xmpp_ctx_free(xstate->xmpp_ctx);
+		xstate->xmpp_ctx = NULL;
+	}
+
+	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
+
+	/* First parameter is NULL since we don't provide our own memory allocator. */
+	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
+	if (!xstate->xmpp_ctx)
 		return;
+
+	jid = xmpp_jid_new(xstate->xmpp_ctx, node, domain, resource);
+	if (!jid) {
+		xmpp_ctx_free(xstate->xmpp_ctx);
+		return;
+	}
+
+	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
+	if (!xstate->xmpp_conn) {
+		xmpp_ctx_free(xstate->xmpp_ctx);
+		g_free(jid);
+		return;
+	}
+
+	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
+
+	xmpp_handler_add(xstate->xmpp_conn, version_handler, "jabber:iq:version", "iq", NULL, mstate);
+	xmpp_handler_add(xstate->xmpp_conn, discoinfo_handler, XMPP_NS_DISCO_INFO, "iq", NULL, mstate);
+	xmpp_handler_add(xstate->xmpp_conn, message_handler, NULL, "message", NULL, mstate);
+	xmpp_handler_add(xstate->xmpp_conn, pong_handler, AGH_XMPP_STANZA_NS_PING, "iq", AGH_XMPP_STANZA_TYPE_GET, mstate);
+	xmpp_handler_add(xstate->xmpp_conn, iq_result_handler, NULL, "iq", AGH_XMPP_STANZA_TYPE_RESULT, mstate);
 
 	xmpp_conn_set_jid(xstate->xmpp_conn, jid);
 	xmpp_conn_set_pass(xstate->xmpp_conn, pass);
@@ -841,8 +993,7 @@ int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata) {
 
 	g_print("%s: oops!\n",__FUNCTION__);
 
-	if (xstate->xmpp_idle_state == 1)
-		xmpp_disconnect(xstate->xmpp_conn);
+	xmpp_disconnect(xstate->xmpp_conn);
 
 	return 0;
 }
@@ -859,4 +1010,55 @@ int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 	}
 
 	return 1;
+}
+
+void agh_xmpp_start_stressing(struct agh_state *mstate) {
+	struct xmpp_state *xstate = mstate->xstate;
+
+	if (xstate->stress_source)
+		return;
+
+	xstate->stress_source = g_timeout_source_new(400);
+	g_source_set_callback(xstate->stress_source, agh_xmpp_stressing_callback, mstate, NULL);
+	xstate->stress_tag = g_source_attach(xstate->stress_source, mstate->ctx);
+	g_source_unref(xstate->stress_source);
+
+	return;
+}
+
+gboolean agh_xmpp_stressing_callback(gpointer data) {
+	struct agh_state *mstate = data;
+	struct xmpp_state *xstate = mstate->xstate;
+	struct command *event;
+
+	event = NULL;
+
+	if (mstate->exiting) {
+		xstate->stress_source = NULL;
+		xstate->stress_tag = 0;
+		return FALSE;
+	}
+
+	event = cmd_event_prepare();
+	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	cmd_answer_addtext(event, "STRESS");
+	cmd_emit_event(mstate->comm, event);
+/*
+	event = cmd_event_prepare();
+	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	cmd_answer_addtext(event, "STRESS");
+	cmd_emit_event(mstate->comm, event);
+
+	event = cmd_event_prepare();
+	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	cmd_answer_addtext(event, "STRESS");
+	cmd_emit_event(mstate->comm, event);
+
+	event = cmd_event_prepare();
+	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	cmd_answer_addtext(event, "STRESS");
+	cmd_emit_event(mstate->comm, event);
+*/
+
+	return TRUE;
 }

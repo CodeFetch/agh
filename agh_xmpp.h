@@ -3,7 +3,7 @@
 #include <strophe.h>
 #include "agh.h"
 
-#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 30
+#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 300
 
 #define AGH_XMPP_RUN_ONCE_INTERVAL 200
 
@@ -47,6 +47,8 @@
 /* Other options. */
 #define AGH_XMPP_UCI_OPTION_ALTDOMAIN "altdomain"
 #define AGH_XMPP_UCI_OPTION_ALTPORT "altport"
+#define AGH_XMPP_UCI_OPTION_STRESS_MODE "stress"
+#define AGH_XMPP_UCI_OPTION_STRESS_MODE_ACTIVATE_KEYWORD "StressMe!Please!"
 
 /* Ping states. */
 #define AGH_XMPP_PING_STATE_INACTIVE 0
@@ -58,7 +60,7 @@ struct xmpp_state {
 	xmpp_conn_t *xmpp_conn;
 	xmpp_log_t *xmpp_log;
 	gchar *jid;
-	const gchar *controller;
+	GQueue *controllers;
 	GSource *xmpp_evs;
 	guint xmpp_evs_tag;
 	GQueue *outxmpp_messages;
@@ -73,6 +75,9 @@ struct xmpp_state {
 	gint ping_interval;
 	gint ping_timeout;
 	gboolean ping_is_timeout;
+
+	GSource *stress_source;
+	guint stress_tag;
 };
 
 struct xmpp_csp {
@@ -91,7 +96,8 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
 void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata);
 
-void agh_xmpp_send_out_messages(gpointer data);
+void agh_xmpp_send_out_messages(struct agh_state *mstate);
+void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, const gchar *text);
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 
 void xmpp_set_handlers_ext(struct agh_state *mstate);
@@ -100,6 +106,7 @@ int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 void agh_xmpp_config_init(struct agh_state *mstate);
 void agh_xmpp_start_statemachine(struct agh_state *mstate);
 const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name);
+GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name);
 void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout);
 int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
 struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *to, const gchar *id, gchar *text);
@@ -107,5 +114,7 @@ xmpp_stanza_t *agh_xmpp_build_ping_base(struct agh_state *mstate, const gchar *t
 int ping_handler(xmpp_conn_t *const conn, void *const userdata);
 int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata);
 int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+void agh_xmpp_start_stressing(struct agh_state *mstate);
+gboolean agh_xmpp_stressing_callback(gpointer data);
 
 #endif

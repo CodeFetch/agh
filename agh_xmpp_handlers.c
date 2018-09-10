@@ -10,15 +10,36 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	struct text_csp *csp;
 	struct agh_state *mstate;
 	struct xmpp_state *xstate;
+	struct text_csp *textcopy_csp;
+	struct agh_message *omsg;
 
 	mstate = h->handler_data;
 	xstate = mstate->xstate;
+	textcopy_csp = NULL;
+	omsg = NULL;
 
 	csp = m->csp;
 
+	if (!xstate->outxmpp_messages)
+		return NULL;
+
 	if (m->msg_type == MSG_SENDTEXT) {
-		//g_print("Enqueuing text %s;\n",csp->text);
-		g_queue_push_tail(xstate->outxmpp_messages, g_strdup(csp->text));
+		if (g_queue_get_length(xstate->outxmpp_messages) > AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES) {
+			g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+			return NULL;
+		}
+
+		omsg = msg_alloc();
+		omsg->msg_type = MSG_SENDTEXT;
+		textcopy_csp = g_malloc0(sizeof(struct text_csp));
+		textcopy_csp->text = g_strdup(csp->text);
+
+		if (csp->source_id)
+			textcopy_csp->source_id = g_strdup(csp->source_id);
+
+		omsg->csp = textcopy_csp;
+		g_queue_push_tail(xstate->outxmpp_messages, omsg);
+		//g_print("++ %s\n",textcopy_csp->text);
 	}
 
 	return NULL;
