@@ -184,6 +184,16 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 
 	comm = NULL;
 
+	if (!name) {
+		g_print("%s: NULL COMM name\n",__FUNCTION__);
+		return comm;
+	}
+
+	if (!ctx) {
+		g_print("%s: NULL GMainContext\n",__FUNCTION__);
+		return comm;
+	}
+
 	comm = g_malloc0(sizeof(struct agh_comm));
 
 	comm->name = name;
