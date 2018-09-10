@@ -19,16 +19,11 @@ GQueue *handlers_setup(void) {
 void handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
 
-	if (!handlers) {
-		g_print("handlers: NULL handlers queue passed in. No action taken, but something might be going wrong.\n");
-		return;
-	}
-
 	num_handlers = g_queue_get_length(handlers);
 	if (num_handlers) {
-		g_print("handlers: %" G_GUINT16_FORMAT" handlers are still registered, this is going to leak memory!\n",num_handlers);
+		g_print("handlers: %" G_GUINT16_FORMAT" handlers are still registed!\n",num_handlers);
 	}
-	g_queue_free_full(handlers, g_free);
+	g_queue_free(handlers);
 
 	return;
 }
