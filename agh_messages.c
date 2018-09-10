@@ -194,7 +194,11 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 		return comm;
 	}
 
-	comm = g_malloc0(sizeof(struct agh_comm));
+	comm = g_try_malloc0(sizeof(struct agh_comm));
+	if (!comm) {
+		g_print("%s: allocation failed\n",__FUNCTION__);
+		return comm;
+	}
 
 	comm->name = name;
 	comm->handlers = handlers;
