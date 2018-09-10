@@ -3,6 +3,11 @@
 #include <glib.h>
 #include "agh_messages.h"
 
+
+/*
+ * Allocates handlers queue with g_queue_new.
+ * At the time of this writing, g_queue_new uses g_slice_alloc, which in turn calls g_malloc internally, hence a failure to allocate memory may lead to program termination.
+*/
 GQueue *handlers_setup(void) {
 	GQueue *hq;
 
