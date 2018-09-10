@@ -184,11 +184,6 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 
 	comm = NULL;
 
-	if (!handlers) {
-		g_print("%s: COMM setup for %s failed: handlers GQueue was NULL\n",__FUNCTION__, name ? name : "(unknown)");
-		return comm;
-	}
-
 	comm = g_malloc0(sizeof(struct agh_comm));
 
 	comm->name = name;
