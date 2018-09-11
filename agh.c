@@ -22,7 +22,6 @@ gint main(void) {
 	if (!mstate->comm) {
 		g_print("%s: can not allocate COMM for core\n",__FUNCTION__);
 		handlers_teardown(mstate->agh_handlers);
-		agh_comm_teardown(mstate->comm);
 		agh_state_teardown(mstate);
 		return 1;
 	}
@@ -76,7 +75,7 @@ gint main(void) {
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
 	handlers_teardown(mstate->agh_handlers);
-	agh_comm_teardown(mstate->comm);
+	agh_comm_teardown(mstate->comm, FALSE);
 	agh_state_teardown(mstate);
 	return 0;
 }
