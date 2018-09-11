@@ -33,7 +33,12 @@ gint main(void) {
 	 * We init XMPP here to give a chance to XMPP code to set up its handlers.
 	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to be active.
 	*/
-	agh_xmpp_init(mstate);
+	if (agh_xmpp_init(mstate)) {
+		g_print("%s: error while initializing XMPP\n",__FUNCTION__);
+
+		/* try to continue */
+	}
+
 	agh_mm_init(mstate);
 
 	agh_sources_setup(mstate);
