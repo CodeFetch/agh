@@ -14,7 +14,7 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	mstate->xstate = g_try_malloc0(sizeof(struct xmpp_state));
 	if (!mstate->xstate) {
 		g_print("%s: failure while allocating XMPP state\n",__FUNCTION__);
-		return 1;
+		return -ENOMEM;
 	}
 
 	xstate = mstate->xstate;
@@ -32,6 +32,8 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	if (xstate->uci_ctx) {
 		agh_xmpp_start_statemachine(mstate);
 	}
+	else
+		return -EINVAL;
 
 	return 0;
 }
