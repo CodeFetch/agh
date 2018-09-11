@@ -121,13 +121,15 @@ void agh_sources_teardown(struct agh_state *mstate) {
 
 void agh_state_teardown(struct agh_state *mstate) {
 	/* XXX is this the proper order? */
-	g_main_loop_unref(mstate->agh_mainloop);
-	g_main_context_unref(mstate->ctx);
+	if (mstate->agh_mainloop)
+		g_main_loop_unref(mstate->agh_mainloop);
+
+	if (mstate->ctx)
+		g_main_context_unref(mstate->ctx);
+
 	mstate->agh_mainloop = NULL;
 	mstate->ctx = NULL;
-	mstate->comm = NULL;
 	g_free(mstate);
-	mstate = NULL;
 	return;
 }
 
