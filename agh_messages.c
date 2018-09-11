@@ -207,7 +207,7 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 	return comm;
 }
 
-void agh_comm_teardown(struct agh_comm *comm) {
+void agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext) {
 	guint i;
 
 	i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
@@ -219,12 +219,13 @@ void agh_comm_teardown(struct agh_comm *comm) {
 
 	comm->teardown_in_progress = TRUE;
 
-	do {
-		if (g_main_context_iteration(comm->ctx, FALSE))
-			i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
+	if (!do_not_iterate_gmaincontext)
+		do {
+			if (g_main_context_iteration(comm->ctx, FALSE))
+				i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
 
-		i--;
-	} while (i);
+			i--;
+		} while (i);
 
 	comm->name = NULL;
 	comm->handlers = NULL;
