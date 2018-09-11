@@ -590,8 +590,8 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	handler_enable(xmppmsg_to_text, TRUE);
 
 	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
-	handler_register(mstate->agh_handlers, core_sendtext_handler);
 	handler_register(mstate->agh_handlers, core_cmd_handler);
+	handler_register(mstate->agh_handlers, core_sendtext_handler);
 	handler_register(mstate->agh_handlers, core_event_to_text_handler);
 	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
 	handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
