@@ -8,12 +8,14 @@
 #include "agh_xmpp_caps.h"
 #include "agh_commands.h"
 
-gpointer agh_xmpp_init(gpointer data) {
-	struct agh_state *mstate = data;
+gint agh_xmpp_init(struct agh_state *mstate) {
 	struct xmpp_state *xstate;
 
-	/* Should a memory allocation failure occur, GLib will terminate the application. */
-	mstate->xstate = g_malloc0(sizeof(struct xmpp_state));
+	mstate->xstate = g_try_malloc0(sizeof(struct xmpp_state));
+	if (!mstate->xstate) {
+		g_print("%s: failure while allocating XMPP state\n",__FUNCTION__);
+		return 1;
+	}
 
 	xstate = mstate->xstate;
 
@@ -31,7 +33,7 @@ gpointer agh_xmpp_init(gpointer data) {
 		agh_xmpp_start_statemachine(mstate);
 	}
 
-	return data;
+	return 0;
 }
 
 void agh_xmpp_deinit(gpointer data) {

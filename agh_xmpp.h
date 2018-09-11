@@ -87,7 +87,7 @@ struct xmpp_csp {
 	gchar *id;
 };
 
-gpointer agh_xmpp_init(gpointer data);
+gint agh_xmpp_init(struct agh_state *mstate);
 void agh_xmpp_deinit(gpointer data);
 gboolean xmpp_idle(gpointer data);
 
