@@ -1,5 +1,6 @@
 #include <glib.h>
 #include <uci.h>
+#include <errno.h>
 #include "agh_xmpp.h"
 #include "agh.h"
 #include "agh_handlers.h"
@@ -137,6 +138,11 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	xstate = mstate->xstate;
 	ctx = xstate->xmpp_ctx;
 
+	if (xstate->xmpp_idle_state != 1) {
+		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		return 1;
+	}
+
 	g_print("Received version request from %s\n", xmpp_stanza_get_from(stanza));
 	reply = xmpp_stanza_reply(stanza);
 	xmpp_stanza_set_type(reply, "result");
@@ -217,6 +223,11 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	controllers_queue_len = 0;
 	current_controller = NULL;
 	receipt_response_id = NULL;
+
+	if (xstate->xmpp_idle_state != 1) {
+		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		return 1;
+	}
 
 	/* body should not be freed */
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
@@ -338,8 +349,20 @@ gboolean xmpp_idle(gpointer data) {
 		if (stress_mode && !g_strcmp0(stress_mode, AGH_XMPP_UCI_OPTION_STRESS_MODE_ACTIVATE_KEYWORD)) {
 			agh_xmpp_start_stressing(mstate);
 		}
+		else {
+			if (xstate->stress_source) {
+				g_source_destroy(xstate->stress_source);
+				xstate->stress_source = NULL;
+				xstate->stress_tag = 0;
+			}
+		}
 
 		agh_xmpp_config_init(mstate);
+
+		if (!xstate->uci_ctx) {
+			g_print("Invalid config!\n");
+			break;
+		}
 
 		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, altdomain, altport, xmpp_connection_handler, mstate);
 		if (xmpp_client_connect_status)
@@ -363,13 +386,15 @@ gboolean xmpp_idle(gpointer data) {
 	}
 
 	if (mstate->exiting) {
-		i = xstate->xmpp_idle_state;
-		xmpp_disconnect(xstate->xmpp_conn);
+		if (xstate->xmpp_conn) {
+			i = xstate->xmpp_idle_state;
+			xmpp_disconnect(xstate->xmpp_conn);
 
-		if (xstate->xmpp_idle_state == 1)
-			do {
-				xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
-			} while (i == xstate->xmpp_idle_state);
+			if (xstate->xmpp_idle_state == 1)
+				do {
+					xmpp_run_once(xstate->xmpp_ctx, AGH_XMPP_RUN_ONCE_INTERVAL);
+				} while (i == xstate->xmpp_idle_state);
+		}
 
 		xstate->xmpp_idle_state = 2;
 		g_print("%s: asked to exit\n",__FUNCTION__);
@@ -496,9 +521,6 @@ void xmpp_set_handlers_ext(struct agh_state *mstate) {
 	struct handler *xmpp_sendmsg_handler;
 	struct handler *xmpp_cmd_handler;
 
-	xmpp_sendmsg_handler = NULL;
-	xmpp_cmd_handler = NULL;
-
 	xmpp_sendmsg_handler = handler_new("xmpp_sendmsg_handler");
 	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
 	handler_enable(xmpp_sendmsg_handler, TRUE);
@@ -551,6 +573,11 @@ int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 	response = NULL;
 	capsdata = NULL;
 
+	if (xstate->xmpp_idle_state != 1) {
+		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		return 1;
+	}
+
 	incoming_query = xmpp_stanza_get_child_by_name(stanza, AGH_XMPP_STANZA_NAME_QUERY);
 
 	from = xmpp_stanza_get_from(stanza);
@@ -599,20 +626,6 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 	gint ping_timeout;
 	gint ping_interval;
 	GQueue *controllers;
-
-	package = NULL;
-	section = NULL;
-	optval = NULL;
-	jid_node = NULL;
-	jid_resource = NULL;
-	jid_domain = NULL;
-	pass = NULL;
-	ka_interval = 0;
-	ka_timeout = 0;
-	eptr = NULL;
-	ping_timeout = 0;
-	ping_interval = 0;
-	controllers = NULL;
 
 	if (xstate->uci_ctx) {
 		uci_unload(xstate->uci_ctx, xstate->xpackage);
@@ -731,6 +744,11 @@ void agh_xmpp_config_init(struct agh_state *mstate) {
 
 	agh_xmpp_conn_setup(mstate, jid_node, jid_domain, jid_resource, pass, ka_interval, ka_timeout);
 
+	if (!xstate->xmpp_conn) {
+		g_print("%s: connection setup failed\n",__FUNCTION__);
+		goto out;
+	}
+
 	return;
 
 out:
@@ -764,7 +782,6 @@ const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name) {
 	struct uci_option *option;
 
 	content = NULL;
-	option = NULL;
 
 	if (!xstate->xsection)
 		return content;
@@ -784,9 +801,7 @@ GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name) {
 	GQueue *res;
 	struct uci_element *e;
 
-	option = NULL;
 	res = NULL;
-	e = NULL;
 
 	if (!xstate->xsection)
 		return res;
@@ -839,7 +854,7 @@ void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gcha
 	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
 	if (!xstate->xmpp_conn) {
 		xmpp_ctx_free(xstate->xmpp_ctx);
-		g_free(jid);
+		xmpp_free(xstate->xmpp_ctx, jid);
 		return;
 	}
 
@@ -875,6 +890,11 @@ int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * 
 	iq_ping = NULL;
 
 	g_print("%s: nice, I was invoked.\n",__FUNCTION__);
+
+	if (xstate->xmpp_idle_state != 1) {
+		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		return 1;
+	}
 
 	iq_ping = agh_xmpp_build_ping_base(mstate, xmpp_stanza_get_from(stanza), xmpp_stanza_get_id(stanza), AGH_XMPP_STANZA_TYPE_RESULT);
 	xmpp_send(xstate->xmpp_conn, iq_ping);
@@ -1006,6 +1026,11 @@ int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 
+	if (xstate->xmpp_idle_state != 1) {
+		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		return 1;
+	}
+
 	if (xstate->ping_interval && xstate->ping_is_timeout) {
 		//g_print("%s: \"resetting\" ping logic\n",__FUNCTION__);
 		xmpp_timed_handler_delete(xstate->xmpp_conn, ping_timeout_handler);
@@ -1024,6 +1049,7 @@ void agh_xmpp_start_stressing(struct agh_state *mstate) {
 
 	xstate->stress_source = g_timeout_source_new(400);
 	g_source_set_callback(xstate->stress_source, agh_xmpp_stressing_callback, mstate, NULL);
+	mstate->mainloop_needed++;
 	xstate->stress_tag = g_source_attach(xstate->stress_source, mstate->ctx);
 	g_source_unref(xstate->stress_source);
 
@@ -1040,6 +1066,7 @@ gboolean agh_xmpp_stressing_callback(gpointer data) {
 	if (mstate->exiting) {
 		xstate->stress_source = NULL;
 		xstate->stress_tag = 0;
+		mstate->mainloop_needed--;
 		return FALSE;
 	}
 
