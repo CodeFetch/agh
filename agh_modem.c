@@ -68,7 +68,11 @@ void agh_mm_init(struct agh_state *mstate) {
 
 	validation_error = NULL;
 
-	mmstate = g_malloc0(sizeof(struct agh_mm_state));
+	mmstate = g_try_malloc0(sizeof(struct agh_mm_state));
+	if (!mmstate) {
+		g_print("%s: can not allocate mmstate\n",__FUNCTION__);
+		return;
+	}
 
 	mstate->mmstate = mmstate;
 

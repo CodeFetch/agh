@@ -1,5 +1,6 @@
 #include "agh_mm_manager.h"
 #include "agh_mm_sm.h"
+
 void agh_mm_manager_init(GDBusConnection *connection, const gchar *name, const gchar *name_owner, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
