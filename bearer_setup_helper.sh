@@ -35,7 +35,7 @@ process_bearer() {
 		add_interface
 	else
 		echo "Bearer is going down."
-		search_and_remove_interface
+		search_and_remove_interface teardown_interface
 	fi
 }
 
@@ -135,6 +135,7 @@ check_and_maybe_destroy_intf() {
 	local logical_intfname="$1"
 	local bpath
 	local exit_status=0
+	local bcheck_exitstatus=0
 
 	bpath="$(uci_get network $logical_intfname bearer_path not_present)"
 
@@ -148,6 +149,17 @@ check_and_maybe_destroy_intf() {
 	json_load "$(ifstatus $logical_intfname)"
 
 	json_get_var is_up up
+
+	if [ $is_up -eq 1 ]; then
+		echo "Checking if bearer exists"
+		mmcli -b "$bpath" >/dev/null 2>&1
+		bcheck_exitstatus=$?
+		if [ $bcheck_exitstatus -eq 1 ]; then
+			ifdown "$logical_intfname"
+			json_load "$(ifstatus $logical_intfname)"
+			json_get_var is_up up
+		fi
+	fi
 
 	if [ $is_up -eq 0 ]; then
 		uci_remove network "$logical_intfname"
@@ -165,7 +177,7 @@ check_and_maybe_destroy_intf() {
 
 search_and_remove_interface() {
 	config_load network
-	config_foreach teardown_interface interface
+	config_foreach "$1" interface
 }
 
 teardown_interface() {
@@ -186,5 +198,6 @@ teardown_interface() {
 }
 
 if [ ! -z ${BEARER_PATH} ]; then
+	search_and_remove_interface check_and_maybe_destroy_intf
 	process_bearer
 fi
