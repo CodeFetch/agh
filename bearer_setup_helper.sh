@@ -2,7 +2,7 @@
 
 # This file is under GPL V2 or later, at your option.
 
-# Why not a protocol handler?
+# Why not a protocol handler? And what about using "fw3 -q reload" ? 
 
 . /lib/functions.sh
 . /usr/share/libubox/jshn.sh
@@ -34,7 +34,7 @@ process_bearer() {
 		echo "Bearer is coming up"
 		add_interface
 	else
-		echo "Bearer is going down."
+		echo "Bearer was going down."
 	fi
 }
 
@@ -44,7 +44,6 @@ add_interface() {
 	local logical_intf
 
 	# Does interface exist?
-	echo "Checking if interface exists."
 	while [ "$exit_status" -eq 0 ]; do
 		logical_intf=$(get_intfname)
 		# logical_intf="mmtest"
@@ -57,7 +56,7 @@ add_interface() {
 		fi
 	done
 
-	echo "Logical interface: $logical_intf"
+	echo "New logical interface: $logical_intf"
 
 	case "$BEARER_IP_METHOD" in
 		ppp) echo "ppp connection method support to be implemented";;
@@ -70,7 +69,6 @@ add_interface() {
 add_interface_static() {
 	local logical_intf_name="$1"
 
-	echo "Ok, we are here"
 	add_interface_common "$logical_intf_name"
 
 	uci_set network "$logical_intf_name" proto static
@@ -106,7 +104,7 @@ add_interface_dhcp() {
 }
 
 add_interface_common() {
-	echo add_interface_common
+	echo "Welcome, add_interface_common"
 
 	uci_add network interface "$logical_intf_name"
 
@@ -126,7 +124,7 @@ interface_complete_common() {
 	echo "ifup $logical_intf_name"
 	ifup "$logical_intf_name"
 	uci add_list "firewall.@zone[1].network=$logical_intf_name"
-	/etc/init.d/firewall restart
+	/etc/init.d/firewall restart >/dev/null 2>&1
 }
 
 # exit values: 1=success, 0=failure
@@ -139,7 +137,7 @@ check_and_maybe_destroy_intf() {
 	bpath="$(uci_get network $logical_intfname bearer_path not_present)"
 
 	if [ "$bpath" = "not_present" ]; then
-		echo "This does not seem to be one of our interfaces"
+		echo "$1 does not seem to be one of our interfaces"
 		return $exit_status
 	fi
 
@@ -150,10 +148,10 @@ check_and_maybe_destroy_intf() {
 	json_get_var is_up up
 
 	if [ $is_up -eq 1 ]; then
-		echo "Checking if bearer exists"
 		mmcli -b "$bpath" >/dev/null 2>&1
 		bcheck_exitstatus=$?
 		if [ $bcheck_exitstatus -eq 1 ]; then
+			echo "ifdown of $logical_intfname stale interface"
 			ifdown "$logical_intfname"
 			json_load "$(ifstatus $logical_intfname)"
 			json_get_var is_up up
@@ -161,10 +159,11 @@ check_and_maybe_destroy_intf() {
 	fi
 
 	if [ $is_up -eq 0 ]; then
+		echo "Cleaning up $logical_intfname stale interface"
 		uci_remove network "$logical_intfname"
 		uci del_list "firewall.@zone[1].network=$logical_intfname"
 		ubus call network reload
-		/etc/init.d/firewall restart
+		/etc/init.d/firewall restart >/dev/null 2>&1
 	else
 		exit_status=1
 	fi
