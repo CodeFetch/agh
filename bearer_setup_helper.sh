@@ -35,7 +35,6 @@ process_bearer() {
 		add_interface
 	else
 		echo "Bearer is going down."
-		search_and_remove_interface teardown_interface
 	fi
 }
 
@@ -178,23 +177,6 @@ check_and_maybe_destroy_intf() {
 search_and_remove_interface() {
 	config_load network
 	config_foreach "$1" interface
-}
-
-teardown_interface() {
-	local bpath
-	local current_interface="$1"
-
-	bpath="$(uci_get network $current_interface bearer_path)"
-	if [ ! -z "$bpath" ]; then
-		if [ "$BEARER_PATH" = "$bpath" ]; then
-			echo "ifdown $current_interface"
-			ifdown "$current_interface"
-			uci del_list "firewall.@zone[1].network=$current_interface"
-			uci_remove network "$current_interface"
-			ubus call network reload
-			/etc/init.d/firewall restart
-		fi
-	fi
 }
 
 if [ ! -z ${BEARER_PATH} ]; then
