@@ -1,0 +1,1114 @@
+Welcome!
+===============================================================================
+
+Welcome to the documentation for AGH, the cloud management agent for meizo devices.
+
+This document aims to be an easy to read starting point, describing AGH.
+The first part of the document covers the background context: where AGH is supposed to run, and what is needed to compile it.
+The second part delves a little bit more into the details of how AGH was inspired and a rationale for some of the design choices.
+Everything, including this document is open to changes. The AGH software was written with the objective of introducing refinements and improvements over time.
+
+1. Introduction
+===============================================================================
+AGH software was concieved to be a bridge between OpenWRT and a cloud management platform- AGH should simply execute any command/s it is instructed to.
+In our philosophy, the idea is to have "simple" devices function by recieveing instructions/commands from a  smart cloud management infrastructure, which may allow for complex functionalities to be implemented. 
+Devices may be grouped to allow for scalable, simultaneous management by an operator. Firmware upgrades may be planned and scheduled to be executed at a given date/time, and so on.
+AGH has been written to have no notion of this.
+Instead, it should connect to a cloud management server, execute commands, and give back responses accordingly.
+AGH should run on any hardware which has support for OpenWRT, assuming enough storage and memory resources are present.
+
+2. A quick overview
+===============================================================================
+Upon startup, AGH performs the following tasks:
+1 - Connects to an XMPP server, and listens for control commands.
+To this end, a user name and a password should be provided for AGH to authenticate with the server. The use of TLS / SSL is considered mandatory.
+2 - Connects to the uBus ( https://wiki.openwrt.org/doc/techref/ubus ) micro bus architecture, to listen for events, send method calls and so on.
+3 - Connects to to the D-Bus messaging bus, via GLib, and waits for ModemManager. Once ModemManager appears on the bus, AGH will try to connect one or more modems, based on its configuration.
+4 - Optionally reports on system events and system log messages.
+
+AGH tries to converge to a situation where the system is connected to the network, can talk to the control XMPP server and talk over uBus to other processes in the system.
+Once this stage is reached, what can be done on the system depends also on the currently employed configuration. If the OpenWRT
+rpcd daemon ( https://wiki.openwrt.org/doc/techref/ubus#rpcd ) is installed and running, commands may be executed on the
+system, and UCI ( https://wiki.openwrt.org/doc/uci ) configuration values may be retrieved or set.
+
+AGH has been designed to be event driven when possible, a crucial property on systems where the ordering of events is not deterministic, also due to interactions with reality (e.g.: cables unplugged and re-plugged, and so on).
+Thus, AGH can survive uBus restarts, and is able to reconnect to uBus at any time. This is, unfortunately, not true for the
+D-Bus system.
+AGH interacts via uBus with the OpenWRT logd daemon, as shipped with the ubox package. Thus, it is able to stream log events to
+the cloud management server.
+
+3. Compiling AGH
+===============================================================================
+3.1. Requirements
+===============================================================================
+AGH should run properly under both glibc GNU C library and the musl C library as present in OpenWRT. At the moment, musl has
+been considered to be the "primary target", since it is the default choice in OpenWRT. It may still be needed to stick to the
+glibc GNU C library in some situations (e.g.: when running AGH under Valgrind or when you want to run the software on a
+Desktop Linux distribution).
+
+The following libraries are needed when compiling AGH: you may use the given URLs as arguments to the "git clone" command.
+- UCI configuration library as shipped with OpenWRT: needed to read UCI configuration files internally
+http://git.openwrt.org/project/uci.git
+- ubox package as shipped with OpenWRT: contains various utility functions needed when interacting with logd or ubus
+http://git.openwrt.org/project/ubox.git
+and
+http://git.openwrt.org/project/libubox.git
+- ubus: AGH uses libubus directly when talking to uBus
+http://git.openwrt.org/project/ubus.git
+- libstrophe XMPP library: used to talk to XMPP servers
+https://github.com/strophe/libstrophe
+- libnettle: at the moment, it provides functions to calculate SHA-1 hash for XMPP capabilities
+(libstrophe contains the needed functions as well, but I did not know that at the moment, this may be fixed)
+https://git.lysator.liu.se/nettle/nettle.git
+- the GLib2 library, containing various utility functions and data structures, extensively used in the whole program:
+(note: GObject and GIO are both needed, and may be packaged separately)
+https://gitlab.gnome.org/GNOME/glib.git
+- libconfig library: used for commands parsing
+https://github.com/hyperrealm/libconfig
+- ModemManager, and it's libmm library: used to interact with it
+git://anongit.freedesktop.org/ModemManager/ModemManager
+
+Make sure Modemmanager can link against some important support libraries:
+- libqmi: used to talk with QMI devices
+git://anongit.freedesktop.org/libqmi
+- libmbim: used to interact with MBIM devices
+git://anongit.freedesktop.org/libmbim/libmbim
+
+3.2. Building AGH
+===============================================================================
+At the moment, AGH does not ship with a proper build system. Hand-written shell scripts are used instead.
+This needs to be fixed, by choosing a build system. An eye should be kept on ease of integration with OpenWRT, as the final objective is to build AGH as a package.
+
+The following scripts are present:
+- compile.sh: compiles AGH for the running system, relying on the installed GCC C compiler; dependencies should be installed
+manually or via your package manager.
+- mipscompile.sh: tries to compile AGH using the OpenWRT toolchain, with hardcoded paths of my system and other nice stuff that
+should be replaced by something better.
+- qemucompile.sh: does the same as mipscompile.sh, but uses a 64-bit based OpenWRT toolchain.
+
+It should be possible to build the software by invoking one of those scripts, with no arguments.
+
+3.2.1. Building AGH for OpenWRT
+===============================================================================
+The OpenWRT core contains some dependencies needed to build AGH, hence it will be sufficient to select them when building your
+OpenWRT image. Including the rpcd daemon and its plugins on the image may be useful.
+Other packages are contained in the feeds: selecting them during configuration should be sufficient.
+The only exception to these is the ModemManager package, which should be imported manually from the feed found here:
+https://bitbucket.org/aleksander0m/modemmanager-openwrt
+
+(e.g.: adding a like containing something like:
+src-git modemmanager https://bitbucket.org/aleksander0m/modemmanager-openwrt.git
+to your OpenWRT's build root directory feeds.conf.default before invoking the ./scripts/feeds script may be sufficient).
+
+Within this feed you will also get libqmi and libmbim.
+When your OpenWRT image has been successfully built, you should be able to compile AGH by editing and running one of these scripts (e.g.:
+mipscompile.sh ).
+
+4. Running AGH
+===============================================================================
+
+At the moment, AGH is not properly integrated with OpenWRT packaging system. Thus, to run it you may choose your own preferred
+method.
+During development, a good one may be to store the binary into system RAM (/tmp folder) and running it from there.
+The scp command may be useful to transfer the binary to the device.
+
+5. Configuration
+===============================================================================
+AGH expects two UCI configuration files to be present as below:
+1 - agh_xmpp: stores informations about XMPP connectivity;
+2 - agh_modem: contains information about Modem settings.
+
+The configuration data is read via the UCI library. These files are to be placed in the /etc/config default configuration
+directory. 
+If one of these files is missing, AGH will not enable the related functionality. The rest of the program should remain
+operational. The "uci" command line tool may be used to check for syntax errors in these configuration files.
+
+5.1. XMPP configuration
+===============================================================================
+This file contains the needed settings to connect to an XMPP server, and to determine which XMPP users may send commands to the
+program. A configuration file may look like the following:
+
+config section 'connection'
+	option node 'username'
+	option domain 'your.domain.com'
+	option password 'craccracriccrecr'
+	option resource 'agh_agent'
+	option tcp_keepalive_interval '1'
+	option tcp_keepalive_timeout '60'
+	list controller_barejid 'user1@domain1.com'
+	list controller_barejid 'user2@domain2.com'
+	option ping_interval '120'
+	option ping_timeout '10'
+
+In particular, a single section named 'connection' is expected.
+
+5.1.1. XMPP account data
+===============================================================================
+
+The following settings are related to our own account, the one AGH should use when authenticating to the XMPP server.
+
+Option: node
+UCI type: string
+Data type: string
+Description:
+	This is the node part of the XMPP JID. If the bare JID looks like:
+	myname@mydomain.com
+	then
+	"myname" is the expected value.
+
+Option: domain
+UCI type: string
+Data type: string
+Description:
+	This is the domain part of the JID.
+	If our JID looks like:
+	myname@mydomain.com
+	then, "mydomain.com" is the value to be expected here.
+
+Option: resource
+UCI type: string
+Data type: string
+Description:
+	The resource part of a full JID. If our full JID looks like:
+	myname@mydomain.com/tablet
+	then
+	"tablet" is the value to be expected here.
+
+Option: password
+UCI type: string
+Data type: string
+Description:
+	The password used to authenticate with the XMPP server.
+	**: [1]
+
+[1]: AGH does not currently handle gracefully failed logins, and will keep trying to authenticate to the XMPP server. This Needs to
+be fixed, (e.g.: by slowing down retries based on configurable settings in the agh_xmpp file).
+
+5.1.2. Other XMPP settings
+===============================================================================
+
+Option: tcp_keepalive_interval
+UCI type: string
+Data type: integer
+
+Option: tcp_keepalive_timeout
+UCI type: string
+Data type: integer
+Description:
+	TCP keepalive interval, and timeout. See libstrophe src/conn.c, xmpp_conn_set_keepalive function for more details.
+
+Option: ping_interval
+UCI type: string
+Data type: integer
+Description:
+	Client-side ping interval. AGH will send XMPP ping messages to the server this often.
+	See https://xmpp.org/extensions/xep-0199.html
+	for more details.
+	**: [2]
+	**: [3]
+
+Option: ping_timeout
+UCI type: string
+Data type: integer
+Description:
+	If no answer is received within this timeout, then the connection is considered broken.
+
+Option: controller_barejid
+UCI type: list
+Data type: string
+Description:
+	A list of strings defining "controller accounts": AGH will execute commands sent by those accounts.
+	In additions, any of tese accounts will receive ubus events or system log messages if uBus event reporting or log
+	streaming are enabled.
+	The bare JID of an account is expected, so a full JID like
+	"myname@mydomain.com/tablet"
+	should be entered in it's bare form
+	"myname@mydomain.com".
+
+Option: altdomain
+UCI type: string
+Data type: string
+Description:
+	An alternate domain to use when connecting to an XMPP server. This may be useful in some XMPP setups.
+
+Option: altport
+UCI type: string
+Data type: integer
+Description:
+	Alternate port to use when connecting to an XMPP server, instead of the default 5222.
+
+Option: stress
+UCI type: string
+Data type: string
+Description:
+	This option is used to enable stress testing of the XMPP coe in the AGH program.
+	Enabling this option on in production environments should be avoided, as it will cause AGH to send lots of XMPP messages, with detrimental
+	effects.
+
+	To make sure this option gets activated only intentionally, we require a special value for this option to take effect: adding
+	this line to the agh_xmpp config file should enable stress mode;
+
+	option stress "StressMe!Please"
+
+[2]: at the moment, AGH does not implement the full XMPP capabilities protocol, and will happily send and answer XMPP ping
+messages from servers that do not advertise this capability. Needs to be fixed, by fully implementing the relevant XEPs, and correctly honouring returned informations.
+[3]: it is currently not possible to stop AGH from answering server-side XMPP ping messages
+
+5.2. Modem configuration
+===============================================================================
+
+To be consistent, we are reporting an example agh_modem configuration file here. Still, it may be better to look at it after
+having read the next chapters.
+An agh_modem configuration file may look like the following:
+
+config bearer 'wind_Italy'
+	option apn      internet.wind
+	option allowed_auth     PAP
+	option operator_id      22288
+
+config bearer 'default'
+	option apn      internet
+	option ip_type  IPV4
+	option allowed_auth     PAP
+	option user     web
+	option password web
+
+config modem 'quectel'
+	option Equipment_Identifier 861107036962398
+	option report_changes 1
+
+config simcard 'mysim'
+	option id	'1234567890123456789'
+	option PIN_code "2579"
+
+5.2.1. Modem config structure
+===============================================================================
+
+You can expect three kinds of sections in an agh_modem config file:
+1 - Modem sections ("modem"):
+	They define settings that should be applied to a specific modem object as reported by ModemManager. This usually corresponds
+	to an hardware modem device. A modem is identified via it's Equipment identifier (e.g.: the IMEI for 3GPP-based hardware).
+
+2 - Sim card section ("simcard"):
+	Contains settings related to a specific SIM card. Those sections are especially useful when a SIM card needs to be unlocked
+	via its PIN code. A SIM card is identified via it's SIM Identifier.
+
+3 - Bearer section ("bearer"):
+	Settings in these section/s are used when a connection needs to be established ("a bearer!").
+	These include connection and authentication details, such as the APN to be used, allowed authentication types, the user name
+	and password when applicable.
+
+In general, all of these sections can have arbitrary names. An exception is the default bearer section, which should be named
+"defaut".
+
+5.2.2. Defining bearers
+===============================================================================
+
+A useful AGH modem configuration file should define at least one bearer, maybe the default one.
+In this context, a bearer is an entity that can carry data. We inherit our concept of bearer directly from the one exposed by
+ModemManager, thus it's advisable to look at its documentation to have a better understanding of what a bearer is, and what it
+can be used for. Still, it may be sufficient to say that a bearer encapsulates properties like:
+- the APN used to set up the connection context
+- a user name and a password
+- a connectiom method (DHCP, PPP etc).
+
+Most recent modem devices support up to two or three bearers.
+
+The following parameters are valid for a bearer section:
+
+Option: user
+UCI type: string
+Data type: string
+Description:
+	The username to be used when authenticating with the network operator.
+
+Option: password
+UCI type: string
+Data type: string
+Description:
+	Password to be used when authenticating with the network operator.
+
+Option: apn
+UCI type: string
+Data type: string
+Description:
+	APN (Access Point Name) of the network operator to be used when setting up a cellular connection.
+	This option is mandatory in a bearer section.
+
+Option: ip_type
+UCI type: string
+Data type: string
+Description:
+	IP family to be used when establishing a connection. Valid string values for this option are:
+	- IPV4: an IPV4 connection
+	- IPV6: an IPV6 connection
+	- IPV4V6: an IPV4V6 connection (maybe tunneled?)
+	- none: no IP family
+
+Option: allowed_auth
+UCI type: string
+Data type: string
+Description:
+	Allowed authentication method while authenticating to the network operator, in the context of a data connection setup. The
+	following strings are considered valid for this option:
+	- none: no authentication is allowed
+	- PAP: for PAP authentication
+	- CHAP: for CHAP authentication
+	- MSCHAP: for Microsoft CHAP authentication
+	- MSCHAPV2: for Microsoft CHAP authentication, version 2
+	- EAP: for EAP authentication
+
+	All of these authentication methods are generally handled entirely in modem firmware.
+	Thus, viable options may vary.
+	This option is mandatory in a bearer section.
+
+Option: number
+UCI type: string
+Data type: string
+Description:
+	Number to be dialed upon connection setup.
+
+Option: allow_roaming
+UCI type: string
+Data type: string
+Description:
+	Defides wheter this bearer is allowed to work in a roaming context.
+	This string can have "1" or "0" values, resembling a boolean.
+
+Option: rm_protocol
+UCI type: string
+Data type: string
+Description:
+	Defines the bearer RM protocol, for CDMA modems. We do not support this kind of modems at the moment. Setting this property
+	won't have useful effects.
+
+Option: operator_id
+UCI type: string
+Data type: string
+Description:
+	Network operator ID, as exposed by Modemmanager, the MMC/MNC pair.
+	If a bearer in the configuration file has this property, AGH may use it when connecting to a network operator with such an
+	operator ID. Some modems do not support exposing the operator ID.
+
+5.2.3. Defining SIM card sections
+===============================================================================
+
+Whenever a modem becomes available via ModemManager, AGH tries to enable it. If the modem contains a locked SIM card, AGH tries
+to unlock it if it has access to the needed information.
+At the moment, only unlocking via PIN code is supported.
+
+The following parameters are valid in a SIM card section.
+
+Option: id
+UCI type: string
+Data type: string
+Description:
+	The SIM card ID, an unique identifier for a given SIM card.
+	This option is mandatory for each SIM section.
+	Some modems do not support exposing the SIM id. In those cases, it is not currently possible to automatically unlock a SIM
+	card.
+
+Option: sim_bearers
+UCI type: list
+Data type: string
+Description:
+	A list of bearers that may be used when trying to connect with this SIM card.
+
+Option: PIN_code
+UCI type: string
+Data type: string
+Description:
+	If the SIM card requires a PIN code to be unlocked, then this code will be used.
+
+5.2.4. Defining modem sections
+===============================================================================
+
+If a modem section is present, AGH will apply some settings to that particular modem when it becomes available via
+ModemManager.
+
+Option: Equipment_Identifier
+UCI type: string
+Data type: string
+Description:
+	The modem Equipment Identifier, uniquely identifying a modem device. For 3GPP-based modems, this is the IMEI number.
+	This option is mandatory in a modem section.
+
+Option: enable
+UCI type: string
+Data type: string
+Description:
+	If this string has the value "0", then a modem won't be enabled. Any other value causes the modem to be enabled.
+	Note that, while the modem won't be anbled and thus no connection will be performed, AGH will still try to get the modem in a
+	"disabled" state. This implies that, if a locked SIM is present, AGH will try to unlock it.
+
+Option: expected_simcards
+UCI type: list
+Data type: string
+Description:
+	AGH will search for unlocking informations only across the list of specified SIM cards.
+	If the SIM card currently in use is unlocked, this option has no effect.
+
+Option: modem_bearers
+UCI type: list
+Data type: string
+Description:
+	Bearers to be connected over this modem.
+
+Option: report_changes
+UCI type: string
+Data type: string
+Description:
+	If this option is present, property changes regarding the modem will be reported over the XMPP connection.
+	The value of this option is ignored, so setting it to "0" as an example, won't stop AGH from reporting modem properties changes.
+	This needs to be fixed, by reimplementing the code handling this optio.
+
+6. Running AGH
+===============================================================================
+
+Whenever AGH starts up, it performs the following tasks:
+1 - It connects to the uBus system bus if possible, retrying indefinitely otherwise.
+2 - If valid XMPP configuration data is present, it tries to connect to an XMPP server.
+3 - If valid modem configuration data is present (an empty configuration file may be enough), AGH will try to enable all modems
+it can find at startup time, or modems that become available over Modemmanager. Those modems may get connected if suitable
+configuration informations are provided.
+
+From a logical perspective, AGH performs those operations independently. As an example, it will try to connect to an XMPP
+server regardless of the state of the other tasks (e.g.: if a modem is connected or not). If a TCP socket can be established to the XMPP server via the libstrophe XMPP library, then
+AGH will be connected to the server and wait for commands, according to the configuration data in the agh_xmpp file.
+
+6.1. uBus
+===============================================================================
+
+AGH constanty tries to connect to the uBus daemon, and re-establishes a connection every time it drops (e.g.: because of the
+ubus daemon being restarted for some reason).
+uBus is infact one of the primary ways to control the system, so AGH was designed with the idea of trying to keep an
+uBus connection active all the time.
+Whenever an uBus connection is available, AGH uses it to provide the following directly exposed functionalities:
+- receiving uBus events as emitted by other processes on the systems (currently AGH is not able to emit events on its own)
+- listing objects and invoking related methods as exposed by other processes on the system
+
+Furthermore, AGH uses the uBus connection internally:
+- to request a file descriptor to which it can connect to receive system log messages (interacting with the log object as
+exposed by the logd daemon as shipped with the ubox package)
+- to invoke the bearer setup helper script, to inform the Linux OS / the OpenWRT Networking subsystem about the availability
+(or unavailability) of a connection.
+
+Should a connection to uBus not be possible for whatever reason, AGH will not be able to provide these functionalities.
+
+6.2. System log messages streaming
+===============================================================================
+
+AGH can parse log messages as emitted by the OpenWRT logd logging daemon, as shipped with the ubox package. Once the log
+streaming feature has been enabled, AGH will try to keep an open connection to the logging daemon. In particular, every time
+the connection to the daemon drops, AGH will repeat the initialization process, involving an uBus request for a file
+descriptor from the logd process. Should both the logd and the ubusd daemons be unavailable, AGH will keep trying to establish
+an uBus connection first, and a connection with the logging daemon then.
+From a logical standpoint, those tasks are performed independently, thus some resources are lost in the process, especially in
+terms of CPU cycles. This needs to be fixed by modifying the AGH code to perform only one of these tasks at a time, and passing to the next when appropriate.
+
+6.3. Modem
+===============================================================================
+
+AGH can handle cellular modems as exposed by the ModemManager daemon. Should Modemmanager be restarted for any reason, AGH will
+be able to act accordingly. (Note: at the moment we experience a crash when ModemManager goes away, that should be fixed, maybe handling object reference counts differently.)
+Cellular modems are presumed to be "hot-pluggable", so they may be connected or disconnected at any time: a very important
+aspect, given the fact that a modem may disappear from the bus for various reasons (e.g.: firmware issues, insufficient power
+available to the modem, and so on). A cellular modem may react very differently in different environmental, and radio
+conditions. So, AGH should be able to handle sequences of unplugging and re-plugging events.
+
+6.3.1. ModemManager connection
+===============================================================================
+
+AGH interacts with ModemManager over the D-Bus message bus. To the code within the entire program, D-Bus messages are sent and
+received "transparently", also due to the libmm ModemManager library usage. While we can handle ModemManager appearing and
+disappearing from the D-Bus bus gracefully, the same is not true for what pertains our connection with ModemManager itself, the D-bus
+bus. If for any reason the D-Bus daemon quits, AGH will be terminated immediately, and will have no chance to shut down
+cleanly.
+
+6.3.2. Modems handling
+===============================================================================
+
+AGH retains the Modemmanager notion of a modem in a sense. A modem infact, is a stateful device.
+
+a - Failed state:
+	When in this state, a modem is considered to be in an error condition, that can not be recovered, at least not easily.
+	Possible reasons for this state include a missing, invalid or failed SIM card.
+	If an XMPP connection has been established, AGH will inform all of the accounts specified as controllers about this
+	condition. If the reason for the modem being in a failed state is known, it will be available as well in the XMPP messages.
+	No further action is taken.
+b - Unknown state:
+	The state of the modem is not known to Modemmanager, and subsequently AGH.
+	No action is taken.
+c - Initializing:
+	A modem is in the process of initializing itself. This state is considered to be temporary, hence no action is taken.
+d - Locked:
+	A modem may enter this state for different reasons, generally involving one or more "locks": restrictions imposed by the
+	modem or SIM card.
+	A modem may be netowkr-locked, SIM-locked, and so on. One of the most common reasons for a modem to enter thi state, is due
+	to the SIM card currently in use requiring a PIN code.
+	In such a scenario, AGH will try to unlock the SIM card by searching for a SIM card section having a SIM Identifier
+	corresponding to the one of the current SIM card, and a PIN code. If a list of expected SIM cards is present, AGH will
+	restrict its search to this list of SIM cards.
+	If an appropriate section is found, then AGH will try to unlock the SIm card via the found PIN code, causing a state transition to happen
+	upon a succesful unlock. Otherwise, this state should be considered final, and no further action is taken.
+e - Disabling:
+	A modem is being disabled. This state is considered temporary, hence no action is taken.
+f - Disabled:
+	You can say that a modem is in a disabled state once it is ready to be enabled, or when it has been explicitly disabled. AGH
+	tries to enable all disabled modems, except when shutting down.
+g - Enabling:
+	A modem is in the process of being enabled. This state is considered temporary, hence no action is taken.
+h - Enabled:
+	A modem is enabled when ready to connect to a cellular network. Messaging and other services may be available via ModemManager.
+	This state is considered temporary, at least in 3GPP-based modems, which may automatically register to a network. Until this
+	happens, no data connection may be established.
+i - Searching:
+	The modem is searching for a network to register with. This process is not mediated in any way by AGH, which takes no action.
+j - Registered:
+	A modem is registered to the network, thus it's ready to be used to establish one or more data connections (e.g.: creating
+	and connecting bearers).
+	When a modem enters this state, AGH looks up its configuration data to determine how to connect it.
+	If a "modem" section exists for this modem (e.g.: its Equipment Identifier setting "Equipment_Identifier" corresponds to the
+	one of this modem), then special modem settings are taken into account. As an example, if the user requested it, AGH will
+	start reporting modem properties changes (e.g.: signal quality changes).
+k - Connecting:
+	The modem is in the process of being connected. A modem may switch to this state from the "registered" one, upon the creation
+	and the connection of the first data bearer. Any data bearer currently defined for this modem is deleted.
+l - Connected:
+	The modem is connected. AGH will try to keep the modem in this state. When a modem enters this state, at least one data bearer should be connected. The modem will exit this state when the last data bearer exits the connected state.
+m - Disconnecting:
+	The modem is in the process of being disconnected. This state is considered temporary, hence no action is taken.
+
+Ideally, AGH should always be able to keep in control of the modems present on the system. Still, if for some reason the modem
+gets stuck in a state that was considered temporary (e.g.: the "enabled" state), then AGH won't perform any other action,
+leaving the modem in an undesirable state. This has been observed to happen in some cases.
+This will need to be handled. We are open to any proposal.
+
+6.3.3. Connecting to the network
+===============================================================================
+
+Whenever a modem registers to the cellualr network, entering registered state, AGH tries to create and connect one or more bearers, depending on the current configuration data.
+Here we describe the steps involved in this process. A step is considered successful when it creates and connects one or more
+bearers. Whenever a step completes successfully, the process is interrupted.
+1 - If a SIm card section exists for the current SIM card, and it has an associated list of bearers, then AGH will use the
+refenced bearer sections to create new bearers, that will be connected if possible.
+2 - If a modem section exists for the current modem, and it has an associated list of referenced bearers, then this list will be
+used to create new bearers, that will be connected ifpossible.
+3 - If a default bearer section exists, it will be used to create a new bearer, that will be connected if possible.
+4 - If a bearer section with an operator id property defined exist, for which the operator id corresponds to the one of the
+network operator to which the current SIM authenticated, then that section will be used to create a new bearer, that will be connected if possible.
+
+If all of the above steps fail, no bearer is created, and no connection happens.
+
+6.3.3.1. The bearer setup helper
+===============================================================================
+
+Once a connection has been established (e.g.: the data bearer has been created and connected), AGH will invoke an external
+helper program that should inform the Linux Operating System
+on which it is running, about the new connection. This happens via uBus, and uses the "exec" method exposed by the rpcd daemon 
+via it's "file" object. If an uBus connection is not present or the rpcd daemon is not running, no helper program is invoked.
+The helper program receives all of the needed informations via its environment. Some exposed properties are not strictly needed in
+general, still they are provided. Refer to the ModemManager documentation for more details on bearer properties.
+
+The following environment variables are provided to the helper program:
+
+BEARER_PATH
+	The path of the bearer object in the D-Bus bus.
+
+BEARER_INTERFACE
+	The Linux interface name to which the bearer is related. This may look like "wwan1".
+
+BEARER_IP_TIMEOUT
+	As per ModemManager documentation, this is the maximum time to wait for the bearer to retrieve a valid IP address.
+
+BEARER_IP_FAMILY
+	The IP family used with this connection. This variable may assume one of the following values: none, IPV4, IPV6, IPV4V6 or 
+	any.
+
+BEARER_IP_METHOD
+	Specifies the method that should be used to obtain an IPV4 address. Note that this information may still be useful even when
+	dealing with an IPV6 bearer. This variable may assume the following values:
+	- unknown
+	- ppp: modem expects PPP protocol to be used over a designated serial port
+	- static: the program is expected to configure IP parameters on its own, statically
+	- DHCP: modem firmware supports DHCP, so a DHCP client may be used to configure the required IP parameters
+
+BEARER_IP_ADDRESS
+	IP address the host should use.
+
+BEARER_IP_PREFIX
+	IP prefix, used to calculate the IP address netmask to be used by the host.
+
+BEARER_IP_DNS_1
+BEARER_IP_DNS_2
+	IP addresses of the primary and secondary DNS servers.
+
+BEARER_IP_GATEWAY
+	The host is expected to use this gateway IP address to access the network via this bearer.
+
+BEARER_IP_MTU
+	Maximum Transmit Unit value the host is expected to use when sending data via this bearer.
+
+BEARER_IPV6_METHOD
+	Method the host is expected to use when obtaining an IPV6 address. This variable may assume one of the following values:
+	- unknown
+	- ppp: modem expects PPP protocol to be used over one of its serial ports
+	- static: the program is expected to configure IP parameters on its own, statically
+	- DHCP: modem firmware supports DHCP, so a DHCP client may be used to configure the required IP parameters
+
+BEARER_IPV6_ADDRESS
+	An IPV6 address the host system is expected to use.
+
+BEARER_IPV6_PREFIX
+	IPV6 address prefix
+
+BEARER_IP_DNSV6_1
+BEARER_IP_DNSV6_2
+	IPV6 addresses of the primary and secondary DNS servers the host system is expected to use.
+
+BEARER_IPV6_GATEWAY
+	IPV6 address of the gateway the host system is expected to use.
+
+BEARER_IPV6_MTU
+	Maximum Transmit Unit expected to be used when sending data via this bearer.
+
+6.3.3.2. A sample bearer setup helper implementation
+===============================================================================
+AGH ships with a bearer setup helper script, namely bearer_setup_helper.sh. This script is expected to be located in the /opt
+folder of the filesystem. Upon startup, it inspects the environment for the required variables, adding and removing entries
+from the OpenWRT Networking subsystem.
+Due to the approach used, this script may leave stale interfaces present on the system. To this end, it tries to clean up stale
+interface definitions every time it is invoked.
+Note: in the script we use PIDs (process IDs) to name interfaces. This choice came from the need of keeping logical interface
+names shorter than 9 characters, to be sure they may be used in a wider range of OpenWRT setups.
+See https://wiki.openwrt.org/doc/uci/network for more details; we quote here the relevant part:
+":!: The system limits the physical interface name length to 15 characters including the automatically added prefix that is
+added for some protocols (e.g. "6in4-", "pppoa-", "pppoe-") or due to bridge status ("br-"). Depending on the protocol type,
+the logical interface name may thus be limited to only 9 characters. E.g. 'abcde67890' is a valid interface name for a normal
+interface using dhcp, but not for a pppoe interface where the final name would be 'pppoe-abcde67890', which is >15 chars. Using
+a too long name may lead into errors, as some of the settings in network, firewall or dhcp config may be left unapplied.".
+
+6.4. XMPP
+===============================================================================
+
+AGH uses the libstrophe XMPP library to talk to an XMPP server. Tahnks to libstrophe, AGH supports SSL / TLS (via the
+OpenSSL SSL library).
+AGH partially implements some XEPs (XMPP Extension Protocols), and in particular:
+- XEP-0115: entity capabilities
+	This allows AGH to communicate to other XMPP clients about its capabilities; needed to let other clients send AGH
+	Message Delivery Receipt requests.
+- XEP-0184: Message Delivery Receipts
+	AGH will answer to Message Delivery Receipt requests, so a client (like an automated system) can be informed about AGH
+	receiving the message.
+- XEP-0199: XMPP Ping
+	To determine when a connection should be considered broken.
+- XEP-0128: Service Discovery Extensions
+
+Due to an incomplete impelemntation of XEP-0115 (entity capabilities), AGH won't act properly in some circumstances. For
+instance, it will try to send XMPP Ping messages even when the server did not advertise that capability.
+Furthermore, disconnections from an XMPP server, may cause AGH messages to be lost. Infact, also due to
+libstrophe not exposing an interface to do so, we are not able to determine wheter a message has been received by the server.
+When the software determines we are no longer connected, it starts queuing messages internally up to some numerical limit, but other
+messages may have already been lost. When the internal queue gets full, all of the queued messages are discarded.
+**: [1]
+
+AGH implements XEP-0184, so any message containing Read Receipts Requests tags will be answered accordingly. AGH keeps silent
+on invalid commands, so a client may use this information to detect wheter a message has been actually received.
+
+[1]: file: agh_xmpp.h
+#define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 300
+
+7. AGH commands format
+===============================================================================
+
+AGH uses libconfig to parse its commands. So, each AGH command, should be a valid configuration structure from the perspective
+of libconfig.
+Furthermore, those commands have been tought to be used by an automated system, which may want to send a bunch of them in a
+short time period.
+To this end, each command will have an operation ID that the sender can choose, to some extent.
+If an AGH message is consequential to a sent command, the automated system can use that ID to correlate it to the sent command.
+
+7.1. Command structure
+===============================================================================
+
+Wether its received over an XMPP message (in its body) or via other means, an AGH command is a text string.
+The string should meet some criteria to be considered a valid command. We will discuss all of them here, both from a libconfig
+perspective (i.e.: the string is a configuration snippet), and the AGH one (i.e.: the configuration snippet is a valid command). We
+invite you to take a look at the libconfig Configuration Grammar, which can be found here:
+https://www.hyperrealm.com/libconfig/libconfig_manual.html#Configuration-File-Grammar
+
+a - Length:
+	The overall text length of a command is limited.
+	**: [1]
+	Operation names (see below) are limited in length as well.
+	**: [2]
+b - Non-ascii characters should be avoided in commands; AGH will try to convert them to ascii ones, still results may not be
+what the user expects.
+c - Configuration command structure:
+	After successfully parsing the text string, libconfig creates a "root" settings group.
+	That group should contain only one element: the "attention keyword" setting.
+	** [5]
+	The "attention keyword" setting, should be a data structure, namely a list, which should be composed of at least two members:
+	an integer value (command ID), and a text string (the requested operation). Any element following these two, is considered an
+	argument, regardless of its data type.
+	In particular:
+	- command ID: used to track commands and the messages they may originate from
+	**: [3]
+	- an operation name: the action to be performed by AGH
+	**: [2]
+	**: [4]
+	- one or more arguments to the operation
+
+So, a valid AGH command may look as follows:
+
+AT = (21, "modem", 0, "get_ModemManager_plugin")
+
+Where:
+- "AT" is the attention keyword
+**: [5]
+- for a more in-depth explanation about the equal signs and the parentheses you see here, we refer you once again to the
+libconfig's Configuration Grammar.
+- "21" is an arbitrarily choosen integer value, a command ID
+- "modem": operation name; this is a modem-related command
+
+Then we have some arguments:
+- the first one is an integer value, "0": in this case it refers to the modem we want to operate on
+- "get_ModemManager_plugin" is a text string
+
+We are asking AGH to report us the ModemManager plugin being used to handle modem 0 on the current system.
+Different operations may have compeltely different semantics, still the command structure should be kept the same.
+
+[1]: file: agh_commands.h
+#define CMD_MAX_TEXT_LEN 400
+[2]: file: agh_commands.h
+#define CMD_MAX_OP_NAME_LEN 10
+[3]: ID should be a non-zero value
+[4]: operation name can not be an empty string
+[5]: file: agh_commands.h
+#define CMD_IN_KEYWORD "AT"
+
+7.2. AGH messages
+===============================================================================
+
+AGH messages looks like commands from a structure perspective. Still, fields have different meanings.
+They may be emitted for different reasons, and amongst them:
+- a command may generate one or more messages as results
+- events notifications
+- to notify the user about error conditions.
+
+7.2.1. AGH messages structure
+===============================================================================
+
+The following elements compose an AGH message.
+1 - A output keyword: useful to distinguish the type of output to expect in the rest of the message.
+**: [1]
+If the output is unsolicited (e.g.: was not generated as a consequence of a command), the output keyword is immediately
+followed by an exclamation mark ("!").
+**: [2]
+2 - An equal sign, and parentheses, to mimic the structure of a command.
+3 - A response ID: an integer value which should allow the other party to correlate messages to commands, and establish the
+ordering of events.
+Infact, all of the messages generated by a command, will have a response ID matching the command ID of the command.
+Incremental IDs will be used for unsolicited messages.
+**: [3]
+4 - A status code: a numerical value describing the status of the operation, or the type of unsolicide output, that generated
+this message.
+At the moment the software emits messages with status code 200 to describe a non-error condition, 400 otherwise.
+**: [6]
+The intention was to use status codes similar to the ones used in the HTTP protocol. However, we did not yet define proper
+semantics for tese values.
+Note that, some events generated from external sources (e.g.: system log messages), may inform the user about error conditions
+and other adverse events. Still, AGH will report them with a 200 status code.
+5 - Answer body: a text string representing the answer body. This field should be used by the receiver to determine the rest of
+the structure of the message (e.g.: how many extra information fields to expect).
+In the case of an unsolicited message, this field acts as an "event marker", denoting the kind of event happened.
+6 - Extra information fields: a sequence of elements of possibly different types.
+The number and type of those elements depends on the operation or event that caused this message to be emitted. Based on the
+Answer body of the message, it should be possible to know in advance what should be expected in this part of the message.
+
+As an example, a client may send to AGH the following command, to determine what ModemManager plugin is being used to handle a
+specific modem:
+AT = (21, "modem", 0, "get_ModemManager_plugin")
+Obtaining an answer like the following one:
+IH = ( 21, 200, "Quectel" )
+
+Another command may be used to list the available modems on the system:
+AT = (21, "modem")
+Yelding to the following answer:
+IH = ( 21, 200, "0" )
+(.i.e.: only one modem, with index 0)
+**: [5]
+
+[1]: file: agh_commands.h
+#define CMD_OUT_KEYWORD "IH"
+(IH standards for "I am here")
+[2]: file: agh_commands.h
+#define CMD_EVENT_KEYWORD CMD_OUT_KEYWORD"!"
+[3]: file: agh_commands.h
+#define CMD_EVENT_MAX_ID CMD_EVENT_UNKNOWN_ID
+file: agh_commands.h
+#define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
+file: agh_commands.h
+#define CMD_ANSWER_STATUS_UNKNOWN 380
+(Note: 380 are the first three digits of my phone number.)
+[5]: Why not use integer values for e.g.: modem indexes? Because at the moment there isn't a sound way to do so from within
+AGH, when building output messages.
+[6]: file: agh_commands.h
+#define CMD_ANSWER_STATUS_OK 200
+#define CMD_ANSWER_STATUS_FAIL 400
+
+7.2.2. DATA messages
+===============================================================================
+
+If the first field of the Extra information fields contains the "DATA" text chunk, then the structured part of the message
+should end right after this field (e.g.: a closed round bracket should be found).
+After that parenthesis, arbitrary data may be present, of which the structure should be defined outside of the scope of the
+strcutured message.
+
+Some examples of data messages:
+1 - A message generated by a modem property change (signal quality value change):
+IH! = ( 151, 200, "modem_changes", "DATA" )
+modem=0
+{'SignalQuality': <(uint32 99, true)>}
+2 - A system log message being reported:
+IH! = ( 152, 200, "SYSTEM_LOG_MESSAGE", "DATA" )
+Thu Oct 25 20:37:39 2018 [1540471059.107] user.notice mrkiko: Hello to everyone reading this document!
+
+8. Implemented operations
+===============================================================================
+
+Here we will describe the list of command operations currently supported by AGH.
+This section of the document, is especially subject to changes as a consequence of AGH development.
+
+At the moment, we can categorise all of them in three main types:
+1. Those interacting with modems (and in future maybe with ModemManager itself)
+2. Those interacting with uBus (and from there, with different parts of the system)
+3. AGH management operations: at the moment, the only supported command in this category is "quit".
+
+8.1. Modem related operations
+===============================================================================
+
+AGH supports some modem related operations. Many more should be added in the future.
+You can have a pretty good idea of what they do by looking at the ModemManager API documentation, as distributed with the
+Modemmanager source code, since most of those operations are centered around ModemManager API calls.
+
+Operation name: modem
+Operation arguments: <none>
+Description:
+	Displays the list of modems exposed by ModemManager.
+Answer expected: yes
+Error status codes: 400=can not obtain modems list
+Answer body:
+	An index of an available modem.
+Extra fields:
+	Other modem indexes.
+
+Operation name: modem
+Operation arguments:
+	arg1: modem index
+	arg2: subcommand
+Description:
+	Performs specified subcommand.
+Answer expected: yes
+Error status codes: subcommand dependent
+Answer body: subcommand dependent
+Extra fields: subcommand dependent
+
+Subcommand name: get_imei
+Description: retrieve a modem's IMEI number.
+
+Subcommand name: get_state
+Description: Prints current modem state. The answer looks like:
+	IH = ( <id>, <status>, "modem_state", "failed_reason" )
+
+	E.g.: if all is well, you may get an answer like:
+	IH = ( 21, 200, "connected", "none" )
+
+Subcommand name: get_power_state
+Description: retrieve current modem power state
+	Example:
+	AT = (21, "modem", 1, "get_power_state")
+	An answer may look like:
+	IH = ( 21, 200, "on" )
+
+Subcommand name: get_supported_capabilities
+Description: Gets the list of combinations of generic families of access technologies supported by this modem.
+	Example command:
+	AT = (21, "modem", 1, "get_supported_capabilities")
+	An answer may look like:
+	IH = ( 21, 200, "gsm-umts lte gsm-umts, lte" )
+
+Subcommand name: get_current_capabilities
+Description: Gets the list of generic families of access technologies supported by this modem without a firmware reload or reinitialization.
+
+Subcommand name: get_manifacturer
+Description: returns modem manifacturer.
+
+Subcommand name: get_model
+Description: returns modem device model
+
+Subcommand name: get_rev
+Description: returns modem firmware revision
+
+Subcommand name: get_hwrev
+Description: returns modem hardware revision
+
+Subcommand name: drivers
+Description: returns the names of the drivers currently handling the modem
+
+Subcommand name: get_ModemManager_plugin
+Description: returns the name of the ModemManager plugin used to handle this modem.
+	An example may look like:
+	AT = (21, "modem", 1, "get_ModemManager_plugin")
+	Answer:
+	IH = ( 21, 200, "Quectel" )
+
+Subcommand name: get_primary_port
+Description: returns the name of the modem primary port; may be a cdc-wdm device in case of QMI, MBIM or NCM modems.
+
+Subcommand name: get_device
+Description: returns the sysfspath of the USB device corresponding to this modem.
+	An example looks like:
+	AT = (21, "modem", 1, "get_device")
+	Answer:
+	IH = ( 21, 200, "/sys/devices/bcma0:4/ehci-platform.0/usb1/1-1" )
+
+Subcommand name: get_equipment_identifier
+Description: Returns the equipment identifier, in the case of 3GPP-based modems this is the iMEI number.
+
+Subcommand name: get_deviceid
+Description: gets a best-effort modem device identifier based on various device information like model name, firmware revision, USB/PCI/PCMCIA IDs, and other properties.
+	Note: this is not guaranteed to be unique.
+
+Subcommand name: get_lockstatus
+Description: gets current lock state of the modem (e.g.: why is this modem locked? What locks are in effect?).
+
+Subcommand name: get_unlock_retries
+Description: gets available unlock retries.
+
+Subcommand name: max_bearers
+Description: returns the maximum number of bearers supported by this modem.
+
+Subcommand name: max_active_bearers
+Description: returns the number of concurrently active bearers supported by this modem.
+
+Subcommand name: get_own_numbers
+Description: gets the list of numbers (e.g. MSISDN in 3GPP) being currently handled by this SIM / modem.
+
+Subcommand name: supported_modes
+Description: gets the list of supported mode combinations. to switch to one of these modes, the modem firmware may need to be reinitialized.
+
+Subcommand name: current_modes
+Description: gets the list of modes specifying the access technologies (eg 2G/3G/4G) the modem is currently allowed to use when connecting to a network, as well as the preferred one, if any.
+	Example:
+	AT = (21, "modem", 1, "current_modes")
+	Answer:
+	IH = ( 21, 200, "2g, 3g, 4g", "none" )
+
+Subcommand name: supported_bands
+Description: gets the list of radio frequency and technology bands supported by the modem.
+	An example may look like:
+	AT = (21, "modem", 1, "supported_bands")
+	Answer:
+	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
+
+Subcommand name: current_bands
+Description: gets the list of radio frequency and technology bands the modem is currently using when connecting to a network.
+	Example:
+	AT = (21, "modem", 1, "current_bands")
+	Answer:
+	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
+
+Subcommand name: ip_families
+Description: gets the list of supported IP families.
+
+Subcommand name: signal_quality
+Description: gets the signal quality value in percent (0 - 100) of the dominant access technology the modem is using to communicate with the network.
+
+Subcommand name: access_technologies
+Description: gets the current network access technology used by the modem to communicate with the network.
+
+8.2. uBus related operations
+===============================================================================
+
+Operation name: ubus
+Operation arguments:
+	arg1: subcommand
+	arg2: subcommand arguments
+Description:
+	Interact with the uBus micro messaging bus.
+Answer expected: yes
+Error status codes: subcommand dependent
+Answer body: subcommand dependent
+Extra fields: subcommand dependent
+
+Subcommand name: list
+Description: lists available uBus objects and their properties, such as methods available.
+	Example:
+	AT = (21, "ubus", "list", "uci")
+	Answer:
+	IH = ( 21, 200, "DATA" )
+	"OBJECT=uci, ID=@4aee48ad"
+	"configs":{}
+	"get":{"config":"String","section":"String","option":"String","type":"String","match":"Table","ubus_rpc_session":"String"}
+	...
+Arguments:
+	arg1: an ubus object name to restrict returned informations to those pertaining that object;
+
+Subcommand name: call
+Description: invoke an uBus method.
+	An example looks like:
+	AT = (21, "ubus", "call", "file", "exec", "{\"command\":\"ifconfig\",\"params\":[\"wwan0\"]}")
+	Answer:
+	IH = ( 21, 200, "DATA" )
+	{
+		"code": 0,
+		"stdout": "wwan0     Link encap:UNSPEC  HWaddr 00-00-00-00-00-00-00-00-00-00-00-00-00-00-00-00  \n          inet addr:10.42.194.151  P-t-P:10.42.194.151  Mask:255.255.255.240\n          inet6 addr:
+		fe80::e178:7f04:a58c:bbca\/64 Scope:Link\n          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1500  Metric:1\n          RX packets:41019 errors:0 dropped:0 overruns:0 frame:0\n          TX packets:62809 errors:0 dropped:0
+		overruns:0 carrier:0\n          collisions:0 txqueuelen:1000 \n          RX bytes:12131746 (11.5 MiB)  TX bytes:7677400 (7.3 MiB)\n\n"
+	}
+Arguments:
+	arg1: the object on which the method should be invoked;
+	arg2: the name of the method to invoke;
+	arg3: JSON payload with escaping
+
+Subcommand name: events
+Description: this command can be used to manage uBus events notifications reporting.
+Arguments:
+	arg1: action
+	arg2: action arguments
+Actions:
+	add: adds event masks on which AGH will notify the user
+		If no arguments are given, all events will be reported.
+		If an argument is supplied to this action, then it's taken to be the event type on which reporting is requested.
+		Example:
+		AT = (21, "ubus", "events", "add")
+
+		will activate notifications for all events.
+
+		AT = (21, "ubus", "events", "add", "event_name")
+
+		activates reporting only for this kind of event.
+
+	reset: deactivates all notifications for ubus events.
+
+Subcommand name: logstream
+Description: activates or deactivates system log messages reporting.
+Arguments:
+	arg1: a string containing the plus sign ("+") or the minus one ("-"), to respectively activate or deactivate log streaming support.
+
+8.3. AGH related operations
+===============================================================================
+
+At the moment, the only AGH related operation is named "quit".
+
+Operation name: quit
+Operation arguments: <none>
+Description:
+	Instructs AGH to quit, exiting. When possible, all modems should be disabled upon a normal exit.
+	Errors occurring when disabling modems are not handled, and modems will be left in a potentially unknown state.
+Answer expected: no
+Error status codes: none expected
+Answer body:
+	<none>
+
