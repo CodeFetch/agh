@@ -517,3 +517,12 @@
 	...
 	fun:call_init.part.0
 }
+
+{
+	bus_get_sync_i686
+	Memcheck:Leak
+	match-leak-kinds: possible
+	fun:calloc
+	...
+	fun:g_bus_get_sync
+}
