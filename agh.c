@@ -6,6 +6,52 @@
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
+/* Function prototypes */
+
+/* State handling */
+static struct agh_state * agh_state_setup(void);
+static void agh_state_teardown(struct agh_state *mstate);
+
+/* GLib event Sources */
+static void agh_sources_setup(struct agh_state *mstate);
+static void agh_sources_teardown(struct agh_state *mstate);
+
+/* Signals */
+static void process_signals(struct agh_state *mstate);
+
+/* Threads */
+static void agh_threads_setup(struct agh_state *mstate);
+static void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct);
+static void agh_threads_prepare(struct agh_state *mstate);
+static void agh_threads_start(struct agh_state *mstate);
+static void agh_threads_stop(struct agh_state *mstate);
+static void agh_threads_deinit(struct agh_state *mstate);
+static void agh_threads_teardown(struct agh_state *mstate);
+
+/* threads structures helpers */
+static struct agh_thread *agh_thread_new(gchar *name);
+static void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data));
+static void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data));
+static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data));
+
+static gboolean agh_unix_signals_cb(gpointer data);
+static gboolean exitsrc_idle_cb(gpointer data);
+
+/* Core command handler */
+static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
+static gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
+static gpointer core_cmd_handle(gpointer data, gpointer hmessage);
+static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
+
+static void agh_core_handlers_setup_ext(struct agh_state *mstate);
+static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context);
+static void agh_thread_eventloop_teardown(struct agh_thread *ct);
+static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage);
+static void agh_broadcast_exit(struct agh_state *mstate);
+static void agh_exit(struct agh_state *mstate);
+static void agh_start_exit(struct agh_state *mstate);
+
+/* Internal helpers */
 static void agh_threads_prepare_single(gpointer data, gpointer user_data);
 static void agh_threads_start_single(gpointer data, gpointer user_data);
 static void agh_threads_stop_single(gpointer data, gpointer user_data);
@@ -91,7 +137,7 @@ gint main(void) {
 }
 //#endif
 
-struct agh_state * agh_state_setup(void) {
+static struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
 
 	mstate = g_try_malloc0(sizeof *mstate);
@@ -105,7 +151,7 @@ struct agh_state * agh_state_setup(void) {
 	return mstate;
 }
 
-void agh_sources_setup(struct agh_state *mstate) {
+static void agh_sources_setup(struct agh_state *mstate) {
 	/* Intercepts SIGINT UNIX signal. This is useful at least to exit the main loop gracefully (on ctrl+c press) */
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb, mstate, NULL);
@@ -117,7 +163,7 @@ void agh_sources_setup(struct agh_state *mstate) {
 	return;
 }
 
-void agh_sources_teardown(struct agh_state *mstate) {
+static void agh_sources_teardown(struct agh_state *mstate) {
 
 	/* UNIX SIGINT signal source */
 	if (!mstate->sigint_received)
@@ -129,7 +175,7 @@ void agh_sources_teardown(struct agh_state *mstate) {
 	return;
 }
 
-void agh_state_teardown(struct agh_state *mstate) {
+static void agh_state_teardown(struct agh_state *mstate) {
 	/* XXX is this the proper order? */
 	if (mstate->agh_mainloop)
 		g_main_loop_unref(mstate->agh_mainloop);
@@ -143,7 +189,7 @@ void agh_state_teardown(struct agh_state *mstate) {
 	return;
 }
 
-void process_signals(struct agh_state *mstate) {
+static void process_signals(struct agh_state *mstate) {
 
 	if (mstate->sigint_received)
 		g_print("%s: exiting because of SIGINT!\n",__FUNCTION__);
@@ -151,13 +197,13 @@ void process_signals(struct agh_state *mstate) {
 	return;
 }
 
-void agh_threads_start(struct agh_state *mstate) {
+static void agh_threads_start(struct agh_state *mstate) {
 	//g_print("%s: starting threads: ",__FUNCTION__);
 	g_queue_foreach(mstate->agh_threads, agh_threads_start_single, mstate);
 	//g_print("done\n");
 }
 
-void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
+static void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
 	if (!ct) {
 		g_print("%s: ** INVALID THREAD REGISTRATION CALL: NULL VALUE NOT ACCEPTABLE AS A THREAD\n",__FUNCTION__);
 		return;
@@ -174,26 +220,26 @@ void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
 	return;
 }
 
-void agh_threads_stop(struct agh_state *mstate) {
+static void agh_threads_stop(struct agh_state *mstate) {
 	g_print("Stopping threads: ");
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_stop_single, mstate);
 	g_print("done\n");
 }
 
-void agh_threads_setup(struct agh_state *mstate) {
+static void agh_threads_setup(struct agh_state *mstate) {
 	mstate->agh_threads = g_queue_new();
 	return;
 }
 
-void agh_threads_teardown(struct agh_state *mstate) {
+static void agh_threads_teardown(struct agh_state *mstate) {
 	g_print("%s: deallocating threads queue\n",__FUNCTION__);
 	g_queue_free(mstate->agh_threads);
 	mstate->agh_threads = NULL;
 	return;
 }
 
-void agh_threads_prepare(struct agh_state *mstate) {
+static void agh_threads_prepare(struct agh_state *mstate) {
 	//g_print("%s: preparing threads \n",__FUNCTION__);
 
 	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
@@ -201,7 +247,7 @@ void agh_threads_prepare(struct agh_state *mstate) {
 	return;
 }
 
-void agh_threads_deinit(struct agh_state *mstate) {
+static void agh_threads_deinit(struct agh_state *mstate) {
 	g_print("%s: invoking threads deinit functions ",__FUNCTION__);
 	g_queue_foreach(mstate->agh_threads, agh_threads_deinit_single, mstate);
 	g_print("done\n");
@@ -286,7 +332,7 @@ static void agh_threads_stop_single(gpointer data, gpointer user_data) {
 }
 
 /* Invoked upon SIGINT reception. */
-gboolean agh_unix_signals_cb(gpointer data) {
+static gboolean agh_unix_signals_cb(gpointer data) {
 	struct agh_state *mstate = data;
 
 	mstate->sigint_received = TRUE;
@@ -301,7 +347,7 @@ gboolean agh_unix_signals_cb(gpointer data) {
  * - build a command using the appropriate functions in commands.c
  * - if building a command succeeds, then build and send around a message containing it
 */
-gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
+static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct handler *h = data;
 	struct text_csp *csp = m->csp;
@@ -363,7 +409,7 @@ gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 /*
  * This handler receives MSG_SENDTEXT text messages from sources willing to send them, and broadcast them around.
 */
-gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
+static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct handler *h = data;
 	struct text_csp *csp = m->csp;
@@ -413,7 +459,7 @@ gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
-gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
+static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
@@ -435,7 +481,7 @@ gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
  * This handler converts events to text, and then send the resulting messages to the core itself.
  * The core is expected to broadcast them, for the benefit of other threads (e.g. XMPP).
 */
-gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
+static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
@@ -523,7 +569,7 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
-struct agh_thread *agh_thread_new(gchar *name) {
+static struct agh_thread *agh_thread_new(gchar *name) {
 	struct agh_thread *ct;
 
 	ct = NULL;
@@ -538,22 +584,22 @@ struct agh_thread *agh_thread_new(gchar *name) {
 	return ct;
 }
 
-void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data)) {
+static void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data)) {
 	ct->agh_thread_init = agh_thread_init_cb;
 	return;
 }
 
-void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) {
+static void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) {
 	ct->agh_thread_main = agh_thread_main_cb;
 	return;
 }
 
-void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) {
+static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) {
 	ct->agh_thread_deinit = agh_thread_deinit_cb;
 	return;
 }
 
-void agh_core_handlers_setup_ext(struct agh_state *mstate) {
+static void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	/* Core handlers. */
 	struct handler *core_recvtextcommand_handler;
 	struct handler *core_sendtext_handler;
@@ -610,7 +656,7 @@ void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	return;
 }
 
-void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) {
+static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) {
 
 	if (!ct->handlers) {
 		g_print("%s: (%s) called us with a NULL handlers queue pointer\n\t(maybe you forgot to call handlers_setup ? )\n",__FUNCTION__,ct->thread_name);
@@ -628,7 +674,7 @@ void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_conte
 	return;
 }
 
-void agh_thread_eventloop_teardown(struct agh_thread *ct) {
+static void agh_thread_eventloop_teardown(struct agh_thread *ct) {
 	/* XXX is this the right order? */
 	g_main_loop_unref(ct->evl);
 	if (ct->evl_ctx)
@@ -641,7 +687,7 @@ void agh_thread_eventloop_teardown(struct agh_thread *ct) {
 	return;
 }
 
-gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
+static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
 	struct handler *h = data;
 	struct agh_thread *ct = h->handler_data;
@@ -655,7 +701,7 @@ gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
-void agh_broadcast_exit(struct agh_state *mstate) {
+static void agh_broadcast_exit(struct agh_state *mstate) {
 	guint num_threads;
 	struct agh_message *m;
 	struct agh_thread *ct;
@@ -683,13 +729,13 @@ void agh_broadcast_exit(struct agh_state *mstate) {
 	return;
 }
 
-void agh_exit(struct agh_state *mstate) {
+static void agh_exit(struct agh_state *mstate) {
 	agh_comm_disable(mstate->comm, TRUE);
 	agh_broadcast_exit(mstate);
 	return;
 }
 
-void agh_start_exit(struct agh_state *mstate) {
+static void agh_start_exit(struct agh_state *mstate) {
 	mstate->exiting = 1;
 
 	/* Install exit process idle source. */
@@ -706,7 +752,7 @@ void agh_start_exit(struct agh_state *mstate) {
 	return;
 }
 
-gboolean exitsrc_idle_cb(gpointer data) {
+static gboolean exitsrc_idle_cb(gpointer data) {
 	struct agh_state *mstate = data;
 
 	if (mstate->mainloop_needed)
