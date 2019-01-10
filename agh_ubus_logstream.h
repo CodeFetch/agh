@@ -25,12 +25,5 @@ struct agh_ubus_logstream_ctx {
 
 gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx);
 gint agh_ubus_logstream_deinit(struct agh_ubus_ctx *uctx);
-gboolean agh_ubus_logstream_statemachine(gpointer data);
-void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd);
-
-void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainContext *gmctx);
-void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx);
-gboolean agh_ubus_logstream_channel_io(GIOChannel *channel, GIOCondition condition, gpointer data);
-void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *lctx);
 
 #endif

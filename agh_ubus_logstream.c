@@ -2,6 +2,13 @@
 #include "agh_ubus_helpers.h"
 #include "agh_commands.h"
 
+static gboolean agh_ubus_logstream_statemachine(gpointer data);
+static void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd);
+static void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainContext *gmctx);
+static void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx);
+static gboolean agh_ubus_logstream_channel_io(GIOChannel *channel, GIOCondition condition, gpointer data);
+static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *lctx);
+
 gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	struct agh_ubus_logstream_ctx *lctx;
 
@@ -64,7 +71,7 @@ gint agh_ubus_logstream_deinit(struct agh_ubus_ctx *uctx) {
 	return 0;
 }
 
-gboolean agh_ubus_logstream_statemachine(gpointer data) {
+static gboolean agh_ubus_logstream_statemachine(gpointer data) {
 	struct agh_ubus_ctx *uctx = data;
 	struct agh_ubus_logstream_ctx *lctx = uctx->logstream_ctx;
 
@@ -149,7 +156,7 @@ gboolean agh_ubus_logstream_statemachine(gpointer data) {
 	return TRUE;
 }
 
-void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainContext *gmctx) {
+static void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainContext *gmctx) {
 	GIOStatus status;
 
 	if (!lctx)
@@ -188,7 +195,7 @@ void agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx, GMainC
 	return;
 }
 
-void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx) {
+static void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx) {
 
 	if (!lctx)
 		return;
@@ -218,14 +225,14 @@ void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx) {
 	return;
 }
 
-void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd) {
+static void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd) {
 	struct agh_ubus_logstream_ctx *lctx = req->priv;
 	lctx->fd = fd;
 	lctx->logstream_state++;
 	return;
 }
 
-gboolean agh_ubus_logstream_channel_io(GIOChannel *channel, GIOCondition condition, gpointer data) {
+static gboolean agh_ubus_logstream_channel_io(GIOChannel *channel, GIOCondition condition, gpointer data) {
 	struct agh_ubus_logstream_ctx *lctx = data;
 
 	switch(condition) {
@@ -247,7 +254,7 @@ gboolean agh_ubus_logstream_channel_io(GIOChannel *channel, GIOCondition conditi
 	return TRUE;
 }
 
-void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *lctx) {
+static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *lctx) {
 	struct blob_attr *message_part;
 	GIOStatus status;
 	gsize data_read;
