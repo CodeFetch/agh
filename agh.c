@@ -6,6 +6,11 @@
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
+static void agh_threads_prepare_single(gpointer data, gpointer user_data);
+static void agh_threads_start_single(gpointer data, gpointer user_data);
+static void agh_threads_stop_single(gpointer data, gpointer user_data);
+static void agh_threads_deinit_single(gpointer data, gpointer user_data);
+
 //#if 0
 gint main(void) {
 
@@ -203,7 +208,7 @@ void agh_threads_deinit(struct agh_state *mstate) {
 	return;
 }
 
-void agh_threads_prepare_single(gpointer data, gpointer user_data) {
+static void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
@@ -225,7 +230,7 @@ void agh_threads_prepare_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-void agh_threads_deinit_single(gpointer data, gpointer user_data) {
+static void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
@@ -257,7 +262,7 @@ void agh_threads_deinit_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-void agh_threads_start_single(gpointer data, gpointer user_data) {
+static void agh_threads_start_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 
@@ -271,7 +276,7 @@ void agh_threads_start_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-void agh_threads_stop_single(gpointer data, gpointer user_data) {
+static void agh_threads_stop_single(gpointer data, gpointer user_data) {
 	struct agh_thread *ct = data;
 	struct agh_state *mstate = user_data;
 

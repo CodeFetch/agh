@@ -99,13 +99,9 @@ void process_signals(struct agh_state *mstate);
 void agh_threads_setup(struct agh_state *mstate);
 void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct);
 void agh_threads_prepare(struct agh_state *mstate);
-void agh_threads_prepare_single(gpointer data, gpointer user_data);
 void agh_threads_start(struct agh_state *mstate);
-void agh_threads_start_single(gpointer data, gpointer user_data);
 void agh_threads_stop(struct agh_state *mstate);
-void agh_threads_stop_single(gpointer data, gpointer user_data);
 void agh_threads_deinit(struct agh_state *mstate);
-void agh_threads_deinit_single(gpointer data, gpointer user_data);
 void agh_threads_teardown(struct agh_state *mstate);
 
 /* threads structures helpers */
