@@ -14,6 +14,12 @@ PKG_SEARCH_MODULE(GIO REQUIRED gio-2.0)
 PKG_SEARCH_MODULE(MM-GLIB REQUIRED mm-glib>=1.8.2)
 PKG_SEARCH_MODULE(NETTLE REQUIRED nettle>=3.4.1)
 
+FIND_PATH(ubus_include_dir libubus.h)
+INCLUDE_DIRECTORIES(${ubus_include_dir})
+
+FIND_PATH(ubox_include_dir libubox/blobmsg_json.h)
+INCLUDE_DIRECTORIES(${ubox_include_dir})
+
 SET(SOURCES
 	# AGH core: infrastructure (e.g.: commands, handlers, messages...)
 	agh.c agh_commands.c agh_handlers.c agh_messages.c
