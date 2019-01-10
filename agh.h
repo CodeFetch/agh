@@ -91,6 +91,4 @@ struct text_csp {
 	gchar *source_id;
 };
 
-gboolean hacksrc_idle_cb(gpointer data);
-
 #endif
