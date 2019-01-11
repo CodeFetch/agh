@@ -19,10 +19,6 @@ void msg_dealloc(struct agh_message *m) {
 	struct command *cmd;
 	struct xmpp_csp *xmppdata;
 
-	csptext = NULL;
-	cmd = NULL;
-	xmppdata = NULL;
-
 	if (!m)
 		return;
 
@@ -37,20 +33,11 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_SENDTEXT:
 			csptext = m->csp;
 			//g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
-			if (csptext->text) {
-				g_free(csptext->text);
-				csptext->text = NULL;
-			}
-			else
+			if (!csptext->text)
 				g_print("%s: received a message with NULL text\n",__FUNCTION__);
-
-			if (csptext->source_id) {
-				g_free(csptext->source_id);
-				csptext->source_id = NULL;
-			}
-			
+			g_free(csptext->text);
+			g_free(csptext->source_id);
 			g_free(csptext);
-			csptext = NULL;
 			break;
 		case MSG_SENDCMD:
 		case MSG_EVENT:
@@ -59,26 +46,10 @@ void msg_dealloc(struct agh_message *m) {
 			break;
 		case MSG_XMPPTEXT:
 			xmppdata = m->csp;
-			if (xmppdata->from) {
-				g_free(xmppdata->from);
-				xmppdata->from = NULL;
-			}
-
-			if (xmppdata->to) {
-				g_free(xmppdata->to);
-				xmppdata->to = NULL;
-			}
-
-			if (xmppdata->text) {
-				g_free(xmppdata->text);
-				xmppdata->text = NULL;
-			}
-
-			if (xmppdata->id) {
-				g_free(xmppdata->id);
-				xmppdata->id = NULL;
-			}
-
+			g_free(xmppdata->from);
+			g_free(xmppdata->to);
+			g_free(xmppdata->text);
+			g_free(xmppdata->id);
 			g_free(xmppdata);
 
 			break;
@@ -88,10 +59,6 @@ void msg_dealloc(struct agh_message *m) {
 		}
 	}
 
-	m->csp = NULL;
-	m->msg_type = MSG_INVALID;
-	m->src = NULL;
-	m->dest = NULL;
 	g_free(m);
 	return;
 }
