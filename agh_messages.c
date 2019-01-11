@@ -1,3 +1,4 @@
+#include <string.h>
 #include <glib.h>
 #include "agh_messages.h"
 #include "agh.h"
