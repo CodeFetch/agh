@@ -3,6 +3,8 @@
 #include <glib.h>
 #include "agh_messages.h"
 
+/* Function prototypes. */
+static void handlers_finalize_single(gpointer data, gpointer user_data);
 
 /*
  * Allocates handlers queue with g_queue_new.
@@ -71,7 +73,7 @@ void handlers_init(GQueue *handlers, gpointer data) {
 	return;
 }
 
-void handlers_finalize_single(gpointer data, gpointer user_data) {
+static void handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
 
 	if (h->enabled && h->handler_finalize) {
@@ -136,33 +138,4 @@ void handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointe
 void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
 	h->handler_finalize = handler_finalize_cb;
 	return;
-}
-
-struct handler *handler_find_by_name(GQueue *handlers, gchar *n) {
-	struct handler *h;
-	guint i;
-	guint hl;
-
-	h = NULL;
-	hl = 0;
-
-	if ((!n) || (!handlers))
-		return h;
-
-	hl = g_queue_get_length(handlers);
-	if (!hl)
-		return h;
-
-	for (i=0;i<hl;i++) {
-		h = g_queue_peek_nth(handlers, i);
-
-		if (!g_strcmp0(h->name, n))
-			break;
-
-	}
-
-	if (i == hl)
-		h = NULL;
-
-	return h;
 }
