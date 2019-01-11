@@ -5,6 +5,9 @@
 #include "agh_commands.h"
 #include "agh_xmpp.h"
 
+/* Function prototypes. */
+static gboolean agh_handle_message_inside_dest_thread(gpointer data);
+
 /* Convenience function to allocate a message. Simply calls g_malloc0. */
 struct agh_message *msg_alloc(void) {
 	return g_malloc0(sizeof(struct agh_message));
@@ -93,7 +96,7 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 	return 0;
 }
 
-gboolean agh_handle_message_inside_dest_thread(gpointer data) {
+static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	struct agh_message *m = data;
 	guint num_handlers;
 	struct handler *h;

@@ -38,7 +38,6 @@ struct agh_comm {
 struct agh_message *msg_alloc(void);
 void msg_dealloc(struct agh_message *m);
 gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm);
-gboolean agh_handle_message_inside_dest_thread(gpointer data);
 
 /* comm */
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
