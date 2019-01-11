@@ -1,3 +1,4 @@
+#include <string.h>
 #include <glib.h>
 #include <nettle/sha1.h>
 #include "agh_xmpp_caps.h"
@@ -110,36 +111,14 @@ void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 	if (!e)
 		return;
 
-	if (e->base_entities) {
+	if (e->base_entities)
 		g_queue_free_full(e->base_entities, agh_xmpp_caps_base_entities_free);
-		e->base_entities = NULL;
-	}
-
-	if (e->softname) {
-		g_free(e->softname);
-		e->softname = NULL;
-	}
-
-	if (e->softversion) {
-		g_free(e->softversion);
-		e->softversion = NULL;
-	}
-
-	if (e->osname) {
-		g_free(e->osname);
-		e->osname = NULL;
-	}
-
-	if (e->osversion) {
-		g_free(e->osversion);
-		e->osversion = NULL;
-	}
-
-	if (e->features) {
+	g_free(e->softname);
+	g_free(e->softversion);
+	g_free(e->osname);
+	g_free(e->osversion);
+	if (e->features)
 		g_queue_free_full(e->features, g_free);
-		e->features = NULL;
-	}
-
 	g_free(e);
 
 	return;
@@ -148,26 +127,10 @@ void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 void agh_xmpp_caps_base_entities_free(gpointer data) {
 	struct agh_xmpp_caps_base_entity *b = data;
 
-	if (b->name) {
-		g_free(b->name);
-		b->name = NULL;
-	}
-
-	if (b->cat) {
-		g_free(b->cat);
-		b->cat = NULL;
-	}
-
-	if (b->type) {
-		g_free(b->type);
-		b->type = NULL;
-	}
-
-	if (b->lang) {
-		g_free(b->lang);
-		b->lang = NULL;
-	}
-
+	g_free(b->name);
+	g_free(b->cat);
+	g_free(b->type);
+	g_free(b->lang);
 	g_free(b);
 }
 
