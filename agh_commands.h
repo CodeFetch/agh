@@ -58,13 +58,11 @@ void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolea
 guint cmd_answer_get_status(struct command *cmd);
 guint cmd_answer_addtext(struct command *cmd, const gchar *text);
 guint cmd_answer_peektext(struct command *cmd, gchar *text);
-gchar *cmd_answer_to_text(struct command *cmd);
 guint cmd_answer_prepare(struct command *cmd);
 
 /* assorted management functions */
 void cmd_free(struct command *cmd);
 struct command *cmd_copy(struct command *cmd);
-config_t *cmd_copy_cfg(config_t *src);
 struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
 /* Some useful functions to access commands data.
@@ -72,19 +70,12 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
  * note: when one of these functions return a pointer to a string, it is of const type. This is due to the fact that libconfig
  * itself manages their storage. Don't try to modify them in any case.
 */
-config_setting_t *cmd_get_in_keyword_setting(struct command *cmd);
-gint cmd_get_id(struct command *cmd);
 const gchar *cmd_get_operation(struct command *cmd);
 config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_type);
-void print_config_type(gint type);
 
 /* events */
 struct command *cmd_event_prepare(void);
 gchar *cmd_event_to_text(struct command *cmd, gint event_id);
 void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd);
-
-/* And some useful functions to access events */
-const gchar *event_name(struct command *cmd);
-const gchar *event_arg(struct command *cmd, guint arg_index);
 
 #endif

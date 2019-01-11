@@ -3,6 +3,17 @@
 #include "agh_commands.h"
 #include "agh_messages.h"
 
+/* Function prototypes. */
+static gchar *cmd_answer_to_text(struct command *cmd);
+static config_t *cmd_copy_cfg(config_t *src);
+static config_setting_t *cmd_get_in_keyword_setting(struct command *cmd);
+static gint cmd_get_id(struct command *cmd);
+static void print_config_type(gint type);
+
+/* And some useful functions to access events */
+static const gchar *event_name(struct command *cmd);
+static const gchar *event_arg(struct command *cmd, guint arg_index);
+
 struct command *text_to_cmd(gchar *from, gchar *content) {
 	struct command *ocmd;
 	gchar *atext;
@@ -191,7 +202,7 @@ guint cmd_answer_peektext(struct command *cmd, gchar *text) {
  * This function transforms a command_result structure content to text. It is destructive, and infact it also deallocates the
  * structure. Yeah, this is arguable design.
 */
-gchar *cmd_answer_to_text(struct command *cmd) {
+static gchar *cmd_answer_to_text(struct command *cmd) {
 	GString *output;
 	guint ntextparts;
 	guint i;
@@ -372,7 +383,7 @@ struct command *cmd_copy(struct command *cmd) {
  * This function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
  * function. Other config_t structures will not be handled correctly. Any better way to do this is apreciated.
 */
-config_t *cmd_copy_cfg(config_t *src) {
+static config_t *cmd_copy_cfg(config_t *src) {
 	config_t *ncfg;
 	config_setting_t *root_setting;
 	config_setting_t *list_setting;
@@ -480,7 +491,7 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
 	return m;
 }
 
-config_setting_t *cmd_get_in_keyword_setting(struct command *cmd) {
+static config_setting_t *cmd_get_in_keyword_setting(struct command *cmd) {
 
 	if (!cmd)
 		return NULL;
@@ -489,7 +500,7 @@ config_setting_t *cmd_get_in_keyword_setting(struct command *cmd) {
 	return config_lookup(cmd->cmd, CMD_IN_KEYWORD);
 }
 
-gint cmd_get_id(struct command *cmd) {
+static gint cmd_get_id(struct command *cmd) {
 	config_setting_t *in_keyword;
 	gint id;
 
@@ -556,7 +567,7 @@ config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_
 	return outset;
 }
 
-void print_config_type(gint type) {
+static void print_config_type(gint type) {
 	switch(type) {
 		case CONFIG_TYPE_INT:
 			g_print("CONFIG_TYPE_INT");
@@ -692,7 +703,7 @@ void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
  * Gets event name. It should not in general return NULL, but it may do so. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
  * Note that the pointer returned here is "inside" the structure itself, and that's why it's const. So don't try to modify, or free it. And clearly do not use it once you freed or sent the event.
 */
-const gchar *event_name(struct command *cmd) {
+static const gchar *event_name(struct command *cmd) {
 	const gchar *textop;
 
 	textop = NULL;
@@ -708,7 +719,7 @@ const gchar *event_name(struct command *cmd) {
 /*
  * Gets an event argument. It returns NULL if specified argument is not present. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
 */
-const gchar *event_arg(struct command *cmd, guint arg_index) {
+static const gchar *event_arg(struct command *cmd, guint arg_index) {
 	const gchar *arg;
 
 	arg = NULL;
