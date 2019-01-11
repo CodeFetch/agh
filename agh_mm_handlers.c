@@ -5,6 +5,46 @@
 #include "agh_mm_helpers.h"
 #include "agh_mm_handlers.h"
 
+/* Function prototypes. */
+static void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd);
+static void agh_mm_list_modem_single(gpointer data, gpointer user_data);
+static MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index);
+static void agh_modem_do(MMObject *modem, struct command *cmd);
+
+/* MMModem3gpp */
+static MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct command *cmd);
+static void agh_modem_get_imei(MMObject *modem, struct command *cmd);
+
+/* MMModem */
+static MMModem *agh_get_MMModem_object(MMObject *modem, struct command *cmd);
+static void agh_modem_get_state(MMObject *modem, struct command *cmd);
+static void agh_modem_get_power_state(MMObject *modem, struct command *cmd);
+static void agh_modem_get_supported_capabilities(MMObject *modem, struct command *cmd);
+static void agh_modem_get_current_capabilities(MMObject *modem, struct command *cmd);
+static void agh_modem_get_manifacturer(MMObject *modem, struct command *cmd);
+static void agh_modem_get_model(MMObject *modem, struct command *cmd);
+static void agh_modem_get_revision(MMObject *modem, struct command *cmd);
+static void agh_modem_get_hw_revision(MMObject *modem, struct command *cmd);
+static void agh_modem_get_drivers(MMObject *modem, struct command *cmd);
+static void agh_modem_get_plugin(MMObject *modem, struct command *cmd);
+static void agh_modem_get_primary_port(MMObject *modem, struct command *cmd);
+static void agh_modem_get_ports(MMObject *modem, struct command *cmd);
+static void agh_modem_get_device(MMObject *modem, struct command *cmd);
+static void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd);
+static void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd);
+static void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd);
+static void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd);
+static void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd);
+static void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd);
+static void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd);
+static void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd);
+static void agh_modem_get_current_modes(MMObject *modem, struct command *cmd);
+static void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd);
+static void agh_modem_get_current_bands(MMObject *modem, struct command *cmd);
+static void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd);
+static void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd);
+static void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd);
+
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
@@ -87,7 +127,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 }
 
 /* Get and report a list of modems known by ModemManager. */
-void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd) {
+static void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd) {
 	GList *modems;
 
 	modems = NULL;
@@ -110,7 +150,7 @@ void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd) {
 	return;
 }
 
-void agh_mm_list_modem_single(gpointer data, gpointer user_data) {
+static void agh_mm_list_modem_single(gpointer data, gpointer user_data) {
 	MMObject *modem_object = data;
 	struct command *cmd = user_data;
 	gchar *modem_index;
@@ -126,37 +166,7 @@ void agh_mm_list_modem_single(gpointer data, gpointer user_data) {
 /* Input to this function should come from MM calls, in general. That's why no validation is done.
  * And yes, the way AGH handles modem index probably needs to be done differently.
 */
-gchar *agh_mm_modem_to_index(const gchar *modem_path) {
-	GString *modem_index;
-	gsize modem_path_size;
-	gint i;
-
-	modem_index = NULL;
-	modem_path_size = 0;
-
-	if (!modem_path)
-		return NULL;
-
-	modem_index = g_string_new(NULL);
-
-	modem_path_size = strlen(modem_path);
-
-	for (i=modem_path_size-1;i>=0;i--) {
-		if (modem_path[i] == '/')
-			break;
-	}
-
-	i++;
-
-	while (modem_path[i]) {
-		g_string_append_c(modem_index, modem_path[i]);
-		i++;
-	}
-
-	return g_string_free(modem_index, FALSE);
-}
-
-MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index) {
+static MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index) {
 	gchar *modem_path;
 	guint modem_list_length;
 	GList *modems;
@@ -202,7 +212,7 @@ MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index) 
 	return modem_found;
 }
 
-void agh_modem_do(MMObject *modem, struct command *cmd) {
+static void agh_modem_do(MMObject *modem, struct command *cmd) {
 	const gchar *current_operation;
 	void (*cb)(MMObject *modem, struct command *cmd);
 
@@ -277,7 +287,7 @@ void agh_modem_do(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct command *cmd) {
+static MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct command *cmd) {
 	MMModem3gpp *object;
 
 	object = NULL;
@@ -292,7 +302,7 @@ MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct command *cmd) {
 	return object;
 }
 
-void agh_modem_get_imei(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_imei(MMObject *modem, struct command *cmd) {
 	MMModem3gpp *object;
 	const gchar *imei;
 
@@ -317,7 +327,7 @@ void agh_modem_get_imei(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-MMModem *agh_get_MMModem_object(MMObject *modem, struct command *cmd) {
+static MMModem *agh_get_MMModem_object(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 
 	object = NULL;
@@ -332,7 +342,7 @@ MMModem *agh_get_MMModem_object(MMObject *modem, struct command *cmd) {
 	return object;
 }
 
-void agh_modem_get_state(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_state(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *state;
 	const gchar *state_failed_reason;
@@ -363,7 +373,7 @@ void agh_modem_get_state(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_power_state(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_power_state(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *power_state;
 	MMModemPowerState enum_power_state;
@@ -387,7 +397,7 @@ void agh_modem_get_power_state(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_supported_capabilities(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_supported_capabilities(MMObject *modem, struct command *cmd) {
 	gchar *caps_str;
 	MMModem *object;
 	MMModemCapability *caps;
@@ -421,7 +431,7 @@ void agh_modem_get_supported_capabilities(MMObject *modem, struct command *cmd) 
 	return;
 }
 
-void agh_modem_get_current_capabilities(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_current_capabilities(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *current_caps;
 
@@ -446,7 +456,7 @@ void agh_modem_get_current_capabilities(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_manifacturer(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_manifacturer(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *manifacturer;
 
@@ -469,7 +479,7 @@ void agh_modem_get_manifacturer(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_model(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_model(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *model;
 
@@ -491,7 +501,7 @@ void agh_modem_get_model(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_revision(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_revision(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *revision;
 
@@ -514,7 +524,7 @@ void agh_modem_get_revision(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_hw_revision(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_hw_revision(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *hrev;
 
@@ -537,7 +547,7 @@ void agh_modem_get_hw_revision(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_drivers(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_drivers(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *mm_drivers;
 
@@ -562,7 +572,7 @@ void agh_modem_get_drivers(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_plugin(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_plugin(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *current_plugin;
 
@@ -585,7 +595,7 @@ void agh_modem_get_plugin(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_primary_port(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_primary_port(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *primary_port;
 
@@ -608,7 +618,7 @@ void agh_modem_get_primary_port(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_ports(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_ports(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	MMModemPortInfo *ports;
 	gchar *ports_str;
@@ -643,7 +653,7 @@ void agh_modem_get_ports(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_device(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_device(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *sysfs_device;
 
@@ -666,7 +676,7 @@ void agh_modem_get_device(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *equipment_id;
 
@@ -689,7 +699,7 @@ void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *device_id;
 
@@ -712,7 +722,7 @@ void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	const gchar *unlock_required;
 
@@ -735,7 +745,7 @@ void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	MMUnlockRetries *retries;
 	gchar *retries_str;
@@ -770,7 +780,7 @@ void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *maxbearers_str;
 
@@ -793,7 +803,7 @@ void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *max_active_bearers_str;
 
@@ -822,9 +832,9 @@ void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd) {
  * CMD_OUT_KEYWORD = ( id, status, "num1, num2, ..." )
  * I guess it would be better if we did split own numbers in different arguments, but at the moment, amongst other things, I have no device / SIM to test this.
  *
- * Secondly, it would be better to remove that (gchar**) cat on mm_modem_get_own_numbers call. I don't like it, but probably I should learn C better. What do you think ?
+ * Secondly, it would be better to remove that (gchar**) cast on mm_modem_get_own_numbers call. I don't like it, but probably I should learn C better. What do you think ?
 */
-void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *own_numbers;
 	gchar **tmp;
@@ -864,7 +874,7 @@ void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd) {
 	gchar *modes_str;
 	MMModem *object;
 	MMModemModeCombination *modes;
@@ -898,7 +908,7 @@ void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_current_modes(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_current_modes(MMObject *modem, struct command *cmd) {
 	gchar *allowed_modes_str;
 	MMModemMode allowed_modes;
 	MMModemMode preferred_mode;
@@ -940,8 +950,8 @@ void agh_modem_get_current_modes(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-/* Docs says that for POTS devices, only MM_MODEM_BAND_ANY will be returned in bands array */
-void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd) {
+/* Docs says that for POTS devices, only MM_MODEM_BAND_ANY will be returned in bands array. */
+static void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd) {
 	gchar *bands_str;
 	MMModem *object;
 	MMModemBand *bands;
@@ -978,7 +988,7 @@ void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd) {
 }
 
 /* Docs says: for POTS devices, only the MM_MODEM_BAND_ANY band is supported. */
-void agh_modem_get_current_bands(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_current_bands(MMObject *modem, struct command *cmd) {
 	gchar *bands_str;
 	MMModem *object;
 	MMModemBand *bands;
@@ -1014,7 +1024,7 @@ void agh_modem_get_current_bands(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *ip_families_str;
 
@@ -1039,7 +1049,7 @@ void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd) {
 }
 
 /* Enable the modem for best results. */
-void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *sigqual_str;
 	gboolean is_recent;
@@ -1067,7 +1077,7 @@ void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd) {
 	return;
 }
 
-void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd) {
+static void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd) {
 	MMModem *object;
 	gchar *access_technologies;
 

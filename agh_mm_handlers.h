@@ -78,45 +78,4 @@
 
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 
-void agh_mm_list_modems(struct agh_mm_state *mmstate, struct command *cmd);
-void agh_mm_list_modem_single(gpointer data, gpointer user_data);
-gchar *agh_mm_modem_to_index(const gchar *modem_path);
-MMObject *agh_mm_index_to_modem(struct agh_mm_state *mmstate, gint modem_index);
-void agh_modem_do(MMObject *modem, struct command *cmd);
-
-/* MMModem3gpp */
-MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct command *cmd);
-void agh_modem_get_imei(MMObject *modem, struct command *cmd);
-
-/* MMModem */
-MMModem *agh_get_MMModem_object(MMObject *modem, struct command *cmd);
-void agh_modem_get_state(MMObject *modem, struct command *cmd);
-void agh_modem_get_power_state(MMObject *modem, struct command *cmd);
-void agh_modem_get_supported_capabilities(MMObject *modem, struct command *cmd);
-void agh_modem_get_current_capabilities(MMObject *modem, struct command *cmd);
-void agh_modem_get_manifacturer(MMObject *modem, struct command *cmd);
-void agh_modem_get_model(MMObject *modem, struct command *cmd);
-void agh_modem_get_revision(MMObject *modem, struct command *cmd);
-void agh_modem_get_hw_revision(MMObject *modem, struct command *cmd);
-void agh_modem_get_drivers(MMObject *modem, struct command *cmd);
-void agh_modem_get_plugin(MMObject *modem, struct command *cmd);
-void agh_modem_get_primary_port(MMObject *modem, struct command *cmd);
-void agh_modem_get_ports(MMObject *modem, struct command *cmd);
-void agh_modem_get_device(MMObject *modem, struct command *cmd);
-void agh_modem_get_equipment_identifier(MMObject *modem, struct command *cmd);
-void agh_modem_get_device_identifier(MMObject *modem, struct command *cmd);
-void agh_modem_get_unlock_required(MMObject *modem, struct command *cmd);
-void agh_modem_get_unlock_retries(MMObject *modem, struct command *cmd);
-void agh_modem_get_max_bearers(MMObject *modem, struct command *cmd);
-void agh_modem_get_max_active_bearers(MMObject *modem, struct command *cmd);
-void agh_modem_get_own_numbers(MMObject *modem, struct command *cmd);
-void agh_modem_get_supported_modes(MMObject *modem, struct command *cmd);
-void agh_modem_get_current_modes(MMObject *modem, struct command *cmd);
-void agh_modem_get_supported_bands(MMObject *modem, struct command *cmd);
-void agh_modem_get_current_bands(MMObject *modem, struct command *cmd);
-void agh_modem_get_supported_IP_families(MMObject *modem, struct command *cmd);
-void agh_modem_get_signal_quality(MMObject *modem, struct command *cmd);
-void agh_modem_get_access_technologies(MMObject *modem, struct command *cmd);
-void agh_mm_list_disabled_modems(struct agh_mm_state *mmstate, struct command *cmd);
-
 #endif

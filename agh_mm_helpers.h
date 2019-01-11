@@ -15,4 +15,7 @@ struct _MMUnlockRetriesPrivate {
 	GHashTable *ht;
 };
 
+/* for AGH usage */
+gchar *agh_mm_modem_to_index(const gchar *modem_path);
+
 #endif

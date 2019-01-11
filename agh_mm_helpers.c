@@ -149,3 +149,33 @@ const gchar *agh_mm_get_statechange_reason_string(MMModemStateChangeReason reaso
 
 	return NULL;
 }
+
+gchar *agh_mm_modem_to_index(const gchar *modem_path) {
+	GString *modem_index;
+	gsize modem_path_size;
+	gint i;
+
+	modem_index = NULL;
+	modem_path_size = 0;
+
+	if (!modem_path)
+		return NULL;
+
+	modem_index = g_string_new(NULL);
+
+	modem_path_size = strlen(modem_path);
+
+	for (i=modem_path_size-1;i>=0;i--) {
+		if (modem_path[i] == '/')
+			break;
+	}
+
+	i++;
+
+	while (modem_path[i]) {
+		g_string_append_c(modem_index, modem_path[i]);
+		i++;
+	}
+
+	return g_string_free(modem_index, FALSE);
+}
