@@ -808,6 +808,18 @@ void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 	return;
 }
 
+static struct agh_family_table {
+	char *name;
+	int type;
+} agh_family_table[] = {
+	{"none", MM_BEARER_IP_FAMILY_NONE},
+	{"IPV4", MM_BEARER_IP_FAMILY_IPV4},
+	{"IPV6", MM_BEARER_IP_FAMILY_IPV6},
+	{"IPV4V6", MM_BEARER_IP_FAMILY_IPV4V6},
+	{"any", MM_BEARER_IP_FAMILY_ANY},
+	{NULL,}
+};
+
 gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *b) {
 	GString *s;
 	gchar *numeric_quantity_string_tmp;
@@ -819,6 +831,8 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 	guint dns_counter;
 	gchar *str_tmp;
 	gchar *dns_str_tmp;
+	struct agh_family_table *family;
+	int type;
 
 	s = g_string_new("{");
 	numeric_quantity_string_tmp = NULL;
@@ -850,33 +864,13 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 	g_free(str_tmp);
 
 	props = mm_bearer_get_properties(b);
-	switch(mm_bearer_properties_get_ip_type(props)) {
-		case MM_BEARER_IP_FAMILY_NONE:
-			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "none", FALSE);
-			g_string_append(s, str_tmp);
-			g_free(str_tmp);
+	type = mm_bearer_properties_get_ip_type(props);
+	for (family = agh_family_table; family->name; family++)
+		if (family->type == type)
 			break;
-		case MM_BEARER_IP_FAMILY_IPV4:
-			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV4", FALSE);
-			g_string_append(s, str_tmp);
-			g_free(str_tmp);
-			break;
-		case MM_BEARER_IP_FAMILY_IPV6:
-			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV6", FALSE);
-			g_string_append(s, str_tmp);
-			g_free(str_tmp);
-			break;
-		case MM_BEARER_IP_FAMILY_IPV4V6:
-			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "IPV4V6", FALSE);
-			g_string_append(s, str_tmp);
-			g_free(str_tmp);
-			break;
-		case MM_BEARER_IP_FAMILY_ANY:
-			str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", "any", FALSE);
-			g_string_append(s, str_tmp);
-			g_free(str_tmp);
-			break;
-	}
+	str_tmp = agh_mm_sm_call_outside_build_message_add_element("BEARER_IP_FAMILY", family->name, FALSE);
+	g_string_append(s, str_tmp);
+	g_free(str_tmp);
 
 	ipv4_config = mm_bearer_get_ipv4_config(b);
 	ipv6_config = mm_bearer_get_ipv6_config(b);
