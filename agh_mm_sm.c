@@ -2,7 +2,21 @@
 #include "agh_commands.h"
 #include "agh_mm_handlers.h"
 
-void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason) {
+/* Function prototypes. */
+
+static void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason);
+
+static void agh_mm_sm_unlock(struct agh_state *mstate, MMModem *modem);
+
+static void agh_mm_sm_enable(struct agh_state *mstate, MMModem *modem);
+static void agh_mm_sm_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate);
+static void agh_mm_sm_bearers_init(struct agh_state *mstate, MMModem *modem);
+static void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct agh_state *mstate);
+static void agh_mm_sm_bearers_delete(MMModem *modem, GAsyncResult *res, struct agh_state *mstate);
+static void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh_mm_asyncstate *a);
+static void agh_mm_sm_handle_cfg_bearers_list(struct agh_state *mstate, MMModem *modem, GList *blist);
+
+static void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason) {
 
 	switch(newstate) {
 		case MM_MODEM_STATE_FAILED:
@@ -37,29 +51,7 @@ void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMModemStat
 	return;
 }
 
-void agh_mm_sm_start(struct agh_state *mstate, MMObject *m) {
-	MMModem *modem;
-	MMModemState current_state;
-	MMModemState fake_oldstate;
-	MMModemStateChangeReason fakereason;
-
-	modem = mm_object_get_modem(m);
-	fakereason = MM_MODEM_STATE_CHANGE_REASON_UNKNOWN;
-	current_state = MM_MODEM_STATE_UNKNOWN;
-	fake_oldstate = MM_MODEM_STATE_UNKNOWN;
-
-	g_signal_connect(modem, "state-changed", G_CALLBACK(agh_mm_sm_statechange), mstate);
-
-	current_state = mm_modem_get_state(modem);
-	fake_oldstate = current_state;
-	agh_mm_sm_stateaction(mstate, modem, fake_oldstate, current_state, fakereason);
-
-	g_object_unref(modem);
-
-	return;
-}
-
-void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
+static void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	struct command *event;
 	gchar *modem_idx;
@@ -84,6 +76,28 @@ void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModemState n
 	return;
 }
 
+void agh_mm_sm_start(struct agh_state *mstate, MMObject *m) {
+	MMModem *modem;
+	MMModemState current_state;
+	MMModemState fake_oldstate;
+	MMModemStateChangeReason fakereason;
+
+	modem = mm_object_get_modem(m);
+	fakereason = MM_MODEM_STATE_CHANGE_REASON_UNKNOWN;
+	current_state = MM_MODEM_STATE_UNKNOWN;
+	fake_oldstate = MM_MODEM_STATE_UNKNOWN;
+
+	g_signal_connect(modem, "state-changed", G_CALLBACK(agh_mm_sm_statechange), mstate);
+
+	current_state = mm_modem_get_state(modem);
+	fake_oldstate = current_state;
+	agh_mm_sm_stateaction(mstate, modem, fake_oldstate, current_state, fakereason);
+
+	g_object_unref(modem);
+
+	return;
+}
+
 void agh_mm_sm_device_added(MMManager *manager, MMObject  *modem, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	struct agh_mm_state *mmstate = mstate->mmstate;
@@ -104,7 +118,7 @@ void agh_mm_sm_device_removed(MMManager *manager, MMObject  *modem, gpointer use
 	return;
 }
 
-void agh_mm_sm_unlock(struct agh_state *mstate, MMModem *modem) {
+static void agh_mm_sm_unlock(struct agh_state *mstate, MMModem *modem) {
 	MMModemLock l;
 
 	l = mm_modem_get_unlock_required(modem);
@@ -137,7 +151,7 @@ void agh_mm_sm_unlock(struct agh_state *mstate, MMModem *modem) {
 	return;
 }
 
-void agh_mm_sm_enable(struct agh_state *mstate, MMModem *modem) {
+static void agh_mm_sm_enable(struct agh_state *mstate, MMModem *modem) {
 	struct uci_section *section;
 	gboolean enable;
 	struct uci_option *opt;
@@ -163,7 +177,7 @@ void agh_mm_sm_enable(struct agh_state *mstate, MMModem *modem) {
 	return;
 }
 
-void agh_mm_sm_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sm_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	gboolean sres;
 
 	sres = FALSE;
@@ -176,7 +190,7 @@ void agh_mm_sm_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state
 	return;
 }
 
-void agh_mm_sm_bearers_init(struct agh_state *mstate, MMModem *modem) {
+static void agh_mm_sm_bearers_init(struct agh_state *mstate, MMModem *modem) {
 	/* And so, in a sunny day, in a function with "_init" in it's name, we start doing what? Deleting bearers. What do you think? :) */
 
 	mm_modem_list_bearers(modem, NULL, (GAsyncReadyCallback)agh_mm_sm_bearers_delete, mstate);
@@ -184,7 +198,7 @@ void agh_mm_sm_bearers_init(struct agh_state *mstate, MMModem *modem) {
 	return;
 }
 
-void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	struct uci_section *modem_section;
 	struct uci_section *sim_section;
 	MMSim *sim;
@@ -242,7 +256,7 @@ void agh_mm_sm_bearers_init_get_list(MMModem *modem, GAsyncResult *res, struct a
 	return;
 }
 
-void agh_mm_sm_bearers_delete(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sm_bearers_delete(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	GList *blist;
 	struct agh_mm_asyncstate *a;
 	MMBearer *b;
@@ -275,7 +289,7 @@ void agh_mm_sm_bearers_delete(MMModem *modem, GAsyncResult *res, struct agh_stat
 	return;
 }
 
-void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh_mm_asyncstate *a) {
+static void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh_mm_asyncstate *a) {
 	gboolean success;
 	MMBearer *b;
 
@@ -305,7 +319,7 @@ void agh_mm_sm_bearers_delete_next(MMModem *modem, GAsyncResult *res, struct agh
 	return;
 }
 
-void agh_mm_sm_handle_cfg_bearers_list(struct agh_state *mstate, MMModem *modem, GList *blist) {
+static void agh_mm_sm_handle_cfg_bearers_list(struct agh_state *mstate, MMModem *modem, GList *blist) {
 	GList *l;
 	struct uci_section *sec;
 
