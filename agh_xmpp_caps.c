@@ -5,8 +5,14 @@
 #include "agh_xmpp.h"
 #include "agh.h"
 
+static void agh_xmpp_caps_base_entities_free(gpointer data);
+static gchar *agh_xmpp_caps_sha1(gchar *text);
+static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e);
+static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data);
+static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data);
+
 /* I am not convinced about the correctness of this function. */
-gchar *agh_xmpp_caps_sha1(gchar *text) {
+static gchar *agh_xmpp_caps_sha1(gchar *text) {
 	struct sha1_ctx *ctx;
 	uint8_t *input;
 	uint8_t *digest;
@@ -39,60 +45,6 @@ gchar *agh_xmpp_caps_sha1(gchar *text) {
 	return output;
 }
 
-//#if 0
-gint xmain(void) {
-	struct agh_xmpp_caps_entity *e;
-	gchar *output;
-	gchar *hashtmp;
-	gint id;
-
-	e = NULL;
-	output = NULL;
-	id = 0;
-	hashtmp = NULL;
-
-	e = agh_xmpp_caps_entity_alloc();
-
-	id = agh_xmpp_caps_add_entity(e);
-	agh_xmpp_caps_set_entity_data(e, id, "AGH", "client", "bot", NULL);
-	agh_xmpp_caps_add_feature(e, AGH_XMPP_FEATURE_RECEIPTS);
-	agh_xmpp_caps_add_feature(e, "http://jabber.org/protocol/caps");
-	output = agh_xmpp_caps_build_string(e);
-	hashtmp = agh_xmpp_caps_sha1(output);
-
-	g_print("%s\n%s\n",output,hashtmp);
-	g_free(output);
-	g_free(hashtmp);
-	agh_xmpp_caps_entity_dealloc(e);
-
-	//output = "client/pc//Exodus 0.9.1<http://jabber.org/protocol/caps<http://jabber.org/protocol/disco#info<http://jabber.org/protocol/disco#items<http://jabber.org/protocol/muc<";
-	output = "client/bot/en/AGH<http://jabber.org/protocol/caps<";
-	hashtmp = agh_xmpp_caps_sha1(output);
-
-	g_print("%s\n%s\n",output,hashtmp);
-	g_free(hashtmp);
-
-	e = agh_xmpp_caps_entity_alloc();
-
-	id = agh_xmpp_caps_add_entity(e);
-	agh_xmpp_caps_set_entity_data(e, id, "Exodus 0.9.1", "client", "pc", NULL);
-	agh_xmpp_caps_add_feature(e, "http://jabber.org/protocol/caps");
-	agh_xmpp_caps_add_feature(e, "http://jabber.org/protocol/disco#info");
-	agh_xmpp_caps_add_feature(e, "http://jabber.org/protocol/disco#items");
-	agh_xmpp_caps_add_feature(e, "http://jabber.org/protocol/muc");
-
-	output = agh_xmpp_caps_build_string(e);
-	hashtmp = agh_xmpp_caps_sha1(output);
-
-	g_print("%s\n%s\n",output,hashtmp);
-	g_free(output);
-	g_free(hashtmp);
-	agh_xmpp_caps_entity_dealloc(e);
-
-	return 0;
-}
-//#endif
-
 struct agh_xmpp_caps_entity *agh_xmpp_caps_entity_alloc(void) {
 	struct agh_xmpp_caps_entity *e;
 
@@ -124,7 +76,7 @@ void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 	return;
 }
 
-void agh_xmpp_caps_base_entities_free(gpointer data) {
+static void agh_xmpp_caps_base_entities_free(gpointer data) {
 	struct agh_xmpp_caps_base_entity *b = data;
 
 	g_free(b->name);
@@ -181,7 +133,7 @@ void agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gcha
 	return;
 }
 
-gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
+static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
 	gchar *tmp_str;
 	GString *o;
 	GQueue *entities_str;
@@ -243,7 +195,7 @@ gint agh_xmpp_caps_add_feature(struct agh_xmpp_caps_entity *e, gchar *ftext) {
 	return (g_queue_get_length(e->features)-1);
 }
 
-void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data) {
+static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data) {
 	struct agh_xmpp_caps_base_entity *b = data;
 	GQueue *dest = user_data;
 	GString *tmp;
@@ -364,7 +316,7 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 /*
  * Only to make GCC 8+ happy. And in any case, stay on the safe side for now, avoiding to play with function casts.
 */
-gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
+static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
 	const gchar *f = a;
 	const gchar *g = b;
 

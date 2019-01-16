@@ -10,24 +10,6 @@ static gchar *agh_modem_validate_config_strerror(gint retval);
 static gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section);
 static struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void);
 
-#if 0
-gint main(void) {
-	struct agh_modem_config_validation_error *validation_error;
-
-	validation_error = NULL;
-
-	agh_modem_validate_config(AGH_MODEM_UCI_CONFIG_PACKAGE, &validation_error);
-
-	if (validation_error) {
-		g_print("Failure %" G_GINT16_FORMAT" (%s): %s\n",validation_error->error_code,validation_error->element_name ? validation_error->element_name : "**",validation_error->error_desc);
-		agh_modem_config_validation_error_free(validation_error);
-		validation_error = NULL;
-	}
-
-	return 0;
-}
-#endif
-
 void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, struct agh_modem_config_validation_error **validation_error) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	gint retval;
