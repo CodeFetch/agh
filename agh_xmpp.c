@@ -9,6 +9,33 @@
 #include "agh_xmpp_caps.h"
 #include "agh_commands.h"
 
+/* Function prototypes. */
+static gboolean xmpp_idle(gpointer data);
+static void agh_xmpp_send_out_messages(struct agh_state *mstate);
+static void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, const gchar *text);
+void discard_xmpp_messages(gpointer data, gpointer userdata);
+static void xmpp_set_handlers_ext(struct agh_state *mstate);
+static void agh_xmpp_prepare_entity(struct xmpp_state *xstate);
+static void agh_xmpp_config_init(struct agh_state *mstate);
+static void agh_xmpp_start_statemachine(struct agh_state *mstate);
+static const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name);
+static GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name);
+static void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout);
+static struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *to, const gchar *id, gchar *text);
+static xmpp_stanza_t *agh_xmpp_build_ping_base(struct agh_state *mstate, const gchar *to, const gchar *id, gchar *stanza_type);
+static void agh_xmpp_start_stressing(struct agh_state *mstate);
+static gboolean agh_xmpp_stressing_callback(gpointer data);
+
+/* libstrophe XMPP handlers */
+static int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+static void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata);
+static int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+static int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+static int ping_handler(xmpp_conn_t *const conn, void *const userdata);
+static int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata);
+static int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata);
+
 gint agh_xmpp_init(struct agh_state *mstate) {
 	struct xmpp_state *xstate;
 
@@ -96,7 +123,7 @@ void agh_xmpp_deinit(gpointer data) {
 	return;
 }
 
-void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata) {
+static void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata) {
 	struct xmpp_state *xstate;
 	xmpp_stanza_t *pres;
 	xmpp_ctx_t *ctx;
@@ -133,7 +160,7 @@ void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t s
 	return;
 }
 
-int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
+static int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	xmpp_stanza_t *reply, *query, *name, *version, *text;
 	const char *ns;
 	struct agh_state *mstate;
@@ -189,7 +216,7 @@ int version_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	return 1;
 }
 
-int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
+static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	struct xmpp_state *xstate;
 	xmpp_ctx_t *ctx;
 	xmpp_stanza_t *body;
@@ -315,7 +342,7 @@ int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void
 	return 1;
 }
 
-gboolean xmpp_idle(gpointer data) {
+static gboolean xmpp_idle(gpointer data) {
 	struct agh_state *mstate = data;
 	struct xmpp_state *xstate = mstate->xstate;
 	gint xmpp_client_connect_status;
@@ -413,7 +440,7 @@ gboolean xmpp_idle(gpointer data) {
 	return TRUE;
 }
 
-void agh_xmpp_send_out_messages(struct agh_state *mstate) {
+static void agh_xmpp_send_out_messages(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 	struct text_csp *tcsp;
 	struct agh_message *artificial_message;
@@ -471,7 +498,7 @@ void agh_xmpp_send_out_messages(struct agh_state *mstate) {
 	return;
 }
 
-void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, const gchar *text) {
+static void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, const gchar *text) {
 	struct xmpp_state *xstate = mstate->xstate;
 	xmpp_ctx_t *ctx = xstate->xmpp_ctx;
 
@@ -523,7 +550,7 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 	return;
 }
 
-void xmpp_set_handlers_ext(struct agh_state *mstate) {
+static void xmpp_set_handlers_ext(struct agh_state *mstate) {
 	struct handler *xmpp_sendmsg_handler;
 	struct handler *xmpp_cmd_handler;
 
@@ -541,7 +568,7 @@ void xmpp_set_handlers_ext(struct agh_state *mstate) {
 	return;
 }
 
-void agh_xmpp_prepare_entity(struct xmpp_state *xstate) {
+static void agh_xmpp_prepare_entity(struct xmpp_state *xstate) {
 	gint id;
 
 	id = 0;
@@ -562,7 +589,7 @@ void agh_xmpp_prepare_entity(struct xmpp_state *xstate) {
 	return;
 }
 
-int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
+static int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 	xmpp_ctx_t *ctx = xstate->xmpp_ctx;
@@ -614,7 +641,7 @@ int discoinfo_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 	return 1;
 }
 
-void agh_xmpp_config_init(struct agh_state *mstate) {
+static void agh_xmpp_config_init(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 	struct uci_package *package;
 	struct uci_section *section;
@@ -771,7 +798,7 @@ out_noctx:
 	return;
 }
 
-void agh_xmpp_start_statemachine(struct agh_state *mstate) {
+static void agh_xmpp_start_statemachine(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
 	mstate->mainloop_needed++;
@@ -783,7 +810,7 @@ void agh_xmpp_start_statemachine(struct agh_state *mstate) {
 	return;
 }
 
-const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name) {
+static const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name) {
 	gchar *content;
 	struct uci_option *option;
 
@@ -802,7 +829,7 @@ const gchar *agh_xmpp_getoption(struct xmpp_state *xstate, gchar *name) {
 	return content;
 }
 
-GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name) {
+static GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name) {
 	struct uci_option *option;
 	GQueue *res;
 	struct uci_element *e;
@@ -825,7 +852,7 @@ GQueue *agh_xmpp_getoption_list(struct xmpp_state *xstate, gchar *name) {
 	return res;
 }
 
-void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout) {
+static void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout) {
 	struct xmpp_state *xstate = mstate->xstate;
 	gchar *jid;
 
@@ -887,7 +914,7 @@ void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gcha
 	return;
 }
 
-int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
+static int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 
@@ -916,7 +943,7 @@ int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * 
 	return 1;
 }
 
-struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *to, const gchar *id, gchar *text) {
+static struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *to, const gchar *id, gchar *text) {
 	struct agh_message *m;
 	struct xmpp_csp *xcsp;
 
@@ -947,7 +974,7 @@ struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *to, con
 	return m;
 }
 
-xmpp_stanza_t *agh_xmpp_build_ping_base(struct agh_state *mstate, const gchar *to, const gchar *id, gchar *stanza_type) {
+static xmpp_stanza_t *agh_xmpp_build_ping_base(struct agh_state *mstate, const gchar *to, const gchar *id, gchar *stanza_type) {
 	struct xmpp_state *xstate =mstate->xstate;
 	xmpp_stanza_t *iq_ping;
 	xmpp_stanza_t *ping;
@@ -989,7 +1016,7 @@ xmpp_stanza_t *agh_xmpp_build_ping_base(struct agh_state *mstate, const gchar *t
 	return iq_ping;
 }
 
-int ping_handler(xmpp_conn_t *const conn, void *const userdata) {
+static int ping_handler(xmpp_conn_t *const conn, void *const userdata) {
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 	xmpp_stanza_t *iq_ping;
@@ -1014,7 +1041,7 @@ int ping_handler(xmpp_conn_t *const conn, void *const userdata) {
 	return 0;
 }
 
-int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata) {
+static int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata) {
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 
@@ -1028,7 +1055,7 @@ int ping_timeout_handler(xmpp_conn_t *const conn, void *const userdata) {
 	return 0;
 }
 
-int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
+static int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, void * const userdata) {
 	struct agh_state *mstate = userdata;
 	struct xmpp_state *xstate = mstate->xstate;
 
@@ -1047,7 +1074,7 @@ int iq_result_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, vo
 	return 1;
 }
 
-void agh_xmpp_start_stressing(struct agh_state *mstate) {
+static void agh_xmpp_start_stressing(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
 	if (xstate->stress_source)
@@ -1062,7 +1089,7 @@ void agh_xmpp_start_stressing(struct agh_state *mstate) {
 	return;
 }
 
-gboolean agh_xmpp_stressing_callback(gpointer data) {
+static gboolean agh_xmpp_stressing_callback(gpointer data) {
 	struct agh_state *mstate = data;
 	struct xmpp_state *xstate = mstate->xstate;
 	struct command *event;
