@@ -3,6 +3,13 @@
 #include "agh_modem.h"
 #include "agh_modem_config.h"
 
+static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers);
+static gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers);
+static gint agh_modem_validate_config_bearer_section(struct uci_section *s);
+static gchar *agh_modem_validate_config_strerror(gint retval);
+static gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section);
+static struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void);
+
 #if 0
 gint main(void) {
 	struct agh_modem_config_validation_error *validation_error;
@@ -176,7 +183,7 @@ out_noctx:
 	return;
 }
 
-gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers) {
+static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers) {
 	gboolean equipment_id_found;
 	struct uci_element *e;
 	struct uci_option *opt;
@@ -268,7 +275,7 @@ out:
 	return retval;
 }
 
-gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers) {
+static gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers) {
 	gboolean sim_id_found;
 	GQueue *bearers_names;
 	struct uci_element *e;
@@ -346,7 +353,7 @@ out:
 	return retval;
 }
 
-gint agh_modem_validate_config_bearer_section(struct uci_section *s) {
+static gint agh_modem_validate_config_bearer_section(struct uci_section *s) {
 	gint retval;
 	struct uci_element *e;
 	gboolean auth_method_found;
@@ -376,7 +383,7 @@ gint agh_modem_validate_config_bearer_section(struct uci_section *s) {
 	return retval;
 }
 
-gchar *agh_modem_validate_config_strerror(gint retval) {
+static gchar *agh_modem_validate_config_strerror(gint retval) {
 	gchar *error_desc;
 
 	error_desc = NULL;
@@ -425,7 +432,7 @@ gchar *agh_modem_validate_config_strerror(gint retval) {
 	return error_desc;
 }
 
-struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void) {
+static struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void) {
 	struct agh_modem_config_validation_error *e;
 
 	e = NULL;
@@ -455,7 +462,7 @@ void agh_modem_config_validation_error_free(struct agh_modem_config_validation_e
 	g_free(e);
 }
 
-gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section) {
+static gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section) {
 	GQueue *visited_sections;
 	guint i;
 	guint num_names;

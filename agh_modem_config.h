@@ -89,13 +89,6 @@ struct agh_modem_config_validation_error {
 };
 
 void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, struct agh_modem_config_validation_error **validation_error);
-gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers);
-gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers);
-gint agh_modem_validate_config_bearer_section(struct uci_section *s);
-gchar *agh_modem_validate_config_strerror(gint retval);
-
-struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void);
 void agh_modem_config_validation_error_free(struct agh_modem_config_validation_error *e);
-gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section);
 
 #endif
