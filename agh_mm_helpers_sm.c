@@ -1,5 +1,31 @@
 #include "agh_mm_helpers_sm.h"
 
+/* Function prototypes. */
+static void agh_mm_sm_sim_unlock_sim_for_pin_send_ready(MMModem *modem, GAsyncResult *res, struct agh_state *mstate);
+static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message);
+static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *section);
+static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, struct agh_state *mstate);
+static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *eventname, gchar *mmarker, gchar *name, gchar *reason, gboolean is_data);
+static gint agh_mm_sm_build_bearer_set_iptype(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_apn(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_auth_method(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_user(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_pass(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_roaming_allowed(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_number(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static gint agh_mm_sm_build_bearer_set_rm_protocol(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props);
+static void agh_mm_sm_connect_bearer(MMModem *modem, GAsyncResult *res, gpointer user_data);
+static void agh_mm_sm_bearer_connected_changed(MMBearer *b, GParamSpec *pspec, gpointer user_data);
+static void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, gpointer user_data);
+static void agh_mm_sm_keep_trying_to_connect(MMBearer *b, GAsyncResult *res, gpointer user_data);
+static void agh_mm_sm_keep_trying_to_connect_from_signal(MMBearer *b, GAsyncResult *res, gpointer user_data);
+static void agh_mm_sm_apply_general_modem_defaults(struct agh_state *mstate, MMModem *modem);
+static void agh_mm_sm_general_init_propschanges(struct agh_state *mstate, struct uci_option *opt, MMModem *modem);
+static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv inv_props, gpointer user_data);
+static void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b);
+static gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *b);
+static gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const gchar *value, gboolean last);
+
 void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 	struct command *event;
 	gchar *modem_idx;
@@ -54,7 +80,7 @@ void agh_mm_sm_sim_unlock(struct agh_state *mstate, MMModem *modem, MMModemLock 
 	return;
 }
 
-void agh_mm_sm_sim_unlock_sim_for_pin_send_ready(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sm_sim_unlock_sim_for_pin_send_ready(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	MMSim *sim;
 	struct uci_section *section;
@@ -84,7 +110,7 @@ void agh_mm_sm_sim_unlock_sim_for_pin_send_ready(MMModem *modem, GAsyncResult *r
 	return;
 }
 
-void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
+static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
 	struct command *event;
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
@@ -198,7 +224,7 @@ struct uci_section *agh_mm_sm_get_modem_section(struct agh_state *mstate, MMMode
 	return NULL;
 }
 
-GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *section) {
+static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *section) {
 	GList *l;
 	struct uci_option *opt;
 	struct uci_element *e;
@@ -233,7 +259,7 @@ GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *sec
 	return l;
 }
 
-void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
 	gboolean sres;
 	struct command *event;
 
@@ -463,7 +489,7 @@ out:
 	return;
 }
 
-void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *eventname, gchar *mmarker, gchar *name, gchar *reason, gboolean is_data) {
+static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *eventname, gchar *mmarker, gchar *name, gchar *reason, gboolean is_data) {
 	struct command *event;
 
 	event = NULL;
@@ -488,7 +514,7 @@ void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *eventname, 
 	return;
 }
 
-gint agh_mm_sm_build_bearer_set_iptype(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_iptype(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	MMBearerIpFamily ipf;
 
 	if (!g_strcmp0(o->v.string, "IPV4"))
@@ -509,12 +535,12 @@ gint agh_mm_sm_build_bearer_set_iptype(struct agh_state *mstate, struct uci_opti
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_apn(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_apn(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	mm_bearer_properties_set_apn(props, o->v.string);
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_auth_method(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_auth_method(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	gint status;
 	MMBearerAllowedAuth ah;
 
@@ -538,17 +564,17 @@ gint agh_mm_sm_build_bearer_set_auth_method(struct agh_state *mstate, struct uci
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_user(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_user(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	mm_bearer_properties_set_user(props, o->v.string);
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_pass(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_pass(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	mm_bearer_properties_set_password(props, o->v.string);
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_roaming_allowed(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_roaming_allowed(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 
 	if (!g_strcmp0(o->v.string, "1"))
 		mm_bearer_properties_set_allow_roaming(props, TRUE);
@@ -560,12 +586,12 @@ gint agh_mm_sm_build_bearer_set_roaming_allowed(struct agh_state *mstate, struct
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_number(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_number(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	mm_bearer_properties_set_password(props, o->v.string);
 	return 0;
 }
 
-gint agh_mm_sm_build_bearer_set_rm_protocol(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+static gint agh_mm_sm_build_bearer_set_rm_protocol(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
 	MMModemCdmaRmProtocol rm_protocol;
 
 	if (!g_strcmp0(o->v.string, "rm_protocol_async"))
@@ -586,7 +612,7 @@ gint agh_mm_sm_build_bearer_set_rm_protocol(struct agh_state *mstate, struct uci
 	return 0;
 }
 
-void agh_mm_sm_connect_bearer(MMModem *modem, GAsyncResult *res, gpointer user_data) {
+static void agh_mm_sm_connect_bearer(MMModem *modem, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	MMBearer *b;
 	struct agh_mm_asyncstate *a;
@@ -611,7 +637,7 @@ void agh_mm_sm_connect_bearer(MMModem *modem, GAsyncResult *res, gpointer user_d
 	return;
 }
 
-void agh_mm_sm_bearer_connected_changed(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
+static void agh_mm_sm_bearer_connected_changed(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
 	gboolean f;
 	MMModem *modem = user_data;
 	MMModemState modem_state;
@@ -638,7 +664,7 @@ void agh_mm_sm_bearer_connected_changed(MMBearer *b, GParamSpec *pspec, gpointer
 	return;
 }
 
-void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
+static void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	gboolean f;
 
@@ -647,7 +673,7 @@ void agh_mm_sm_bearer_connected_notify_outside(MMBearer *b, GParamSpec *pspec, g
 	return;
 }
 
-void agh_mm_sm_keep_trying_to_connect(MMBearer *b, GAsyncResult *res, gpointer user_data) {
+static void agh_mm_sm_keep_trying_to_connect(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	struct agh_mm_asyncstate *a = user_data;
 	gboolean success;
 	gboolean stop_retrying;
@@ -670,7 +696,7 @@ void agh_mm_sm_keep_trying_to_connect(MMBearer *b, GAsyncResult *res, gpointer u
 	return;
 }
 
-void agh_mm_sm_keep_trying_to_connect_from_signal(MMBearer *b, GAsyncResult *res, gpointer user_data) {
+static void agh_mm_sm_keep_trying_to_connect_from_signal(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	MMModem *modem = user_data;
 	gboolean success;
 	GError *gerror;
@@ -721,11 +747,11 @@ void agh_mm_sm_general_init(struct agh_state *mstate, MMModem *modem) {
 	return;
 }
 
-void agh_mm_sm_apply_general_modem_defaults(struct agh_state *mstate, MMModem *modem) {
+static void agh_mm_sm_apply_general_modem_defaults(struct agh_state *mstate, MMModem *modem) {
 	return;
 }
 
-void agh_mm_sm_general_init_propschanges(struct agh_state *mstate, struct uci_option *opt, MMModem *modem) {
+static void agh_mm_sm_general_init_propschanges(struct agh_state *mstate, struct uci_option *opt, MMModem *modem) {
 	if (opt->type != UCI_TYPE_STRING)
 		return;
 
@@ -738,7 +764,7 @@ void agh_mm_sm_general_init_propschanges(struct agh_state *mstate, struct uci_op
 	return;
 }
 
-void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv inv_props, gpointer user_data) {
+static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv inv_props, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	GString *content;
 	struct command *event;
@@ -762,7 +788,7 @@ void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv
 	return;
 }
 
-void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
+static void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 	gchar *ubus_call_bearers_info_message;
 	gchar *ubus_message;
 	gint status;
@@ -820,7 +846,7 @@ static struct agh_family_table {
 	{NULL,}
 };
 
-gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *b) {
+static gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *b) {
 	GString *s;
 	gchar *numeric_quantity_string_tmp;
 	MMBearerIpConfig *ipv4_config;
@@ -1019,7 +1045,7 @@ gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMBearer *
 	return g_string_free(s, FALSE);
 }
 
-gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const gchar *value, gboolean last) {
+static gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const gchar *value, gboolean last) {
 	gchar *res;
 
 	res = NULL;
