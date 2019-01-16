@@ -69,11 +69,17 @@ void agh_xmpp_deinit(gpointer data) {
 
 	xstate->xmpp_evs_tag = 0;
 
-	g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
-	g_queue_free(xstate->outxmpp_messages);
-	xstate->outxmpp_messages = NULL;
-	g_queue_free(xstate->controllers);
-	xstate->controllers = NULL;
+	if (xstate->outxmpp_messages) {
+		g_queue_foreach(xstate->outxmpp_messages, discard_xmpp_messages, xstate);
+		g_queue_free(xstate->outxmpp_messages);
+		xstate->outxmpp_messages = NULL;
+	}
+
+	if (xstate->controllers) {
+		g_queue_free(xstate->controllers);
+		xstate->controllers = NULL;
+	}
+
 	xstate->ping_timeout = 0;
 	xstate->ping_interval = 0;
 
