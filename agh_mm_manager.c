@@ -1,6 +1,13 @@
 #include "agh_mm_manager.h"
 #include "agh_mm_sm.h"
 
+/* Function prototypes. */
+static void agh_mm_manager_init_finish(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate);
+
+/* Some manager signals. */
+static void agh_mm_manager_signals_init(struct agh_state *mstate);
+static void agh_mm_manager_signals_deinit(struct agh_state *mstate);
+
 void agh_mm_manager_init(GDBusConnection *connection, const gchar *name, const gchar *name_owner, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
@@ -12,7 +19,7 @@ void agh_mm_manager_init(GDBusConnection *connection, const gchar *name, const g
 	return;
 }
 
-void agh_mm_manager_init_finish(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_manager_init_finish(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	GList *modems;
 	GList *l;
@@ -62,7 +69,7 @@ void agh_mm_manager_deinit(GDBusConnection *connection, const gchar *name, gpoin
 	return;
 }
 
-void agh_mm_manager_signals_init(struct agh_state *mstate) {
+static void agh_mm_manager_signals_init(struct agh_state *mstate) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
 	mmstate->manager_signal_modem_added_id = g_signal_connect(mmstate->manager, "object-added", G_CALLBACK(agh_mm_sm_device_added), mstate);
@@ -76,7 +83,7 @@ void agh_mm_manager_signals_init(struct agh_state *mstate) {
 	return;
 }
 
-void agh_mm_manager_signals_deinit(struct agh_state *mstate) {
+static void agh_mm_manager_signals_deinit(struct agh_state *mstate) {
 	struct agh_mm_state *mmstate;
 
 	mmstate = NULL;
