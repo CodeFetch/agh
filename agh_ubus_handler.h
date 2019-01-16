@@ -52,10 +52,4 @@
 
 gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage);
 
-void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct command *cmd);
-void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct command *cmd);
-void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct command *cmd);
-void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg);
-void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct command *cmd);
-
 #endif

@@ -8,6 +8,11 @@ gchar *agh_ubus_call_data_str;
 gint agh_ubus_connection_state;
 struct agh_comm *agh_ubus_aghcomm;
 
+/* Function prototypes. */
+static gboolean agh_ubus_handle_events(gpointer data);
+static void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg);
+static void agh_ubus_disconnect_cb(struct ubus_context *ctx);
+
 struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
 	struct agh_ubus_ctx *uctx;
 
@@ -84,7 +89,7 @@ void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
 	return;
 }
 
-gboolean agh_ubus_handle_events(gpointer data) {
+static gboolean agh_ubus_handle_events(gpointer data) {
 	struct agh_ubus_ctx *uctx = data;
 
 	switch(agh_ubus_connection_state) {
@@ -127,7 +132,7 @@ gboolean agh_ubus_handle_events(gpointer data) {
 	return TRUE;
 }
 
-void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg) {
+static void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg) {
 
 	if (agh_ubus_call_data_str) {
 		g_free(agh_ubus_call_data_str);
@@ -141,7 +146,7 @@ void agh_receive_call_result_data(struct ubus_request *req, int type, struct blo
 	return;
 }
 
-void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
+static void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
 	agh_ubus_connection_state++;
 	return;
 }

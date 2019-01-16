@@ -38,9 +38,6 @@ extern struct agh_comm *agh_ubus_aghcomm;
 
 struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm);
 void agh_ubus_teardown(struct agh_ubus_ctx *uctx);
-gboolean agh_ubus_handle_events(gpointer data);
-void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg);
-void agh_ubus_disconnect_cb(struct ubus_context *ctx);
 gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message);
 gchar *agh_ubus_get_call_result(void);
 
