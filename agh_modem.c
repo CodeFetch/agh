@@ -1,8 +1,5 @@
 /*
  * So here we are, for the second time: after the HDD breakage.
- *
- * Most of the initialization tasks are going to be performed in the thread startup function, not the init one. this is because
- * it seems better to build as much objects as possible in the thread that will end up using them.
 */
 
 #include <glib.h>
@@ -14,6 +11,12 @@
 #include "agh_mm_manager.h"
 #include "agh_modem_config.h"
 #include "agh_mm_helpers_sm.h"
+
+/* Function prototypes. */
+static void agh_mm_handlers_setup_ext(struct agh_state *mstate);
+void agh_mm_start_deinit(struct agh_state *mstate);
+static void agh_mm_select_modems(gpointer data, gpointer user_data);
+static void agh_mm_disable_all_modems(MMModem *modem, GAsyncResult *res, gpointer user_data);
 
 void agh_mm_freemem(struct agh_mm_state *mmstate, gint error) {
 	switch(error) {
@@ -50,7 +53,7 @@ void agh_mm_freemem(struct agh_mm_state *mmstate, gint error) {
 	return;
 }
 
-void agh_mm_handlers_setup_ext(struct agh_state *mstate) {
+static void agh_mm_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *agh_mm_cmd_handler;
 
 	agh_mm_cmd_handler = handler_new("agh_mm_cmd_handler");
@@ -198,7 +201,7 @@ void agh_mm_start_deinit(struct agh_state *mstate) {
 	return;
 }
 
-void agh_mm_select_modems(gpointer data, gpointer user_data) {
+static void agh_mm_select_modems(gpointer data, gpointer user_data) {
 	MMModemState modem_state;
 	MMObject *mm_object = MM_OBJECT(data);
 	GList **modems = user_data;
@@ -234,7 +237,7 @@ void agh_mm_select_modems(gpointer data, gpointer user_data) {
 	return;
 }
 
-void agh_mm_disable_all_modems(MMModem *modem, GAsyncResult *res, gpointer user_data) {
+static void agh_mm_disable_all_modems(MMModem *modem, GAsyncResult *res, gpointer user_data) {
 	gboolean op_res;
 	struct agh_mm_asyncstate *a = user_data;
 	MMObject *mm_object;

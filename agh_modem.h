@@ -41,14 +41,8 @@ struct agh_mm_asyncstate {
 	MMModem *modem;
 };
 
-void agh_mm_freemem(struct agh_mm_state *mmstate, gint error);
-
-void agh_mm_handlers_setup_ext(struct agh_state *mstate);
-
 void agh_mm_init(struct agh_state *mstate);
 void agh_mm_deinit(struct agh_state *mstate);
 void agh_mm_start_deinit(struct agh_state *mstate);
-void agh_mm_select_modems(gpointer data, gpointer user_data);
-void agh_mm_disable_all_modems(MMModem *modem, GAsyncResult *res, gpointer user_data);
 
 #endif
