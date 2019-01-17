@@ -1,7 +1,7 @@
 Welcome!
 ===============================================================================
 
-Welcome to the documentation for AGH, the cloud management agent for OpenWrt systems.
+Welcome AGH, your management agent for OpenWrt systems, with support for cellular modems via ModemManager.
 Copyright (C) 2018-2019 Meizo Networks.
 This software is distributed under the GPL license, version 2 or later, as published by the Free Software Foundation.
 
