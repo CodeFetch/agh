@@ -588,8 +588,8 @@ If all of the above steps fail, no bearer is created, and no connection happens.
 ===============================================================================
 
 Once a connection has been established (e.g.: the data bearer has been created and connected), AGH will invoke an external helper program that should inform the Linux Operating System
-on which it is running, about the new connection. This happens even when a data bearer gets disconnected. The bearer setup helper script is invoked via uBus, and uses the "exec" method exposed by the rpcd daemon
-via it's "file" object. If an uBus connection is not present or the rpcd daemon is not running, this helper script won't be invoked.
+on which it is running, about the new connection. This happens even when a data bearer gets disconnected, so the helper program has a chance to clean up the connection. Invocations are performed via uBus, calling the "exec" method exposed
+by the rpcd daemon via it's "file" object. If an uBus connection is not present or the rpcd daemon is not running, the helper script won't be invoked.
 The helper program receives all of the needed informations to set up a connection via its environment. Some exposed properties are not strictly necessary in
 general, still they are provided. Refer to the ModemManager documentation for more details on bearer properties.
 
@@ -627,7 +627,7 @@ BEARER_IP_DNS_2
 	IP addresses of the primary and secondary DNS servers.
 
 BEARER_IP_GATEWAY
-	The host is expected to use this gateway IP address to access the network via this bearer.
+	The host is expected to use this gateway IP address.
 
 BEARER_IP_MTU
 	Maximum Transmit Unit value the host is expected to use when sending data via this bearer.
@@ -657,13 +657,13 @@ BEARER_IPV6_MTU
 
 6.3.3.2. A sample bearer setup helper implementation
 ===============================================================================
-AGH ships with a bearer setup helper script, namely bearer_setup_helper.sh. This script is expected to be located in the /opt
+AGH ships with a bearer setup helper script, namely "bearer_setup_helper.sh". This script is expected to be located in the /opt
 folder of the filesystem. Upon startup, it inspects the environment for the required variables, adding and removing entries
-from the OpenWrt Networking subsystem.
+from the OpenWrt Networking subsystem via UCI calls.
 Due to the approach used, this script may leave stale interfaces present on the system. To this end, it tries to clean up stale
 interface definitions every time it is invoked.
 Note: in the script we use PIDs (process IDs) to name interfaces. This choice came from the need of keeping logical interface
-names shorter than 9 characters, to be sure they may be used in a wider range of OpenWrt setups.
+names shorter than 9 characters, to be sure they may be usable in a wider range of OpenWrt setups.
 See https://wiki.openwrt.org/doc/uci/network for more details; we quote here the relevant part:
 ":!: The system limits the physical interface name length to 15 characters including the automatically added prefix that is
 added for some protocols (e.g. "6in4-", "pppoa-", "pppoe-") or due to bridge status ("br-"). Depending on the protocol type,
@@ -689,8 +689,7 @@ AGH partially implements some XEPs (XMPP Extension Protocols), and in particular
 
 Due to an incomplete impelemntation of XEP-0115 (entity capabilities), AGH won't act properly in some circumstances. For
 instance, it will try to send XMPP Ping messages even when the server did not advertise that capability.
-Furthermore, disconnections from an XMPP server, may cause AGH messages to be lost. Infact, also due to
-libstrophe not exposing an interface to do so, we are not able to determine wheter a message has been received by the server.
+Furthermore, disconnections from an XMPP server, may cause AGH messages to be lost. Infact, also due to libstrophe not exposing an interface to do so, we are not able to determine wheter a message has been received by the server.
 When the software determines we are no longer connected, it starts queuing messages internally up to some numerical limit, but other
 messages may have already been lost. When the internal queue gets full, all of the queued messages are discarded.
 **: [1]
@@ -709,7 +708,7 @@ of libconfig.
 Furthermore, those commands have been tought to be used by an automated system, which may want to send a bunch of them in a
 short time period.
 To this end, each command will have an operation ID that the sender can choose, to some extent.
-If an AGH message is consequential to a sent command, the automated system can use that ID to correlate it to the sent command.
+If an AGH message is consequential to a sent command, the automated system can use that ID to correlate the two.
 
 7.1. Command structure
 ===============================================================================
@@ -733,7 +732,7 @@ c - Configuration command structure:
 	** [5]
 	The "attention keyword" setting, should be a data structure, namely a list, which should be composed of at least two members:
 	an integer value (command ID), and a text string (the requested operation). Any element following these two, is considered an
-	argument, regardless of its data type.
+	argument to the requested operation. Different operations may expect arguments of different data types.
 	In particular:
 	- command ID: used to track commands and the messages they may originate from
 	**: [3]
@@ -751,15 +750,15 @@ Where:
 **: [5]
 - for a more in-depth explanation about the equal signs and the parentheses you see here, we refer you once again to the
 libconfig's Configuration Grammar.
-- "21" is an arbitrarily choosen integer value, a command ID
-- "modem": operation name; this is a modem-related command
+- 21 is an arbitrarily choosen integer value, a command ID
+- "modem": the operation name; this is a modem-related command
 
 Then we have some arguments:
-- the first one is an integer value, "0": in this case it refers to the modem we want to operate on
+- the first one is an integer value, 0: in this case it refers to the modem we want to operate on
 - "get_ModemManager_plugin" is a text string
 
-We are asking AGH to report us the ModemManager plugin being used to handle modem 0 on the current system.
-Different operations may have compeltely different semantics, still the command structure should be kept the same.
+We are asking AGH to report us the ModemManager plugin being used to handle modem 0 on the system.
+Different operations may have compeltely different semantics, still the command structure should be the same.
 
 [1]: file: agh_commands.h
 #define CMD_MAX_TEXT_LEN 400
@@ -789,8 +788,7 @@ If the output is unsolicited (e.g.: was not generated as a consequence of a comm
 followed by an exclamation mark ("!").
 **: [2]
 2 - An equal sign, and parentheses, to mimic the structure of a command.
-3 - A response ID: an integer value which should allow the other party to correlate messages to commands, and establish the
-ordering of events.
+3 - A response ID: an integer value which should allow the other party to correlate messages to commands.
 Infact, all of the messages generated by a command, will have a response ID matching the command ID of the command.
 Incremental IDs will be used for unsolicited messages.
 **: [3]
@@ -806,8 +804,8 @@ and other adverse events. Still, AGH will report them with a 200 status code.
 the structure of the message (e.g.: how many extra information fields to expect).
 In the case of an unsolicited message, this field acts as an "event marker", denoting the kind of event happened.
 6 - Extra information fields: a sequence of elements of possibly different types.
-The number and type of those elements depends on the operation or event that caused this message to be emitted. Based on the
-Answer body of the message, it should be possible to know in advance what should be expected in this part of the message.
+The number and type of those elements depends on the operation or event that caused this message to be emitted. Based on the Answer body of the message, it should be possible to know in advance what should be expected in this part of the
+message.
 
 As an example, a client may send to AGH the following command, to determine what ModemManager plugin is being used to handle a
 specific modem:
@@ -833,9 +831,9 @@ file: agh_commands.h
 #define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
 file: agh_commands.h
 #define CMD_ANSWER_STATUS_UNKNOWN 380
-(Note: 380 are the first three digits of my phone number.)
-[5]: Why not use integer values for e.g.: modem indexes? Because at the moment there isn't a sound way to do so from within
-AGH, when building output messages.
+(Note: 380 are the first three digits of my phone number, excluding the international calling prefix.)
+[5]: Why not use integer values for e.g.: modem indexes, in output messages? Because at the moment there isn't a sound way to do so from within
+AGH.
 [6]: file: agh_commands.h
 #define CMD_ANSWER_STATUS_OK 200
 #define CMD_ANSWER_STATUS_FAIL 400
@@ -863,17 +861,17 @@ Thu Oct 25 20:37:39 2018 [1540471059.107] user.notice mrkiko: Hello to everyone 
 Here we will describe the list of command operations currently supported by AGH.
 This section of the document, is especially subject to changes as a consequence of AGH development.
 
-At the moment, we can categorise all of them in three main types:
+At the moment, we can categorise all of the supported operations in three main types:
 1. Those interacting with modems (and in future maybe with ModemManager itself)
 2. Those interacting with uBus (and from there, with different parts of the system)
-3. AGH management operations: at the moment, the only supported command in this category is "quit".
+3. AGH management operations: at the moment, the only supported command in this category is "quit", useful during development / testing.
 
 8.1. Modem related operations
 ===============================================================================
 
 AGH supports some modem related operations. Many more should be added in the future.
 You can have a pretty good idea of what they do by looking at the ModemManager API documentation, as distributed with the
-Modemmanager source code, since most of those operations are centered around ModemManager API calls.
+ModemManager source code, since most of those operations are centered around ModemManager API calls.
 
 Operation name: modem
 Operation arguments: <none>
@@ -891,7 +889,7 @@ Operation arguments:
 	arg1: modem index
 	arg2: subcommand
 Description:
-	Performs specified subcommand.
+	Performs an action as specified by "subcommand" on a modem specified by its index.
 Answer expected: yes
 Error status codes: subcommand dependent
 Answer body: subcommand dependent
@@ -937,7 +935,7 @@ Subcommand name: get_hwrev
 Description: returns modem hardware revision
 
 Subcommand name: drivers
-Description: returns the names of the drivers currently handling the modem
+Description: returns the names of the drivers currently handling communications with this modem
 
 Subcommand name: get_ModemManager_plugin
 Description: returns the name of the ModemManager plugin used to handle this modem.
@@ -950,7 +948,7 @@ Subcommand name: get_primary_port
 Description: returns the name of the modem primary port; may be a cdc-wdm device in case of QMI, MBIM or NCM modems.
 
 Subcommand name: get_device
-Description: returns the sysfspath of the USB device corresponding to this modem.
+Description: returns the sysfs path of the USB device corresponding to this modem.
 	An example looks like:
 	AT = (21, "modem", 1, "get_device")
 	Answer:
@@ -960,8 +958,7 @@ Subcommand name: get_equipment_identifier
 Description: Returns the equipment identifier, in the case of 3GPP-based modems this is the iMEI number.
 
 Subcommand name: get_deviceid
-Description: gets a best-effort modem device identifier based on various device information like model name, firmware revision, USB/PCI/PCMCIA IDs, and other properties.
-	Note: this is not guaranteed to be unique.
+Description: gets a best-effort modem device identifier based on various device informations, like model name, firmware revision, USB/PCI/PCMCIA IDs, and other properties.
 
 Subcommand name: get_lockstatus
 Description: gets current lock state of the modem (e.g.: why is this modem locked? What locks are in effect?).
@@ -979,7 +976,7 @@ Subcommand name: get_own_numbers
 Description: gets the list of numbers (e.g. MSISDN in 3GPP) being currently handled by this SIM / modem.
 
 Subcommand name: supported_modes
-Description: gets the list of supported mode combinations. to switch to one of these modes, the modem firmware may need to be reinitialized.
+Description: gets the list of supported mode combinations. To switch to one of these modes, the modem firmware may need to be reinitialized.
 
 Subcommand name: current_modes
 Description: gets the list of modes specifying the access technologies (eg 2G/3G/4G) the modem is currently allowed to use when connecting to a network, as well as the preferred one, if any.
@@ -1026,7 +1023,8 @@ Answer body: subcommand dependent
 Extra fields: subcommand dependent
 
 Subcommand name: list
-Description: lists available uBus objects and their properties, such as methods available.
+Description: lists available uBus objects and their properties, such as their methods.
+
 	Example:
 	AT = (21, "ubus", "list", "uci")
 	Answer:
@@ -1035,6 +1033,7 @@ Description: lists available uBus objects and their properties, such as methods 
 	"configs":{}
 	"get":{"config":"String","section":"String","option":"String","type":"String","match":"Table","ubus_rpc_session":"String"}
 	...
+
 Arguments:
 	arg1: an ubus object name to restrict returned informations to those pertaining that object;
 
@@ -1050,10 +1049,11 @@ Description: invoke an uBus method.
 		fe80::e178:7f04:a58c:bbca\/64 Scope:Link\n          UP POINTOPOINT RUNNING NOARP MULTICAST  MTU:1500  Metric:1\n          RX packets:41019 errors:0 dropped:0 overruns:0 frame:0\n          TX packets:62809 errors:0 dropped:0
 		overruns:0 carrier:0\n          collisions:0 txqueuelen:1000 \n          RX bytes:12131746 (11.5 MiB)  TX bytes:7677400 (7.3 MiB)\n\n"
 	}
+
 Arguments:
 	arg1: the object on which the method should be invoked;
 	arg2: the name of the method to invoke;
-	arg3: JSON payload with escaping
+	arg3: JSON payload with escaping.
 
 Subcommand name: events
 Description: this command can be used to manage uBus events notifications reporting.
@@ -1088,10 +1088,9 @@ At the moment, the only AGH related operation is named "quit".
 Operation name: quit
 Operation arguments: <none>
 Description:
-	Instructs AGH to quit, exiting. When possible, all modems should be disabled upon a normal exit.
-	Errors occurring when disabling modems are not handled, and modems will be left in a potentially unknown state.
+	Instructs AGH to quit, exiting. When possible, all modems are disabled upon a normal exit.
+	Errors occurring when disabling modems are not handled, potentially leaving them in an unknown state.
 Answer expected: no
 Error status codes: none expected
 Answer body:
 	<none>
-
