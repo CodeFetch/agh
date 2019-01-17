@@ -3,7 +3,7 @@ Welcome!
 
 Welcome AGH, your management agent for OpenWrt systems, with support for cellular modems via ModemManager.
 Copyright (C) 2018-2019 Meizo Networks.
-This software is distributed under the GPL license, version 2 or later, as published by the Free Software Foundation.
+This software is distributed under the terms of the GPL license, version 2 or later, as published by the Free Software Foundation.
 
 This document aims to be an easy to read starting point, describing AGH.
 The first part of the document covers the background context: where AGH is supposed to run, and what is needed to build it.
