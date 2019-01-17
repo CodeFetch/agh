@@ -57,7 +57,6 @@ static void agh_threads_start_single(gpointer data, gpointer user_data);
 static void agh_threads_stop_single(gpointer data, gpointer user_data);
 static void agh_threads_deinit_single(gpointer data, gpointer user_data);
 
-//#if 0
 gint main(void) {
 
 	struct agh_state *mstate;
@@ -105,8 +104,6 @@ gint main(void) {
 
 	agh_threads_start(mstate);
 
-	//g_usleep(40*G_USEC_PER_SEC);
-
 	g_print("%s: entering main loop\n",__FUNCTION__);
 
 	g_main_loop_run(mstate->agh_mainloop);
@@ -135,7 +132,6 @@ gint main(void) {
 	agh_state_teardown(mstate);
 	return 0;
 }
-//#endif
 
 static struct agh_state * agh_state_setup(void) {
 	struct agh_state *mstate;
