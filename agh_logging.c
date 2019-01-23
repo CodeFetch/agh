@@ -479,3 +479,7 @@ handled:
   return G_LOG_WRITER_HANDLED;
 }
 
+void agh_logging_init(void) {
+	g_log_set_writer_func(g_agh_log_writer, NULL, NULL);
+	return;
+}
