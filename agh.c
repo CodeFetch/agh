@@ -7,6 +7,10 @@
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
+/* Log messages from core domain. */
+#define agh_log_core_dbg(message, ...) agh_log_dbg("CORE", message, ##__VA_ARGS__)
+#define agh_log_core_info(message, ...) agh_log_info("CORE", message, ##__VA_ARGS__)
+
 /* Function prototypes. */
 
 /* State handling */
@@ -59,6 +63,8 @@ static void agh_start_exit(struct agh_state *mstate);
 gint main(void) {
 
 	struct agh_state *mstate;
+
+	agh_logging_init();
 
 	mstate = agh_state_setup();
 	if (!mstate) {
