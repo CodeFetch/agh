@@ -1,12 +1,13 @@
 #include <glib.h>
 #include <glib-unix.h>
 #include "agh_commands.h"
+#include "agh_logging.h"
 #include "agh_xmpp.h"
 #include "agh_modem.h"
 #include "agh_ubus.h"
 #include "agh_ubus_handler.h"
 
-/* Function prototypes */
+/* Function prototypes. */
 
 /* State handling */
 static struct agh_state * agh_state_setup(void);
@@ -15,9 +16,11 @@ static void agh_state_teardown(struct agh_state *mstate);
 /* GLib event Sources */
 static void agh_sources_setup(struct agh_state *mstate);
 static void agh_sources_teardown(struct agh_state *mstate);
+static gboolean exitsrc_idle_cb(gpointer data);
 
-/* Signals */
+/* UNIX signals */
 static void process_signals(struct agh_state *mstate);
+static gboolean agh_unix_signals_cb(gpointer data);
 
 /* Threads */
 static void agh_threads_setup(struct agh_state *mstate);
@@ -27,6 +30,13 @@ static void agh_threads_start(struct agh_state *mstate);
 static void agh_threads_stop(struct agh_state *mstate);
 static void agh_threads_deinit(struct agh_state *mstate);
 static void agh_threads_teardown(struct agh_state *mstate);
+static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) __attribute__((unused));
+static void agh_thread_eventloop_teardown(struct agh_thread *ct) __attribute__((unused));
+static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) __attribute__((unused));
+static void agh_threads_prepare_single(gpointer data, gpointer user_data);
+static void agh_threads_start_single(gpointer data, gpointer user_data);
+static void agh_threads_stop_single(gpointer data, gpointer user_data);
+static void agh_threads_deinit_single(gpointer data, gpointer user_data);
 
 /* threads structures helpers */
 static struct agh_thread *agh_thread_new(gchar *name) __attribute__((unused));
@@ -34,28 +44,17 @@ static void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb
 static void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) __attribute__((unused));
 static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) __attribute__((unused));
 
-static gboolean agh_unix_signals_cb(gpointer data);
-static gboolean exitsrc_idle_cb(gpointer data);
-
-/* Core command handler */
+/* AGH core handlers */
 static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
 static gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 static gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
-
 static void agh_core_handlers_setup_ext(struct agh_state *mstate);
-static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) __attribute__((unused));
-static void agh_thread_eventloop_teardown(struct agh_thread *ct) __attribute__((unused));
-static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) __attribute__((unused));
+
+/* exit strategy */
 static void agh_broadcast_exit(struct agh_state *mstate);
 static void agh_exit(struct agh_state *mstate);
 static void agh_start_exit(struct agh_state *mstate);
-
-/* Internal helpers */
-static void agh_threads_prepare_single(gpointer data, gpointer user_data);
-static void agh_threads_start_single(gpointer data, gpointer user_data);
-static void agh_threads_stop_single(gpointer data, gpointer user_data);
-static void agh_threads_deinit_single(gpointer data, gpointer user_data);
 
 gint main(void) {
 

@@ -22,7 +22,7 @@ INCLUDE_DIRECTORIES(${ubox_include_dir})
 
 SET(SOURCES
 	# AGH core: infrastructure (e.g.: commands, handlers, messages...)
-	agh.c agh_commands.c agh_handlers.c agh_messages.c
+	agh.c agh_commands.c agh_handlers.c agh_messages.c agh_logging.c
 
 	# Modem: connecting to ModemManager via D-Bus (e.g.: contains agh_mm_init)
 	agh_modem.c agh_mm_manager.c
