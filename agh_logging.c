@@ -305,7 +305,7 @@ escape_string (GString *string)
 }
 
 static gchar *
-g_agh_log_writer_format_fields (GLogLevelFlags   log_level,
+agh_g_log_writer_format_fields (GLogLevelFlags   log_level,
                             const GLogField *fields,
                             gsize            n_fields,
                             gboolean         use_color)
@@ -410,7 +410,7 @@ g_agh_log_writer_format_fields (GLogLevelFlags   log_level,
 }
 
 static GLogWriterOutput
-g_agh_log_writer_standard_streams (GLogLevelFlags   log_level,
+agh_g_log_writer_standard_streams (GLogLevelFlags   log_level,
                                const GLogField *fields,
                                gsize            n_fields,
                                gpointer         user_data __attribute__((unused)) )
@@ -425,7 +425,7 @@ g_agh_log_writer_standard_streams (GLogLevelFlags   log_level,
   if (!stream || fileno (stream) < 0)
     return G_LOG_WRITER_UNHANDLED;
 
-  out = g_agh_log_writer_format_fields (log_level, fields, n_fields,
+  out = agh_g_log_writer_format_fields (log_level, fields, n_fields,
                                     g_log_writer_supports_color (fileno (stream)));
   fprintf (stream, "%s\n", out);
   fflush (stream);
@@ -435,7 +435,7 @@ g_agh_log_writer_standard_streams (GLogLevelFlags   log_level,
 }
 
 GLogWriterOutput
-g_agh_log_writer (GLogLevelFlags   log_level,
+agh_g_log_writer (GLogLevelFlags   log_level,
                       const GLogField *fields,
                       gsize            n_fields,
                       gpointer         user_data)
@@ -469,7 +469,7 @@ g_agh_log_writer (GLogLevelFlags   log_level,
         return G_LOG_WRITER_HANDLED;
     }
 
-  if (g_agh_log_writer_standard_streams (log_level, fields, n_fields, user_data) ==
+  if (agh_g_log_writer_standard_streams (log_level, fields, n_fields, user_data) ==
       G_LOG_WRITER_HANDLED)
     goto handled;
 
@@ -480,6 +480,6 @@ handled:
 }
 
 void agh_logging_init(void) {
-	g_log_set_writer_func(g_agh_log_writer, NULL, NULL);
+	g_log_set_writer_func(agh_g_log_writer, NULL, NULL);
 	return;
 }
