@@ -7,12 +7,12 @@
 static gchar *cmd_answer_to_text(struct command *cmd);
 static config_t *cmd_copy_cfg(config_t *src);
 static config_setting_t *cmd_get_in_keyword_setting(struct command *cmd);
-static gint cmd_get_id(struct command *cmd);
-static void print_config_type(gint type);
+static gint cmd_get_id(struct command *cmd) __attribute__((unused));
+static void print_config_type(gint type) __attribute__((unused));
 
 /* And some useful functions to access events */
-static const gchar *event_name(struct command *cmd);
-static const gchar *event_arg(struct command *cmd, guint arg_index);
+static const gchar *event_name(struct command *cmd) __attribute__((unused));
+static const gchar *event_arg(struct command *cmd, guint arg_index) __attribute__((unused));
 
 struct command *text_to_cmd(gchar *from, gchar *content) {
 	struct command *ocmd;
