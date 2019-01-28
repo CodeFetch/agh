@@ -1107,22 +1107,18 @@ static gboolean agh_xmpp_stressing_callback(gpointer data) {
 	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(event, "STRESS");
 	cmd_emit_event(mstate->comm, event);
-/*
-	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(event, "STRESS");
-	cmd_emit_event(mstate->comm, event);
-
-	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(event, "STRESS");
-	cmd_emit_event(mstate->comm, event);
-
-	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(event, "STRESS");
-	cmd_emit_event(mstate->comm, event);
-*/
 
 	return TRUE;
+}
+
+void agh_xmpp_free_csp(struct xmpp_csp *c) {
+	if (c) {
+		g_free(c->from);
+		g_free(c->to);
+		g_free(c->text);
+		g_free(c->id);
+		g_free(c);
+	}
+
+	return;
 }

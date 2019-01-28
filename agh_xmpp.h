@@ -92,4 +92,6 @@ void agh_xmpp_deinit(gpointer data);
 
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 
+void agh_xmpp_free_csp(struct xmpp_csp *c);
+
 #endif
