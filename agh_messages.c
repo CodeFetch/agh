@@ -4,6 +4,12 @@
 #include "agh.h"
 #include "agh_commands.h"
 #include "agh_xmpp.h"
+#include "agh_logging.h"
+
+/* Log messages from comm domain. */
+#define AGH_LOG_DOMAIN_COMM	"COMM"
+#define agh_log_comm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_COMM, message, ##__VA_ARGS__)
+#define agh_log_comm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMM, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
 static gboolean agh_handle_message_inside_dest_thread(gpointer data);
@@ -156,18 +162,18 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 	comm = NULL;
 
 	if (!name) {
-		g_print("%s: NULL COMM name\n",__FUNCTION__);
+		agh_log_comm_crit("NULL COMM name specified");
 		return comm;
 	}
 
 	if (!ctx) {
-		g_print("%s: NULL GMainContext\n",__FUNCTION__);
+		agh_log_comm_crit("NULL GMainContext");
 		return comm;
 	}
 
-	comm = g_try_malloc0(sizeof(struct agh_comm));
+	comm = g_try_malloc0(sizeof(*comm));
 	if (!comm) {
-		g_print("%s: allocation failed\n",__FUNCTION__);
+		agh_log_comm_crit("out of memory while allocating COMM");
 		return comm;
 	}
 
