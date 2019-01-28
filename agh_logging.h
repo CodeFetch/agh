@@ -6,6 +6,7 @@
 
 #define agh_log_dbg(log_domain, message, ...) agh_log(log_domain, G_LOG_LEVEL_DEBUG, message, ##__VA_ARGS__)
 #define agh_log_info(log_domain, message, ...) agh_log(log_domain, G_LOG_LEVEL_INFO, message, ##__VA_ARGS__)
+#define agh_log_crit(log_domain, message, ...) agh_log(log_domain, G_LOG_LEVEL_CRITICAL, message, ##__VA_ARGS__)
 
 GLogWriterOutput
 agh_g_log_writer (GLogLevelFlags   log_level,
