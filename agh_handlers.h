@@ -23,10 +23,10 @@ GQueue *agh_handlers_setup(void);
 void handler_register(GQueue *handlers, struct handler *h);
 void handlers_init(GQueue *handlers, gpointer data);
 void handlers_finalize(GQueue *handlers);
-void handlers_teardown(GQueue *handlers);
+void agh_handlers_teardown(GQueue *handlers);
 
 /* handlers structures helpers */
-struct handler *handler_new(gchar *name);
+struct handler *agh_new_handler(gchar *name);
 void handler_enable(struct handler *h, gboolean enabled);
 void handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data));
 void handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage));

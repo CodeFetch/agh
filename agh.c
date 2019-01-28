@@ -8,8 +8,10 @@
 #include "agh_ubus_handler.h"
 
 /* Log messages from core domain. */
-#define agh_log_core_dbg(message, ...) agh_log_dbg("CORE", message, ##__VA_ARGS__)
-#define agh_log_core_info(message, ...) agh_log_info("CORE", message, ##__VA_ARGS__)
+#define AGH_LOG_DOMAIN_CORE	"CORE"
+#define agh_log_core_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_CORE, message, ##__VA_ARGS__)
+#define agh_log_core_info(message, ...) agh_log_info(AGH_LOG_DOMAIN_CORE, message, ##__VA_ARGS__)
+#define agh_log_core_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_CORE, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
 
@@ -55,10 +57,16 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
 static void agh_core_handlers_setup_ext(struct agh_state *mstate);
 
-/* exit strategy */
+/* "exit strategy" */
 static void agh_broadcast_exit(struct agh_state *mstate);
 static void agh_exit(struct agh_state *mstate);
 static void agh_start_exit(struct agh_state *mstate);
+
+/* Print some messages at startup. */
+static void agh_print_data(void) {
+	agh_log_core_info("\n\n******************** Hello! This is AGH %s (%s), compiled %s (%s). ********************\n\n",AGH_VERSION,AGH_RELEASE_NAME,__DATE__,__TIME__);
+	return;
+}
 
 gint main(void) {
 
@@ -66,22 +74,24 @@ gint main(void) {
 
 	agh_logging_init();
 
+	agh_print_data();
+
 	mstate = agh_state_setup();
 	if (!mstate) {
-		g_print("%s: can not allocate AGH state\n",__FUNCTION__);
+		agh_log_core_crit("AGH state allocation failed.");
 		return 1;
 	}
 
-	mstate->agh_handlers = handlers_setup();
+	mstate->agh_handlers = agh_handlers_setup();
 	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, "AGH");
 	if (!mstate->comm) {
-		g_print("%s: can not allocate COMM for core\n",__FUNCTION__);
-		handlers_teardown(mstate->agh_handlers);
+		agh_log_core_crit("can not allocate COMM");
+		agh_handlers_teardown(mstate->agh_handlers);
 		agh_state_teardown(mstate);
 		return 1;
 	}
 
-	/* This will need to be done in a better way; handlers are registered from within the function called here. */
+	/* This will need to be done in a better way; AGH handlers are registered from within the function called here. */
 	agh_core_handlers_setup_ext(mstate);
 
 	/*
@@ -132,13 +142,13 @@ gint main(void) {
 
 	agh_sources_teardown(mstate);
 	handlers_finalize(mstate->agh_handlers);
-	handlers_teardown(mstate->agh_handlers);
+	agh_handlers_teardown(mstate->agh_handlers);
 	agh_comm_teardown(mstate->comm, FALSE);
 	agh_state_teardown(mstate);
 	return 0;
 }
 
-static struct agh_state * agh_state_setup(void) {
+static struct agh_state *agh_state_setup(void) {
 	struct agh_state *mstate;
 
 	mstate = g_try_malloc0(sizeof *mstate);
@@ -610,39 +620,31 @@ static void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *core_ubus_cmd_handler;
 	struct handler *xmppmsg_to_text;
 
-	core_recvtextcommand_handler = NULL;
-	core_cmd_handler = NULL;
-	core_sendtext_handler = NULL;
-	core_event_to_text_handler = NULL;
-	core_event_broadcast_handler = NULL;
-	core_ubus_cmd_handler = NULL;
-	xmppmsg_to_text = NULL;
-
-	core_recvtextcommand_handler = handler_new("core_recvtextcommand_handler");
+	core_recvtextcommand_handler = agh_new_handler("core_recvtextcommand_handler");
 	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
 	handler_enable(core_recvtextcommand_handler, TRUE);
 
-	core_cmd_handler = handler_new("core_cmd_handler");
+	core_cmd_handler = agh_new_handler("core_cmd_handler");
 	handler_set_handle(core_cmd_handler, core_cmd_handle);
 	handler_enable(core_cmd_handler, TRUE);
 
-	core_sendtext_handler = handler_new("core_sendtext_handler");
+	core_sendtext_handler = agh_new_handler("core_sendtext_handler");
 	handler_set_handle(core_sendtext_handler, core_sendtext_handle);
 	handler_enable(core_sendtext_handler, TRUE);
 
-	core_event_to_text_handler = handler_new("core_event_to_text_handler");
+	core_event_to_text_handler = agh_new_handler("core_event_to_text_handler");
 	handler_set_handle(core_event_to_text_handler, core_event_to_text_handle);
 	handler_enable(core_event_to_text_handler, TRUE);
 
-	core_event_broadcast_handler = handler_new("core_event_broadcast_handler");
+	core_event_broadcast_handler = agh_new_handler("core_event_broadcast_handler");
 	handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
 	handler_enable(core_event_broadcast_handler, TRUE);
 
-	core_ubus_cmd_handler = handler_new("core_ubus_cmd_handler");
+	core_ubus_cmd_handler = agh_new_handler("core_ubus_cmd_handler");
 	handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
 	handler_enable(core_ubus_cmd_handler, TRUE);
 
-	xmppmsg_to_text = handler_new("xmppmsg_to_text");
+	xmppmsg_to_text = agh_new_handler("xmppmsg_to_text");
 	handler_set_handle(xmppmsg_to_text, xmppmsg_to_text_handle);
 	handler_enable(xmppmsg_to_text, TRUE);
 

@@ -56,7 +56,7 @@ void agh_mm_freemem(struct agh_mm_state *mmstate, gint error) {
 static void agh_mm_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *agh_mm_cmd_handler;
 
-	agh_mm_cmd_handler = handler_new("agh_mm_cmd_handler");
+	agh_mm_cmd_handler = agh_new_handler("agh_mm_cmd_handler");
 	handler_set_handle(agh_mm_cmd_handler, agh_mm_cmd_handle);
 	handler_enable(agh_mm_cmd_handler, TRUE);
 

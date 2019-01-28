@@ -18,7 +18,7 @@ GQueue *agh_handlers_setup(void) {
 	return hq;
 }
 
-void handlers_teardown(GQueue *handlers) {
+void agh_handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
 
 	num_handlers = g_queue_get_length(handlers);
@@ -99,7 +99,7 @@ void handlers_finalize(GQueue *handlers) {
 	return;
 }
 
-struct handler *handler_new(gchar *name) {
+struct handler *agh_new_handler(gchar *name) {
 	struct handler *h;
 
 	h = NULL;
