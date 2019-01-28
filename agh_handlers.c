@@ -1,7 +1,13 @@
 /* handlers */
-#include "agh_handlers.h"
 #include <glib.h>
 #include "agh_messages.h"
+#include "agh_handlers.h"
+#include "agh_logging.h"
+/* Log messages from core domain. */
+#define AGH_LOG_DOMAIN_HANDLERS	"HANDLERS"
+#define agh_log_handlers_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
+#define agh_log_handlers_info(message, ...) agh_log_info(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
+#define agh_log_handlers_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
 static void handlers_finalize_single(gpointer data, gpointer user_data);
@@ -105,7 +111,7 @@ struct handler *agh_new_handler(gchar *name) {
 	h = NULL;
 
 	if (!name) {
-		g_print("An handler can not have a NULL name.\n");
+		agh_log_handlers_crit("an AGH handler can not have a NULL name");
 		return h;
 	}
 
