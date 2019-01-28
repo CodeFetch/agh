@@ -10,7 +10,7 @@ static void handlers_finalize_single(gpointer data, gpointer user_data);
  * Allocates handlers queue with g_queue_new.
  * At the time of this writing, g_queue_new uses g_slice_alloc, which in turn calls g_malloc internally, hence a failure to allocate memory may lead to program termination.
 */
-GQueue *handlers_setup(void) {
+GQueue *agh_handlers_setup(void) {
 	GQueue *hq;
 
 	hq = g_queue_new();
