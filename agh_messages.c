@@ -34,16 +34,15 @@ void msg_dealloc(struct agh_message *m) {
 	if (m->csp) {
 		switch(m->msg_type) {
 		case MSG_INVALID:
-			g_print("%s: type %" G_GUINT16_FORMAT" message\n",__FUNCTION__,m->msg_type);
+			agh_log_comm_crit("type %" G_GUINT16_FORMAT" message", m->msg_type);
 			break;
 		case MSG_EXIT:
 			break;
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
-			//g_print("%s: deallocating text %s\n",__FUNCTION__,csptext->text);
 			if (!csptext->text)
-				g_print("%s: received a message with NULL text\n",__FUNCTION__);
+				agh_log_comm_crit("received a message with NULL text");
 			g_free(csptext->text);
 			g_free(csptext->source_id);
 			g_free(csptext);
@@ -63,7 +62,7 @@ void msg_dealloc(struct agh_message *m) {
 
 			break;
 		default:
-			g_print("%s: unknown CSP type (%" G_GUINT16_FORMAT")\n", __FUNCTION__,m->msg_type);
+			agh_log_comm_crit("unknown CSP type (%" G_GUINT16_FORMAT")", m->msg_type);
 			break;
 		}
 	}
@@ -78,7 +77,7 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 		return 1;
 
 	if ((!dest_comm) && (!src_comm)) {
-		g_print("%s: sender and recipient comms where NULL\n",__FUNCTION__);
+		agh_log_comm_crit("sender and recipient COMMs where NULL");
 		msg_dealloc(m);
 		return 1;
 	}
@@ -87,7 +86,7 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 		dest_comm = src_comm;
 
 	if (dest_comm->teardown_in_progress) {
-		g_print("%s: not sending message to %s due to teardown being in progress\n",__FUNCTION__,dest_comm->name);
+		agh_log_comm_dbg("not sending message to %s due to teardown being in progress",dest_comm->name);
 		msg_dealloc(m);
 		return 1;
 	}
