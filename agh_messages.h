@@ -19,7 +19,7 @@
 /*
  * Why the GMainContext *src_ctx struct member?
  * To allow handlers to answer a message with another, simply returning it.
- * Suggestions on ways to to this betterare welcome.
+ * Suggestions on ways to to this better are welcome.
 */
 struct agh_message {
 	guint msg_type;
@@ -38,11 +38,11 @@ struct agh_comm {
 struct agh_message *msg_alloc(void);
 void msg_dealloc(struct agh_message *m);
 gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm);
+gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content);
 
 /* comm */
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
 void agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext);
 void agh_comm_disable(struct agh_comm *comm, gboolean enabled);
-gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content);
 
 #endif
