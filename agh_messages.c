@@ -54,12 +54,7 @@ void msg_dealloc(struct agh_message *m) {
 			break;
 		case MSG_XMPPTEXT:
 			xmppdata = m->csp;
-			g_free(xmppdata->from);
-			g_free(xmppdata->to);
-			g_free(xmppdata->text);
-			g_free(xmppdata->id);
-			g_free(xmppdata);
-
+			agh_xmpp_free_csp(xmppdata);
 			break;
 		default:
 			agh_log_comm_crit("unknown CSP type (%" G_GUINT16_FORMAT")", m->msg_type);
