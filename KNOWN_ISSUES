@@ -1,0 +1,7 @@
+Here we report known issues regarding AGH and related tools. An issue may be added here when there is no obvious way to solve
+it (e.g.: we do not know how to fix it, or we think it depends on code outside of this repository).
+
+Some memory allocations are not allowed to fail
+====================
+In some cases, when calling GLib functions like g_strdup, a memory allocation failure will cause the program to terminate,
+with no chance for us to try to handle the failure.
