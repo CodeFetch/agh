@@ -282,30 +282,6 @@ guint cmd_answer_prepare(struct command *cmd) {
 	return retval;
 }
 
-/*gint main(gint argc, gchar **argv) {
-	struct command *cmd;
-
-	cmd = NULL;
-
-	if (argc != 2)
-		g_print("No.\n");
-	else {
-		cmd = text_to_cmd(argv[1]);
-		cmd_answer_prepare(cmd);
-		//cmd_answer_set_status(cmd, 100);
-		//cmd_answer_addtext(cmd, "yo");
-		//cmd_answer_addtext(cmd, "yo");
-		//cmd_answer_addtext(cmd, "BRO");
-		//cmd_answer_addtext(cmd, "testmeout");
-		g_print("Answer: %s\n",cmd_answer_to_text(cmd));
-
-		//g_print("Struct command is %d bytes, struct *command is %d bytes and gchar * is %d bytes, as is a gpointer (%d
-		bytes)..\n",sizeof(struct command),sizeof(struct command	*),sizeof(gchar *),sizeof(gpointer));
-	}
-
-	return 0;
-}*/
-
 void cmd_free(struct command *cmd) {
 
 	if (!cmd)
