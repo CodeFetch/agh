@@ -25,18 +25,35 @@ GQueue *agh_handlers_setup(void) {
 	return hq;
 }
 
+/*
+ * agh_handlers_teardown: deallocates an AGH handlers queue.
+ *
+ * We did not foresee a real "failure case" here. The function tries to alert you about the fact that some handlers where
+ * still registered when you called it.
+ *
+ * Returns: an integer with value 0 on success, -1 if some handlers where still registered.
+*/
 gint agh_handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
+	gint retval;
 
 	num_handlers = g_queue_get_length(handlers);
+	retval = 0;
+
 	if (num_handlers) {
 		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed!",num_handlers);
+		retval--;
 	}
 	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
 
-	return 0;
+	return retval;
 }
 
+/*
+ * Adds ("registers") an AGH handler to a handlers queue, so it can be initialized (if needed), and invoked later.
+ *
+ * Returns: an integer with value -1 on failure, 0 otherwise.
+*/
 gint agh_handler_register(GQueue *handlers, struct handler *h) {
 	gint ret;
 
@@ -53,25 +70,29 @@ gint agh_handler_register(GQueue *handlers, struct handler *h) {
 	return ret;
 }
 
-/* Initialize handlers.
+/* Initialize AGH handlers in this queue.
  * Each handler's init function is invoked, if the handler is actually enabled and the callback is not NULL.
  * Some handler's structure data fields are initialized in any case.
+ *
+ * Returns: an integer<0 on failure, integer>=0 otherwise.
 */
-void handlers_init(GQueue *handlers, gpointer data) {
+gint agh_handlers_init(GQueue *handlers, gpointer data) {
 	guint i;
 	guint num_handlers;
 	struct handler *h;
 
-	num_handlers = 0;
+	num_handlers = -1;
+
 	if (!handlers) {
-		g_print("handlers: WARNING during init, passed in a NULL queue.\n");
-		return;
+		agh_log_handlers_crit("passed in a NULL AGH handlers queue");
+		return num_handlers;
 	}
 
 	num_handlers = g_queue_get_length(handlers);
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);
-		//g_print("handlers: init %s\n",h->name);
+
+		agh_log_handlers_dbg("init %s",h->name);
 
 		h->handlers_queue = handlers;
 
@@ -82,7 +103,7 @@ void handlers_init(GQueue *handlers, gpointer data) {
 			h->handler_initialize(h);
 	}
 
-	return;
+	return num_handlers;
 }
 
 static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
