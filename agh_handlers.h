@@ -30,6 +30,6 @@ struct handler *agh_new_handler(gchar *name);
 gint agh_handler_enable(struct handler *h, gboolean enabled);
 gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data));
 gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage));
-void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data));
+gint agh_handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data));
 
 #endif

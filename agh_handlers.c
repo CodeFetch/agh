@@ -195,8 +195,8 @@ gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)
 
 	retval = 0;
 
-	if (!h) {
-		agh_log_handlers_crit("can not assign an init callback to a NULL AGH handler");
+	if (!h || !handler_initialize_cb) {
+		agh_log_handlers_crit("can not assign an init callback to a NULL AGH handler, or a NULL callback to a valid one");
 		retval--;
 	}
 	else
@@ -205,17 +205,37 @@ gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)
 	return retval;
 }
 
+/*
+ * Sets the callback for an AGH handler.
+ *
+ * Returns: an integer value of 0 on success, -1 on failure (e.g.: handler or callback where NULL).
+*/
 gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
-	if (!handler_handle_cb) {
-		agh_log_handlers_crit("an AGH handler will a NULL callback is not considered legal.");
-		return -1;
-	}
+	gint retval;
 
-	h->handle = handler_handle_cb;
-	return 0;
+	retval = 0;
+
+	if (!h || !handler_handle_cb) {
+		agh_log_handlers_crit("a NULL AGH handler, or a NULL callback, are not considered legal");
+		retval--;
+	}
+	else
+		h->handle = handler_handle_cb;
+
+	return retval;
 }
 
-void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
-	h->handler_finalize = handler_finalize_cb;
-	return;
+gint agh_handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
+	gint retval;
+
+	retval = 0;
+
+	if (!h || !handler_finalize_cb) {
+		agh_log_handlers_crit("a NULL AGH handler, or a NULL callback, are not considered legal");
+		retval--;
+	}
+	else
+		h->handler_finalize = handler_finalize_cb;
+
+	return retval;
 }
