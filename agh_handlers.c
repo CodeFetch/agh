@@ -37,15 +37,20 @@ gint agh_handlers_teardown(GQueue *handlers) {
 	return 0;
 }
 
-void handler_register(GQueue *handlers, struct handler *h) {
+gint agh_handler_register(GQueue *handlers, struct handler *h) {
+	gint ret;
+
+	ret = 0;
 
 	if ((!h) || (!handlers)) {
-		g_print("handlers: tried to register a NULL handler, or to add an handler to a NULL queue.\n");
+		agh_log_handlers_crit("can not register a NULL AGH handler, or add an AGH handler to a NULL handlers queue");
+		ret = -1;
 	}
 	else {
 		g_queue_push_tail(handlers, h);
 	}
-	return;
+
+	return ret;
 }
 
 /* Initialize handlers.
