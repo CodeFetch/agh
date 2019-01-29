@@ -57,10 +57,10 @@ static void agh_mm_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *agh_mm_cmd_handler;
 
 	agh_mm_cmd_handler = agh_new_handler("agh_mm_cmd_handler");
-	handler_set_handle(agh_mm_cmd_handler, agh_mm_cmd_handle);
-	handler_enable(agh_mm_cmd_handler, TRUE);
+	agh_handler_set_handle(agh_mm_cmd_handler, agh_mm_cmd_handle);
+	agh_handler_enable(agh_mm_cmd_handler, TRUE);
 
-	handler_register(mstate->agh_handlers, agh_mm_cmd_handler);
+	agh_handler_register(mstate->agh_handlers, agh_mm_cmd_handler);
 
 	return;
 }

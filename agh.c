@@ -55,7 +55,7 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
 static gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
 static gpointer core_cmd_handle(gpointer data, gpointer hmessage);
 static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
-static void agh_core_handlers_setup_ext(struct agh_state *mstate);
+static gint agh_core_handlers_setup_ext(struct agh_state *mstate);
 
 /* "exit strategy" */
 static void agh_broadcast_exit(struct agh_state *mstate);
@@ -71,6 +71,7 @@ static void agh_print_data(void) {
 gint main(void) {
 
 	struct agh_state *mstate;
+	gint retval = 0;
 
 	agh_logging_init();
 
@@ -78,31 +79,32 @@ gint main(void) {
 
 	mstate = agh_state_setup();
 	if (!mstate) {
-		agh_log_core_crit("AGH state allocation failed.");
-		return 1;
+		agh_log_core_crit("AGH state allocation failed");
+		retval--;
+		goto failure_statealloc;
 	}
 
 	mstate->agh_handlers = agh_handlers_setup();
-	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, "AGH");
+
+	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, AGH_LOG_DOMAIN_CORE);
 	if (!mstate->comm) {
 		agh_log_core_crit("can not allocate COMM");
-		agh_handlers_teardown(mstate->agh_handlers);
-		agh_state_teardown(mstate);
-		return 1;
+		goto failure_commsetup;
 	}
 
 	/* This will need to be done in a better way; AGH handlers are registered from within the function called here. */
-	agh_core_handlers_setup_ext(mstate);
+	if ( (retval = agh_core_handlers_setup_ext(mstate)) ) {
+		agh_log_core_crit("can not register core AGH handlers");
+		goto failure_corehandlers_setup;
+	}
 
 	/*
 	 * We init XMPP here to give a chance to XMPP code to set up its handlers.
-	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to be active.
+	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to
+	 * be operational.
 	*/
-	if (agh_xmpp_init(mstate)) {
-		g_print("%s: error while initializing XMPP\n",__FUNCTION__);
-
-		/* try to continue */
-	}
+	if (agh_xmpp_init(mstate))
+		agh_log_core_info("XMPP init failure");
 
 	agh_mm_init(mstate);
 
@@ -110,7 +112,7 @@ gint main(void) {
 
 	agh_threads_setup(mstate);
 
-	/* Here you can set up threads. */
+	/* Here you may set up threads. */
 
 	/* ubus connection */
 	mstate->uctx = agh_ubus_setup(mstate->comm);
@@ -141,11 +143,17 @@ gint main(void) {
 	agh_mm_deinit(mstate);
 
 	agh_sources_teardown(mstate);
-	handlers_finalize(mstate->agh_handlers);
+	agh_handlers_finalize(mstate->agh_handlers);
+failure_commsetup:
+failure_corehandlers_setup:
 	agh_handlers_teardown(mstate->agh_handlers);
+
+	/* agh_comm_teardown should handle properly the case where COMM setup failed */
 	agh_comm_teardown(mstate->comm, FALSE);
+
 	agh_state_teardown(mstate);
-	return 0;
+failure_statealloc:
+	return retval;
 }
 
 static struct agh_state *agh_state_setup(void) {
@@ -169,7 +177,7 @@ static void agh_sources_setup(struct agh_state *mstate) {
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
 	g_source_unref(mstate->agh_main_unix_signals);
 
-	handlers_init(mstate->agh_handlers, mstate);
+	agh_handlers_init(mstate->agh_handlers, mstate);
 
 	return;
 }
@@ -610,7 +618,7 @@ static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deini
 	return;
 }
 
-static void agh_core_handlers_setup_ext(struct agh_state *mstate) {
+static gint agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	/* Core handlers. */
 	struct handler *core_recvtextcommand_handler;
 	struct handler *core_sendtext_handler;
@@ -621,42 +629,42 @@ static void agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	struct handler *xmppmsg_to_text;
 
 	core_recvtextcommand_handler = agh_new_handler("core_recvtextcommand_handler");
-	handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
-	handler_enable(core_recvtextcommand_handler, TRUE);
+	agh_handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
+	agh_handler_enable(core_recvtextcommand_handler, TRUE);
 
 	core_cmd_handler = agh_new_handler("core_cmd_handler");
-	handler_set_handle(core_cmd_handler, core_cmd_handle);
-	handler_enable(core_cmd_handler, TRUE);
+	agh_handler_set_handle(core_cmd_handler, core_cmd_handle);
+	agh_handler_enable(core_cmd_handler, TRUE);
 
 	core_sendtext_handler = agh_new_handler("core_sendtext_handler");
-	handler_set_handle(core_sendtext_handler, core_sendtext_handle);
-	handler_enable(core_sendtext_handler, TRUE);
+	agh_handler_set_handle(core_sendtext_handler, core_sendtext_handle);
+	agh_handler_enable(core_sendtext_handler, TRUE);
 
 	core_event_to_text_handler = agh_new_handler("core_event_to_text_handler");
-	handler_set_handle(core_event_to_text_handler, core_event_to_text_handle);
-	handler_enable(core_event_to_text_handler, TRUE);
+	agh_handler_set_handle(core_event_to_text_handler, core_event_to_text_handle);
+	agh_handler_enable(core_event_to_text_handler, TRUE);
 
 	core_event_broadcast_handler = agh_new_handler("core_event_broadcast_handler");
-	handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
-	handler_enable(core_event_broadcast_handler, TRUE);
+	agh_handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
+	agh_handler_enable(core_event_broadcast_handler, TRUE);
 
 	core_ubus_cmd_handler = agh_new_handler("core_ubus_cmd_handler");
-	handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
-	handler_enable(core_ubus_cmd_handler, TRUE);
+	agh_handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
+	agh_handler_enable(core_ubus_cmd_handler, TRUE);
 
 	xmppmsg_to_text = agh_new_handler("xmppmsg_to_text");
-	handler_set_handle(xmppmsg_to_text, xmppmsg_to_text_handle);
-	handler_enable(xmppmsg_to_text, TRUE);
+	agh_handler_set_handle(xmppmsg_to_text, xmppmsg_to_text_handle);
+	agh_handler_enable(xmppmsg_to_text, TRUE);
 
-	handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
-	handler_register(mstate->agh_handlers, core_cmd_handler);
-	handler_register(mstate->agh_handlers, core_sendtext_handler);
-	handler_register(mstate->agh_handlers, core_event_to_text_handler);
-	handler_register(mstate->agh_handlers, core_event_broadcast_handler);
-	handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
-	handler_register(mstate->agh_handlers, xmppmsg_to_text);
+	agh_handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
+	agh_handler_register(mstate->agh_handlers, core_cmd_handler);
+	agh_handler_register(mstate->agh_handlers, core_sendtext_handler);
+	agh_handler_register(mstate->agh_handlers, core_event_to_text_handler);
+	agh_handler_register(mstate->agh_handlers, core_event_broadcast_handler);
+	agh_handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
+	agh_handler_register(mstate->agh_handlers, xmppmsg_to_text);
 
-	return;
+	return 0;
 }
 
 static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) {

@@ -555,15 +555,15 @@ static void xmpp_set_handlers_ext(struct agh_state *mstate) {
 	struct handler *xmpp_cmd_handler;
 
 	xmpp_sendmsg_handler = agh_new_handler("xmpp_sendmsg_handler");
-	handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
-	handler_enable(xmpp_sendmsg_handler, TRUE);
+	agh_handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
+	agh_handler_enable(xmpp_sendmsg_handler, TRUE);
 
 	xmpp_cmd_handler = agh_new_handler("xmpp_cmd_handler");
-	handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
-	handler_enable(xmpp_cmd_handler, TRUE);
+	agh_handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
+	agh_handler_enable(xmpp_cmd_handler, TRUE);
 
-	handler_register(mstate->agh_handlers, xmpp_sendmsg_handler);
-	handler_register(mstate->agh_handlers, xmpp_cmd_handler);
+	agh_handler_register(mstate->agh_handlers, xmpp_sendmsg_handler);
+	agh_handler_register(mstate->agh_handlers, xmpp_cmd_handler);
 
 	return;
 }
