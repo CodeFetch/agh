@@ -36,7 +36,7 @@ struct agh_comm {
 };
 
 struct agh_message *agh_msg_alloc(void);
-void msg_dealloc(struct agh_message *m);
+gint agh_msg_dealloc(struct agh_message *m);
 gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content);
 

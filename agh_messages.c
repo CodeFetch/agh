@@ -14,8 +14,9 @@
 /* Function prototypes. */
 static gboolean agh_handle_message_inside_dest_thread(gpointer data);
 
-/* Convenience function to allocate a message. Simply calls g_try_malloc0.
- * Infact, it may fail, returning NULL.
+/* Convenience function to allocate an AGH message. Simply calls g_try_malloc0.
+ *
+ * Returns: NULL is returned in case of allocation failure.
 */
 struct agh_message *agh_msg_alloc(void) {
 	struct agh_message *m;
@@ -29,29 +30,45 @@ struct agh_message *agh_msg_alloc(void) {
 }
 
 /*
- * Deallocates a message, and it's CSP, when known.
- * The GmainContext object that's part of a message is not unreferenced.
+ * Deallocates an AGH message, and it's CSP, when of a known type.
+ *
+ * Returns: 0 on success (even when message's CSP was NULL).
+ * -1 if the message was NULL
+ * -2 if message's message type was set to MSG_INVALID (0)
+ * -3 when the message had an unknown type.
+ * Bigger values (in absolute sense, like -10), are returned from agh_cmd_free.
+ *
+ * When -2 or -3 are returned, a memory leak may have happened.
 */
-void msg_dealloc(struct agh_message *m) {
+gint agh_msg_dealloc(struct agh_message *m) {
 	struct text_csp *csptext;
 	struct command *cmd;
 	struct xmpp_csp *xmppdata;
+	gint retval;
 
-	if (!m)
-		return;
+	retval = 0;
+
+	if (!m) {
+		agh_log_comm_dbg("not deallocating a NULL AGH message");
+		retval--;
+		return retval;
+	}
 
 	if (m->csp) {
 		switch(m->msg_type) {
 		case MSG_INVALID:
-			agh_log_comm_crit("type %" G_GUINT16_FORMAT" message", m->msg_type);
+			agh_log_comm_crit("type %" G_GUINT16_FORMAT" (invalid!) message", m->msg_type);
+			retval = -2;
 			break;
 		case MSG_EXIT:
 			break;
 		case MSG_RECVTEXT:
 		case MSG_SENDTEXT:
 			csptext = m->csp;
+
 			if (!csptext->text)
-				agh_log_comm_crit("received a message with NULL text");
+				agh_log_comm_crit("received a MSG_{SENDTEXT,RECVTEXT} message with NULL text");
+
 			g_free(csptext->text);
 			g_free(csptext->source_id);
 			g_free(csptext);
@@ -59,20 +76,21 @@ void msg_dealloc(struct agh_message *m) {
 		case MSG_SENDCMD:
 		case MSG_EVENT:
 			cmd = m->csp;
-			cmd_free(cmd);
+			retval = agh_cmd_free(cmd);
 			break;
 		case MSG_XMPPTEXT:
 			xmppdata = m->csp;
 			agh_xmpp_free_csp(xmppdata);
 			break;
 		default:
-			agh_log_comm_crit("unknown CSP type (%" G_GUINT16_FORMAT")", m->msg_type);
+			agh_log_comm_crit("message with unknown CSP type (%" G_GUINT16_FORMAT")", m->msg_type);
+			retval = -3;
 			break;
 		}
 	}
 
 	g_free(m);
-	return;
+	return retval;
 }
 
 gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
