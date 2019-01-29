@@ -188,7 +188,7 @@ gint agh_handler_enable(struct handler *h, gboolean enabled) {
 /*
  * Assigns to an AGH handler an init callback.
  *
- * Returns: an integer with value -1 if the passed in handler is NULL, 0 otherwise.
+ * Returns: an integer with value -1 if the passed in handler (or callback) are NULL, 0 otherwise.
 */
 gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
 	gint retval;
@@ -225,6 +225,11 @@ gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpo
 	return retval;
 }
 
+/*
+ * Assigns a finalize callback to an AGH handler.
+ *
+ * Returns: an integer with value 0 on success, -1 otherwise (e.g.: NULL handler or callback).
+*/
 gint agh_handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
 	gint retval;
 
