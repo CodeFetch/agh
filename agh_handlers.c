@@ -3,6 +3,7 @@
 #include "agh_messages.h"
 #include "agh_handlers.h"
 #include "agh_logging.h"
+
 /* Log messages from core domain. */
 #define AGH_LOG_DOMAIN_HANDLERS	"HANDLERS"
 #define agh_log_handlers_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
@@ -10,7 +11,7 @@
 #define agh_log_handlers_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
-static void handlers_finalize_single(gpointer data, gpointer user_data);
+static void agh_handlers_finalize_single(gpointer data, gpointer user_data);
 
 /*
  * Allocates handlers queue with g_queue_new.
@@ -24,16 +25,16 @@ GQueue *agh_handlers_setup(void) {
 	return hq;
 }
 
-void agh_handlers_teardown(GQueue *handlers) {
+gint agh_handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
 
 	num_handlers = g_queue_get_length(handlers);
 	if (num_handlers) {
-		g_print("handlers: %" G_GUINT16_FORMAT" handlers are still registed!\n",num_handlers);
+		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed!",num_handlers);
 	}
-	g_queue_free(handlers);
+	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
 
-	return;
+	return 0;
 }
 
 void handler_register(GQueue *handlers, struct handler *h) {
@@ -79,7 +80,7 @@ void handlers_init(GQueue *handlers, gpointer data) {
 	return;
 }
 
-static void handlers_finalize_single(gpointer data, gpointer user_data) {
+static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
 
 	if (h->enabled && h->handler_finalize) {
@@ -100,8 +101,8 @@ static void handlers_finalize_single(gpointer data, gpointer user_data) {
 }
 
 void handlers_finalize(GQueue *handlers) {
-	g_print("handlers: finalizing handlers.\n");
-	g_queue_foreach(handlers, handlers_finalize_single, NULL);
+	agh_log_handlers_dbg("finalizing handlers");
+	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
 	return;
 }
 
@@ -135,14 +136,14 @@ void handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpo
 	return;
 }
 
-void handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
+gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
 	if (!handler_handle_cb) {
-		g_print("An handler will a NULL cb ? Why?\n");
-		return;
+		agh_log_handlers_crit("an AGH handler will a NULL callback is not considered legal.");
+		return -1;
 	}
 
 	h->handle = handler_handle_cb;
-	return;
+	return 0;
 }
 
 void handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
