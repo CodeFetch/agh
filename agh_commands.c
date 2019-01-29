@@ -288,37 +288,48 @@ guint cmd_answer_prepare(struct command *cmd) {
 	return retval;
 }
 
-void cmd_free(struct command *cmd) {
+/*
+ * Frees an AGH command structure.
+ *
+ * Returns: an integer with value 0 on success
+ * -10 when command structure is NULL
+ * -11 when a command answer structure was present, but no restextparts queue
+*/
+gint agh_cmd_free(struct command *cmd) {
+	gint retval;
 
-	if (!cmd)
-		return;
+	retval = 0;
 
-	/* This probably should be replaced by an assert. */
+	if (!cmd) {
+		agh_log_cmd_dbg("not deallocating a NULL AGH command");
+		retval = -10;
+		return retval;
+	}
+
 	if (cmd->cmd) {
-		//g_print("Deallocating command config structure.\n");
 		config_destroy(cmd->cmd);
 		g_free(cmd->cmd);
-		cmd->cmd = NULL;
 	}
 
 	/* Command answer. */
 	if (cmd->answer) {
-		//g_print("Deallocating associated answer structure.\n");
 		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
-		g_queue_free_full(cmd->answer->restextparts, g_free);
-		cmd->answer->restextparts = NULL;
+
+		if (cmd->answer->restextparts)
+			g_queue_free_full(cmd->answer->restextparts, g_free);
+		else {
+			agh_log_cmd_dbg("command with an answer structure, but no restextparts");
+			retval = -11;
+		}
+
 		g_free(cmd->answer);
-		cmd->answer = NULL;
 	}
 
-	if (cmd->cmd_source_id) {
-		g_free(cmd->cmd_source_id);
-		cmd->cmd_source_id = NULL;
-	}
+	g_free(cmd->cmd_source_id);
 
 	g_free(cmd);
 
-	return;
+	return retval;
 }
 
 struct command *cmd_copy(struct command *cmd) {

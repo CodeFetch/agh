@@ -61,7 +61,7 @@ guint cmd_answer_peektext(struct command *cmd, gchar *text);
 guint cmd_answer_prepare(struct command *cmd);
 
 /* assorted management functions */
-void cmd_free(struct command *cmd);
+gint agh_cmd_free(struct command *cmd);
 struct command *cmd_copy(struct command *cmd);
 struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
