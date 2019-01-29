@@ -131,7 +131,7 @@ static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
 	return;
 }
 
-void handlers_finalize(GQueue *handlers) {
+void agh_handlers_finalize(GQueue *handlers) {
 	agh_log_handlers_dbg("finalizing handlers");
 	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
 	return;

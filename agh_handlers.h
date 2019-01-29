@@ -21,8 +21,8 @@ struct handler {
 /* Those functions are declared in the order they need to be used. */
 GQueue *agh_handlers_setup(void);
 gint agh_handler_register(GQueue *handlers, struct handler *h);
-void handlers_init(GQueue *handlers, gpointer data);
-void handlers_finalize(GQueue *handlers);
+gint agh_handlers_init(GQueue *handlers, gpointer data);
+void agh_handlers_finalize(GQueue *handlers);
 gint agh_handlers_teardown(GQueue *handlers);
 
 /* handlers structures helpers */
