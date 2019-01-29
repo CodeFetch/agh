@@ -14,9 +14,18 @@
 /* Function prototypes. */
 static gboolean agh_handle_message_inside_dest_thread(gpointer data);
 
-/* Convenience function to allocate a message. Simply calls g_malloc0. */
-struct agh_message *msg_alloc(void) {
-	return g_malloc0(sizeof(struct agh_message));
+/* Convenience function to allocate a message. Simply calls g_try_malloc0.
+ * Infact, it may fail, returning NULL.
+*/
+struct agh_message *agh_msg_alloc(void) {
+	struct agh_message *m;
+
+	m = g_try_malloc0(sizeof(struct agh_message));
+
+	if (!m)
+		agh_log_comm_crit("AGH message allocation failure");
+
+	return m;
 }
 
 /*
