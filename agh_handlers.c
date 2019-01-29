@@ -137,6 +137,13 @@ void agh_handlers_finalize(GQueue *handlers) {
 	return;
 }
 
+/*
+ * Allocates a new AGH handler with the given name.
+ *
+ * Returns: a new handler data structure on success, NULL on failure.
+ *
+ * Note: this function may terminate AGH should an allocation failure occur in g_strdup.
+*/
 struct handler *agh_new_handler(gchar *name) {
 	struct handler *h;
 
@@ -157,9 +164,22 @@ struct handler *agh_new_handler(gchar *name) {
 	return h;
 }
 
-void handler_enable(struct handler *h, gboolean enabled) {
+/*
+ * Changes an AGH handler "enabled" state.
+*/
+gint agh_handler_enable(struct handler *h, gboolean enabled) {
+	gint retval;
+
+	retval = 0;
+
+	if (!h) {
+		agh_log_handlers_crit("can not enable or disable a NULL AGH handler");
+		retval--;
+	}
+
 	h->enabled = enabled;
-	return;
+
+	return retval;
 }
 
 void handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
