@@ -2,6 +2,12 @@
 #include <libconfig.h>
 #include "agh_commands.h"
 #include "agh_messages.h"
+#include "agh_logging.h"
+
+/* Log messages from AGH_LOG_DOMAIN_COMMANDS domain. */
+#define AGH_LOG_DOMAIN_COMMAND	"COMMAND"
+#define agh_log_cmd_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
+#define agh_log_comm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
 static gchar *cmd_answer_to_text(struct command *cmd);
