@@ -41,7 +41,7 @@ gint agh_handlers_teardown(GQueue *handlers) {
 	retval = 0;
 
 	if (num_handlers) {
-		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed!",num_handlers);
+		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed! Trying to continue.",num_handlers);
 		retval--;
 	}
 	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
@@ -131,6 +131,9 @@ static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
 	return;
 }
 
+/*
+ * Given an AGH handlers queue, finalize all of the linked handlers.
+*/
 void agh_handlers_finalize(GQueue *handlers) {
 	agh_log_handlers_dbg("finalizing handlers");
 	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
@@ -176,15 +179,30 @@ gint agh_handler_enable(struct handler *h, gboolean enabled) {
 		agh_log_handlers_crit("can not enable or disable a NULL AGH handler");
 		retval--;
 	}
-
-	h->enabled = enabled;
+	else
+		h->enabled = enabled;
 
 	return retval;
 }
 
-void handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
-	h->handler_initialize = handler_initialize_cb;
-	return;
+/*
+ * Assigns to an AGH handler an init callback.
+ *
+ * Returns: an integer with value -1 if the passed in handler is NULL, 0 otherwise.
+*/
+gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
+	gint retval;
+
+	retval = 0;
+
+	if (!h) {
+		agh_log_handlers_crit("can not assign an init callback to a NULL AGH handler");
+		retval--;
+	}
+	else
+		h->handler_initialize = handler_initialize_cb;
+
+	return retval;
 }
 
 gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
