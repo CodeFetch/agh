@@ -92,34 +92,39 @@ gint agh_handlers_init(GQueue *handlers, gpointer data) {
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);
 
-		agh_log_handlers_dbg("init %s",h->name);
-
 		h->handlers_queue = handlers;
 
 		if (data)
 			h->handler_data = data;
 
-		if (h->enabled && h->handler_initialize)
+		if (h->enabled && h->handler_initialize) {
+			agh_log_handlers_dbg("AGH handler init cb for %s being invoked",h->name);
 			h->handler_initialize(h);
+		}
 	}
 
 	return num_handlers;
 }
 
+/*
+ * Invoke the handler_finalize callback for an AGH handler.
+ *
+ * Returns: nothing; it's invoked via the g_queue_free_foreach GLib function.
+*/
 static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
 	struct handler *h = data;
 
 	if (h->enabled && h->handler_finalize) {
-		g_print("/");
+		agh_log_handlers_dbg("AGH handler finalize cb for %s being invoked",h->name);
 		h->handler_finalize(h);
 	}
 
-	/* XXX: a better way to do this? */
 	g_queue_remove(h->handlers_queue, h);
 	h->handlers_queue = NULL;
 
 	h->handler_data = NULL;
 
+	agh_log_handlers_dbg("AGH handler %s being deallocated",h->name);
 	g_free(h->name);
 	g_free(h);
 
