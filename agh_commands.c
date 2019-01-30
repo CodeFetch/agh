@@ -20,155 +20,6 @@ static void print_config_type(gint type) __attribute__((unused));
 static const gchar *event_name(struct command *cmd) __attribute__((unused));
 static const gchar *event_arg(struct command *cmd, guint arg_index) __attribute__((unused));
 
-struct command *text_to_cmd(gchar *from, gchar *content) {
-	struct command *ocmd;
-	gchar *atext;
-	config_t *cmd_cfg;
-	gint cmd_id;
-	config_setting_t *in_keyword;
-	config_setting_t *id;
-	config_setting_t *op;
-	const gchar *cmd_operation;
-	guint lengths;
-	gchar *afrom;
-
-	ocmd = NULL;
-	atext = NULL;
-	in_keyword = NULL;
-	cmd_id = 0;
-	id = NULL;
-	op = NULL;
-	cmd_operation = NULL;
-	lengths = 0;
-	afrom = NULL;
-
-	lengths = strlen(content);
-	if (lengths > CMD_MAX_TEXT_LEN) {
-		g_print("CMD_MAX_TEXT_LEN exceeded.\n");
-		return ocmd;
-	}
-
-	/* We are not checking for errors, since GLib guarantees us we'll not survive an allocation failure by default. This needs
-	 * to be reviewed of course.
-	*/
-	cmd_cfg = g_malloc0(sizeof(config_t));
-
-	config_init(cmd_cfg);
-
-	/* Convert given input to ascii, just in case. */
-	atext = g_str_to_ascii(content, "C");
-
-	if (!config_read_string(cmd_cfg, atext)) {
-		/* Invalid input. */
-		g_print("Invalid input.\n");
-		goto wayout;
-	}
-
-	/*
-	 * A command should clearly repsect the libconfig configuration grammar. In our context, it should be formed of the
-	 * following elements:
-	 *
-	 * - the CMD_IN_KEYWORD keyword / setting
-	 * - an equal sign
-	 * - a list, which should contain an operation ID (long unsigned int), and an operation name (char *).
-	 *
-	 * Any further data is command-specific. A command may require zero or more arguments. Data outside the list should be
-	 * rejected, or, at least, ignored during processing.
-	*/
-
-	/* 1 - Root setting is a group, and it should contain only one element.
-	 * This should be considered a sanity check, and may be removed in future. Infact, if I understood this correctly, libconfig
-	 * always builds a group root setting, which contains whatever gets processed.
-	*/
-	if (config_setting_length(config_root_setting(cmd_cfg)) != 1) {
-		g_print("Excess data.\n");
-		goto wayout;
-	}
-
-	/* 2 - CMD_IN_KEYWORD keyword */
-	in_keyword = config_lookup(cmd_cfg, CMD_IN_KEYWORD);
-
-	if (!in_keyword) {
-		g_print(CMD_IN_KEYWORD" keyword not detected. Not processing.\n");
-		goto wayout;
-	}
-
-	/* 3 - The CMD_IN_KEYWORD setting should be a list, and contain at minimum of 2 keywords. */
-	if (!config_setting_is_list(in_keyword)) {
-		g_print("Unexpected command structure.\n");
-		goto wayout;
-	}
-
-	if (config_setting_length(in_keyword) < 2) {
-		g_print("At least an operation and a command ID are required.\n");
-		goto wayout;
-	}
-
-	/* 4 - Command ID, should be gint and != 0. */
-	id = config_setting_get_elem(in_keyword, 0);
-	cmd_id = config_setting_get_int(id);
-	if (cmd_id < 1) {
-		g_print("Invalid command ID.\n");
-		goto wayout;
-	}
-
-	/* 5 - Operation should not be an empty string. */
-	op = config_setting_get_elem(in_keyword, 1);
-	cmd_operation = config_setting_get_string(op);
-	if (!cmd_operation) {
-		g_print("Operation can not be valid.\n");
-		goto wayout;
-	}
-
-	/* 6 - Operation name should consist at least of a single character. */
-	lengths = strlen(cmd_operation);
-	if (!lengths) {
-		g_print("An operation name should consist at least of a single character.\n");
-		goto wayout;
-	}
-
-	/* 7 - Operation name may consist of CMD_MAX_OP_NAME_LEN characters at most. */
-	if (lengths > CMD_MAX_OP_NAME_LEN) {
-		g_print("CMD_MAX_OP_NAME_LEN exceeded.\n");
-		goto wayout;
-	}
-
-	if (from) {
-		afrom = g_str_to_ascii(from, "C");
-
-		lengths = strlen(afrom);
-
-		if (lengths < 1 || lengths > CMD_MAX_FROM_LEN) {
-			g_print("Invalid source identifier.\n");
-			g_free(afrom);
-			afrom = NULL;
-			goto wayout;
-		}
-
-	}
-
-	g_print("OK.\n");
-
-	ocmd = g_malloc0(sizeof(struct command));
-	ocmd->cmd = cmd_cfg;
-
-	if (afrom)
-		ocmd->cmd_source_id = afrom;
-
-	/* Makes me feel more peaceful, but it's useless. */
-	ocmd->answer = NULL;
-
-	g_free(atext);
-	return ocmd;
-
-wayout:
-	g_free(atext);
-	config_destroy(cmd_cfg);
-	g_free(cmd_cfg);
-	cmd_cfg = NULL;
-	return ocmd;
-}
-
 void cmd_answer_set_status(struct command *cmd, guint status) {
 	cmd->answer->status = status;
 	return;
@@ -741,4 +592,153 @@ void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolea
 	}
 
 	return;
+}
+
+struct command *text_to_cmd(gchar *from, gchar *content) {
+	struct command *ocmd;
+	gchar *atext;
+	config_t *cmd_cfg;
+	gint cmd_id;
+	config_setting_t *in_keyword;
+	config_setting_t *id;
+	config_setting_t *op;
+	const gchar *cmd_operation;
+	guint lengths;
+	gchar *afrom;
+
+	ocmd = NULL;
+	atext = NULL;
+	in_keyword = NULL;
+	cmd_id = 0;
+	id = NULL;
+	op = NULL;
+	cmd_operation = NULL;
+	lengths = 0;
+	afrom = NULL;
+
+	lengths = strlen(content);
+	if (lengths > CMD_MAX_TEXT_LEN) {
+		g_print("CMD_MAX_TEXT_LEN exceeded.\n");
+		return ocmd;
+	}
+
+	/* We are not checking for errors, since GLib guarantees us we'll not survive an allocation failure by default. This needs
+	 * to be reviewed of course.
+	*/
+	cmd_cfg = g_malloc0(sizeof(config_t));
+
+	config_init(cmd_cfg);
+
+	/* Convert given input to ascii, just in case. */
+	atext = g_str_to_ascii(content, "C");
+
+	if (!config_read_string(cmd_cfg, atext)) {
+		/* Invalid input. */
+		g_print("Invalid input.\n");
+		goto wayout;
+	}
+
+	/*
+	 * A command should clearly repsect the libconfig configuration grammar. In our context, it should be formed of the
+	 * following elements:
+	 *
+	 * - the CMD_IN_KEYWORD keyword / setting
+	 * - an equal sign
+	 * - a list, which should contain an operation ID (long unsigned int), and an operation name (char *).
+	 *
+	 * Any further data is command-specific. A command may require zero or more arguments. Data outside the list should be
+	 * rejected, or, at least, ignored during processing.
+	*/
+
+	/* 1 - Root setting is a group, and it should contain only one element.
+	 * This should be considered a sanity check, and may be removed in future. Infact, if I understood this correctly, libconfig
+	 * always builds a group root setting, which contains whatever gets processed.
+	*/
+	if (config_setting_length(config_root_setting(cmd_cfg)) != 1) {
+		g_print("Excess data.\n");
+		goto wayout;
+	}
+
+	/* 2 - CMD_IN_KEYWORD keyword */
+	in_keyword = config_lookup(cmd_cfg, CMD_IN_KEYWORD);
+
+	if (!in_keyword) {
+		g_print(CMD_IN_KEYWORD" keyword not detected. Not processing.\n");
+		goto wayout;
+	}
+
+	/* 3 - The CMD_IN_KEYWORD setting should be a list, and contain at minimum of 2 keywords. */
+	if (!config_setting_is_list(in_keyword)) {
+		g_print("Unexpected command structure.\n");
+		goto wayout;
+	}
+
+	if (config_setting_length(in_keyword) < 2) {
+		g_print("At least an operation and a command ID are required.\n");
+		goto wayout;
+	}
+
+	/* 4 - Command ID, should be gint and != 0. */
+	id = config_setting_get_elem(in_keyword, 0);
+	cmd_id = config_setting_get_int(id);
+	if (cmd_id < 1) {
+		g_print("Invalid command ID.\n");
+		goto wayout;
+	}
+
+	/* 5 - Operation should not be an empty string. */
+	op = config_setting_get_elem(in_keyword, 1);
+	cmd_operation = config_setting_get_string(op);
+	if (!cmd_operation) {
+		g_print("Operation can not be valid.\n");
+		goto wayout;
+	}
+
+	/* 6 - Operation name should consist at least of a single character. */
+	lengths = strlen(cmd_operation);
+	if (!lengths) {
+		g_print("An operation name should consist at least of a single character.\n");
+		goto wayout;
+	}
+
+	/* 7 - Operation name may consist of CMD_MAX_OP_NAME_LEN characters at most. */
+	if (lengths > CMD_MAX_OP_NAME_LEN) {
+		g_print("CMD_MAX_OP_NAME_LEN exceeded.\n");
+		goto wayout;
+	}
+
+	if (from) {
+		afrom = g_str_to_ascii(from, "C");
+
+		lengths = strlen(afrom);
+
+		if (lengths < 1 || lengths > CMD_MAX_FROM_LEN) {
+			g_print("Invalid source identifier.\n");
+			g_free(afrom);
+			afrom = NULL;
+			goto wayout;
+		}
+
+	}
+
+	g_print("OK.\n");
+
+	ocmd = g_malloc0(sizeof(struct command));
+	ocmd->cmd = cmd_cfg;
+
+	if (afrom)
+		ocmd->cmd_source_id = afrom;
+
+	/* Makes me feel more peaceful, but it's useless. */
+	ocmd->answer = NULL;
+
+	g_free(atext);
+	return ocmd;
+
+wayout:
+	g_free(atext);
+	config_destroy(cmd_cfg);
+	g_free(cmd_cfg);
+	cmd_cfg = NULL;
+	return ocmd;
 }
