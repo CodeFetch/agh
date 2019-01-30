@@ -230,14 +230,19 @@ struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name
 	return comm;
 }
 
-void agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext) {
+/*
+ * As it's name suggest, this function is used when closing down a COMM.
+ *
+ * Returns: an integer with value -1 when a NULL COMM is passed, 0 on success.
+*/
+gint agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext) {
 	guint i;
 
 	i = AGH_MAX_MESSAGEWAIT_ITERATIONS;
 
 	if (!comm) {
-		g_print("%s: NULL COMM passed in for teardown\n",__FUNCTION__);
-		return;
+		agh_log_comm_crit("NULL COMM passed in for teardown");
+		return -1;
 	}
 
 	comm->teardown_in_progress = TRUE;
@@ -255,7 +260,7 @@ void agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmainconte
 	comm->ctx = NULL;
 	g_free(comm);
 
-	return;
+	return 0;
 }
 
 void agh_comm_disable(struct agh_comm *comm, gboolean enabled) {

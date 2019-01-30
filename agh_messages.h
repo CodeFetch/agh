@@ -42,7 +42,7 @@ gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_co
 
 /* comm */
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name);
-void agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext);
+gint agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmaincontext);
 void agh_comm_disable(struct agh_comm *comm, gboolean enabled);
 
 #endif
