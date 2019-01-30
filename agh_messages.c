@@ -283,6 +283,25 @@ gint agh_comm_set_teardown_state(struct agh_comm *comm, gboolean enabled) {
 	return retval;
 }
 
+/*
+ * Parse a message source ID via strtok_r, returning to the caller two strings, holding the source name, and the "content".
+ * Imagine something like "XMPP=myaccountname@myservername.com". this function should split it into:
+ * - "XMPP": source name
+ * - "myaccountname@myservername.com": content.
+ *
+ * The pointers pointed bysourcename and source_content may be NULL at function termination.
+ * Strings returned by this function are expected to be freed by the caller.
+ *
+ * Parameters:
+ * - source_id: a string holding the full source ID ("XMPP=myaccountname@myservername.com");
+ * - source_name: a pointer to a pointer, where the source name will be returned;
+ *   (the pointer to which source_name points is expected to be NULL)
+ * - source_content: a pointer to a pointer, where the source content will be returned;
+ *   (the pointer to which source_id points is expected to be NULL)
+ *
+ * Returns: an integer with values:
+ * - 1: source_id was NULL, or the pointer pointed by source_name was not NULL, or the pointer pointed by source_content was not NULL;
+*/
 gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content) {
 	gchar *saveptr;
 	gchar *local_source_id;
