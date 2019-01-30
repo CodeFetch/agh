@@ -96,7 +96,7 @@ gint agh_msg_dealloc(struct agh_message *m) {
 /*
  * Sends a message to this or another thread, so it can be seen by currently installed handlers.
  *
- * Returns: 0 on success, 1 when a NULL message is passed in, 2 when bot sender and receiver COMMs where NULL, 3 when a
+ * Returns: 0 on success, 1 when a NULL message is passed in, 2 when both sender and receiver COMMs where NULL, 3 when a
  * teardown is in progress (e.g.: AGH is terminating). Negative integer values are directly returned fro agh_msg_dealloc, which
  * in turn may return errors from agh_cmd_free.
 */
@@ -142,6 +142,11 @@ gint agh_msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_c
 	return retval;
 }
 
+/*
+ * Dispatches a message inside an AGH thread, or the core itself.
+ *
+ * This function is called via a GLib callback, so it returns FALSE in order to be invoked only once per GMainContext iteration.
+*/
 static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	struct agh_message *m = data;
 	guint num_handlers;
@@ -150,48 +155,43 @@ static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	guint i;
 	GQueue *handlers;
 
-	num_handlers = 0;
-	answer = NULL;
-	h = NULL;
-
 	if (!m) {
-		g_print("%s: NULL message\n",__FUNCTION__);
+		agh_log_comm_crit("NULL message received, no processing will take place");
 		return FALSE;
 	}
 
 	handlers = m->dest->handlers;
 
 	if (m->dest->teardown_in_progress) {
-		g_print("%s (%s): deallocating message\n",__FUNCTION__,m->dest->name);
-		msg_dealloc(m);
+		agh_log_comm_crit("deallocating message in %s thread due to teardown being in progress",m->dest->name);
+
+		agh_msg_dealloc(m);
+
 		return FALSE;
 	}
 
 	if (handlers)
 		num_handlers = g_queue_get_length(handlers);
 	else {
-		g_print("%s: a message has been received, but no handlers queue is allocated\n",__FUNCTION__);
-		msg_dealloc(m);
+		agh_log_comm_crit("a message has been received in %s, but no handlers queue is allocated",m->dest->name ? m->dest->name : "no name");
+		agh_msg_dealloc(m);
 		return FALSE;
 	}
 
-	//g_print("%s running in %s\n",__FUNCTION__,m->dest->name);
-
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);
+
 		if (h->enabled) {
-			//g_print("handle(%s)\n",h->name);
 			answer = h->handle(h, m);
 			if (answer) {
 				answer->src = m->dest;
 				answer->dest = m->src;
-				msg_send(answer, answer->src, answer->dest);
+				agh_msg_send(answer, answer->src, answer->dest);
 			}
-			answer = NULL;
 		}
 	}
 
-	msg_dealloc(m);
+	agh_msg_dealloc(m);
 
 	return FALSE;
 }
