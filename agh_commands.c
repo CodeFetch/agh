@@ -639,7 +639,7 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	}
 
 	/*
-	 * A command should clearly repsect the libconfig configuration grammar. In our context, it should be formed of the
+	 * A command should clearly respect the libconfig configuration grammar. In our context, it should be formed of the
 	 * following elements:
 	 *
 	 * - the CMD_IN_KEYWORD keyword / setting
