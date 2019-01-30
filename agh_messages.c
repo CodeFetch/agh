@@ -93,15 +93,32 @@ gint agh_msg_dealloc(struct agh_message *m) {
 	return retval;
 }
 
-gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
+/*
+ * Sends a message to this or another thread, so it can be seen by currently installed handlers.
+ *
+ * Returns: 0 on success, 1 when a NULL message is passed in, 2 when bot sender and receiver COMMs where NULL, 3 when a
+ * teardown is in progress (e.g.: AGH is terminating). Negative integer values are directly returned fro agh_msg_dealloc, which
+ * in turn may return errors from agh_cmd_free.
+*/
+gint agh_msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
+	gint retval;
 
-	if (!m)
-		return 1;
+	retval = 0;
+
+	if (!m) {
+		agh_log_comm_crit("can not send a NULL message");
+		retval++;
+		return retval;
+	}
 
 	if ((!dest_comm) && (!src_comm)) {
 		agh_log_comm_crit("sender and recipient COMMs where NULL");
-		msg_dealloc(m);
-		return 1;
+		retval = agh_msg_dealloc(m);
+
+		if (!retval)
+			retval = 2;
+
+		return retval;
 	}
 
 	if (!dest_comm)
@@ -109,18 +126,20 @@ gint msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_comm 
 
 	if (dest_comm->teardown_in_progress) {
 		agh_log_comm_dbg("not sending message to %s due to teardown being in progress",dest_comm->name);
-		msg_dealloc(m);
-		return 1;
+		retval = agh_msg_dealloc(m);
+
+		if (!retval)
+			retval = 3;
+
+		return retval;
 	}
 
 	m->src = src_comm;
 	m->dest = dest_comm;
 
-	//g_print("%s: message %s -> %s\n",__FUNCTION__,m->src->name, m->dest->name);
-
 	g_main_context_invoke(m->dest->ctx, agh_handle_message_inside_dest_thread, m);
 
-	return 0;
+	return retval;
 }
 
 static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
