@@ -263,9 +263,24 @@ gint agh_comm_teardown(struct agh_comm *comm, gboolean do_not_iterate_gmainconte
 	return 0;
 }
 
-void agh_comm_disable(struct agh_comm *comm, gboolean enabled) {
-	comm->teardown_in_progress = enabled;
-	return;
+/*
+ * Sets a COMM teardown state. This is meant to "prepare" a COMM for being deallocated, when AGH is terminating.
+ *
+ * Returns: an integer with value 0 on success, or value -1 when a NULL COMM is passed.
+*/
+gint agh_comm_set_teardown_state(struct agh_comm *comm, gboolean enabled) {
+	gint retval;
+
+	retval = 0;
+
+	if (!comm) {
+		agh_log_comm_crit("tried to change the teardown state of a NULL COMM");
+		retval = -1;
+	}
+	else
+		comm->teardown_in_progress = enabled;
+
+	return retval;
 }
 
 gint agh_message_source(gchar *source_id, gchar **source_name, gchar **source_content) {
