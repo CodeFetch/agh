@@ -843,7 +843,7 @@ AGH.
 
 If the first field of the Extra information fields contains the "DATA" text chunk, then the structured part of the message
 should end right after this field (e.g.: a closed round bracket should be found).
-After that parenthesis, arbitrary data may be present, of which the structure should be defined outside of the scope of the
+After that parentheses, arbitrary data may be present, of which the structure should be defined outside of the scope of the
 strcutured message.
 
 Some examples of data messages:
