@@ -173,7 +173,7 @@ static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	if (handlers)
 		num_handlers = g_queue_get_length(handlers);
 	else {
-		agh_log_comm_crit("a message has been received in %s, but no handlers queue is allocated",m->dest->name ? m->dest->name : "no name");
+		agh_log_comm_crit("a message has been received in %s, but no handlers queue is allocated",m->dest->name ? m->dest->name : "(no name)");
 		agh_msg_dealloc(m);
 		return FALSE;
 	}
