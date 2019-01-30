@@ -29,7 +29,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 			return NULL;
 		}
 
-		omsg = msg_alloc();
+		omsg = agh_msg_alloc();
 		omsg->msg_type = MSG_SENDTEXT;
 		textcopy_csp = g_malloc0(sizeof(struct text_csp));
 		textcopy_csp->text = g_strdup(csp->text);

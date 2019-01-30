@@ -360,7 +360,7 @@ struct command *cmd_copy(struct command *cmd) {
 	}
 
 	if ((!ocmd->cmd) && (!ocmd->answer)) {
-		cmd_free(ocmd);
+		agh_cmd_free(ocmd);
 		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
 		ocmd = NULL;
 	}
@@ -475,7 +475,7 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
 	if (cmd->cmd_source_id)
 		textcsp->source_id = g_strdup(cmd->cmd_source_id);
 
-	m = msg_alloc();
+	m = agh_msg_alloc();
 	m->csp = textcsp;
 	m->msg_type = MSG_SENDTEXT;
 	m->src = src_comm;
@@ -681,10 +681,10 @@ void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
 		return;
 	}
 
-	m = msg_alloc();
+	m = agh_msg_alloc();
 	m->msg_type = MSG_EVENT;
 	m->csp = cmd;
-	if (msg_send(m, agh_core_comm, NULL)) {
+	if (agh_msg_send(m, agh_core_comm, NULL)) {
 		g_print("%s: can not send message to core\n",__FUNCTION__);
 		return;
 	}

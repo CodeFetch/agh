@@ -395,12 +395,12 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 			if (num_threads) {
 
 				for (i=0;i<num_threads;i++) {
-					command_message = msg_alloc();
+					command_message = agh_msg_alloc();
 					command_message->msg_type = MSG_SENDCMD;
 					ct = g_queue_peek_nth(mstate->agh_threads, i);
 					//g_print("Sending command message to %s thread\n",ct->thread_name);
 					command_message->csp = cmd_copy(cmd);
-					if (msg_send(command_message, mstate->comm, ct->comm)) {
+					if (agh_msg_send(command_message, mstate->comm, ct->comm)) {
 						g_print("%s: error while sending message to %s thread\n",__FUNCTION__,ct->thread_name);
 						continue;
 					}
@@ -412,10 +412,10 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 			/*
 			 * Send command messages to the core itself.
 			*/
-			command_message = msg_alloc();
+			command_message = agh_msg_alloc();
 			command_message->msg_type = MSG_SENDCMD;
 			command_message->csp = cmd;
-			if (msg_send(command_message, mstate->comm, NULL))
+			if (agh_msg_send(command_message, mstate->comm, NULL))
 				g_print("%s: error while sending message to self\n",__FUNCTION__);
 
 		} /* valid command was received */
@@ -453,7 +453,7 @@ static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 		if (num_threads) {
 
 			for (i=0;i<num_threads;i++) {
-				text_message = msg_alloc();
+				text_message = agh_msg_alloc();
 				text_message->msg_type = MSG_SENDTEXT;
 				ncsp = g_malloc0(sizeof(struct text_csp));
 				ncsp->text = g_strdup(csp->text);
@@ -464,7 +464,7 @@ static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 				text_message->csp = ncsp;
 				ct = g_queue_peek_nth(mstate->agh_threads, i);
 				//g_print("Sending text message to %s thread\n",ct->thread_name);
-				if (msg_send(text_message, mstate->comm, ct->comm)) {
+				if (agh_msg_send(text_message, mstate->comm, ct->comm)) {
 					g_print("%s: error while sending text message to %s thread (not referring to an SMS message here)\n",__FUNCTION__,ct->thread_name);
 					continue;
 				}
@@ -521,7 +521,7 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	cmd = cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, mstate->event_id);
 
-	cmd_free(cmd);
+	agh_cmd_free(cmd);
 
 	if (!evtext)
 		return evmsg;
@@ -530,14 +530,14 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	if (mstate->event_id == CMD_EVENT_MAX_ID)
 		mstate->event_id = 0;
 
-	evmsg = msg_alloc();
+	evmsg = agh_msg_alloc();
 
 	textcsp = g_malloc0(sizeof(struct text_csp));
 	textcsp->text = evtext;
 	evmsg->csp = textcsp;
 	evmsg->msg_type = MSG_SENDTEXT;
 
-	if (msg_send(evmsg, mstate->comm, NULL)) {
+	if (agh_msg_send(evmsg, mstate->comm, NULL)) {
 		evmsg = NULL;
 	}
 
@@ -571,12 +571,12 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 	if (num_threads) {
 
 		for (i=0;i<num_threads;i++) {
-			evmsg = msg_alloc();
+			evmsg = agh_msg_alloc();
 			evmsg->msg_type = MSG_EVENT;
 			ncmd = cmd_copy(cmd);
 			evmsg->csp = ncmd;
 			ct = g_queue_peek_nth(mstate->agh_threads, i);
-			if (msg_send(evmsg, mstate->comm, ct->comm)) {
+			if (agh_msg_send(evmsg, mstate->comm, ct->comm)) {
 				g_print("%s: error while sending event message to %s thread\n",__FUNCTION__,ct->thread_name);
 				continue;
 			}
@@ -740,7 +740,7 @@ static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage)
 	if (m->msg_type != MSG_EXIT)
 		return NULL;
 
-	agh_comm_disable(ct->comm, TRUE);
+	agh_comm_set_teardown_state(ct->comm, TRUE);
 	g_main_loop_quit(ct->evl);
 
 	return NULL;
@@ -762,11 +762,11 @@ static void agh_broadcast_exit(struct agh_state *mstate) {
 	num_threads = g_queue_get_length(mstate->agh_threads);
 
 	for (i=0;i<num_threads;i++) {
-		m = msg_alloc();
+		m = agh_msg_alloc();
 		m->msg_type = MSG_EXIT;
 		ct = g_queue_peek_nth(mstate->agh_threads, i);
 
-		if (msg_send(m, mstate->comm, ct->comm))
+		if (agh_msg_send(m, mstate->comm, ct->comm))
 			g_print("%s: error while sending exit message to %s\n",__FUNCTION__,ct->thread_name);
 
 	}
@@ -775,7 +775,7 @@ static void agh_broadcast_exit(struct agh_state *mstate) {
 }
 
 static void agh_exit(struct agh_state *mstate) {
-	agh_comm_disable(mstate->comm, TRUE);
+	agh_comm_set_teardown_state(mstate->comm, TRUE);
 	agh_broadcast_exit(mstate);
 	return;
 }
@@ -842,7 +842,7 @@ gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
 	if (!xcsp->text)
 		return NULL;
 
-	tm = msg_alloc();
+	tm = agh_msg_alloc();
 	tcsp = g_malloc0(sizeof(struct text_csp));
 	tcsp->text = g_strdup(xcsp->text);
 
@@ -853,7 +853,7 @@ gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
 	tm->csp = tcsp;
 	tm->msg_type = MSG_RECVTEXT;
 
-	if (msg_send(tm, mstate->comm, NULL)) {
+	if (agh_msg_send(tm, mstate->comm, NULL)) {
 		g_print("%s: unable to send message\n",__FUNCTION__);
 	}
 

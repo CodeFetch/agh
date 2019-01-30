@@ -327,7 +327,7 @@ static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanz
 
 	m = agh_xmpp_new_message(from, to, xmpp_stanza_get_id(stanza), intext);
 
-	if (msg_send(m, mstate->comm, NULL)) {
+	if (agh_msg_send(m, mstate->comm, NULL)) {
 		g_print("%s: unable to send received XMPP message to core\n",__FUNCTION__);
 	}
 
@@ -493,7 +493,7 @@ static void agh_xmpp_send_out_messages(struct agh_state *mstate) {
 		}
 	}
 
-	msg_dealloc(artificial_message);
+	agh_msg_dealloc(artificial_message);
 
 	return;
 }
@@ -545,7 +545,7 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 
 	g_queue_remove(xstate->outxmpp_messages, artificial_message);
 
-	msg_dealloc(artificial_message);
+	agh_msg_dealloc(artificial_message);
 
 	return;
 }
@@ -956,7 +956,7 @@ static struct agh_message *agh_xmpp_new_message(const gchar *from, const gchar *
 	if ((!id) || (!text))
 		return NULL;
 
-	m = msg_alloc();
+	m = agh_msg_alloc();
 	xcsp = g_malloc0(sizeof(struct xmpp_csp));
 	m->csp = xcsp;
 
