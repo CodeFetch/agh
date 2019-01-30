@@ -31,20 +31,29 @@ GQueue *agh_handlers_setup(void) {
  * We did not foresee a real "failure case" here. The function tries to alert you about the fact that some handlers where
  * still registered when you called it.
  *
- * Returns: an integer with value 0 on success, -1 if some handlers where still registered.
+ * Returns: an integer with value 0 on success, -1 if passed in GQueue was NULL, -1 if some handlers where still registered
 */
 gint agh_handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
 	gint retval;
 
-	num_handlers = g_queue_get_length(handlers);
 	retval = 0;
+
+	if (!handlers) {
+		agh_log_handlers_crit("the passed in AGH handlers queue was NULL");
+		retval--;
+		return retval;
+	}
+
+	num_handlers = g_queue_get_length(handlers);
 
 	if (num_handlers) {
 		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed! Trying to continue.",num_handlers);
-		retval--;
+		g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
+		retval = -2;
 	}
-	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
+
+	g_queue_free(handlers);
 
 	return retval;
 }
