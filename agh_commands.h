@@ -4,35 +4,18 @@
 #include <libconfig.h>
 #include "agh_messages.h"
 
-/* How many characters are acceptable as part of an operation name.*/
-#define CMD_MAX_OP_NAME_LEN 10
-
-/* Overall command input text length limit. */
-#define CMD_MAX_TEXT_LEN 400
-
-/* command source identifier max length */
-#define CMD_MAX_FROM_LEN 70
-
-/* IN keyword: should be used for incoming commands */
-#define CMD_IN_KEYWORD "AT"
-
-/* OUT keyword: for outgoing commands. */
-#define CMD_OUT_KEYWORD "IH"
-
-/* EVENT keyword, for events */
-#define CMD_EVENT_KEYWORD CMD_OUT_KEYWORD"!"
-
-/* status codes */
+/* Status codes. */
 #define CMD_ANSWER_STATUS_UNKNOWN 380
 #define CMD_ANSWER_STATUS_OK 200
 #define CMD_ANSWER_STATUS_FAIL 400
-/* end of status codes */
+/* End of status codes. */
 
-/* or unset event ID */
+/* Unset event IDs. */
 #define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
 #define CMD_EVENT_MAX_ID CMD_EVENT_UNKNOWN_ID
+/* End of unset event IDs. */
 
-/* bugs */
+/* Unset answer text or event name. */
 #define BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
 #define BUG_EMPTY_EVENT_NAME "BUG_EMPTY_EVENT_NAME"
 
