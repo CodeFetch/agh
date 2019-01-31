@@ -4,15 +4,35 @@
 #include "agh_messages.h"
 #include "agh_logging.h"
 
+/* How many characters are acceptable as part of an operation name? */
+#define AGH_CMD_MAX_OP_NAME_LEN 10
+
+/* Overall command input text length limit. */
+#define AGH_CMD_MAX_TEXT_LEN 400
+
+/* command source identifier max length */
+#define AGH_CMD_MAX_FROM_LEN 70
+
+/* IN keyword: should be used for incoming commands */
+#define AGH_CMD_IN_KEYWORD "AT"
+
+/* OUT keyword: for outgoing commands. */
+#define AGH_CMD_OUT_KEYWORD "IH"
+
+/* EVENT keyword, for events */
+#define AGH_CMD_EVENT_KEYWORD AGH_CMD_OUT_KEYWORD"!"
+
 /* Log messages from AGH_LOG_DOMAIN_COMMANDS domain. */
 #define AGH_LOG_DOMAIN_COMMAND	"COMMAND"
+
+/* Logging macros. */
 #define agh_log_cmd_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
-#define agh_log_comm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
+#define agh_log_cmd_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
 static gchar *cmd_answer_to_text(struct command *cmd);
 static config_t *cmd_copy_cfg(config_t *src);
-static config_setting_t *cmd_get_in_keyword_setting(struct command *cmd);
+static config_setting_t *agh_cmd_get_in_keyword_setting(struct command *cmd);
 static gint cmd_get_id(struct command *cmd) __attribute__((unused));
 static void print_config_type(gint type) __attribute__((unused));
 
@@ -71,10 +91,10 @@ static gchar *cmd_answer_to_text(struct command *cmd) {
 		return NULL;
 
 	/* Start with the OUT keyword */
-	output = g_string_new(CMD_OUT_KEYWORD" = ( ");
+	output = g_string_new(AGH_CMD_OUT_KEYWORD" = ( ");
 
-	/* Appends command ID,and status code, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
-	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, CMD_IN_KEYWORD), 0)), cmd->answer->status);
+	/* Appends command ID, and status code, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
+	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD), 0)), cmd->answer->status);
 
 	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
@@ -256,15 +276,15 @@ static config_t *cmd_copy_cfg(config_t *src) {
 	/* 1 - Get root setting. We're guaranteed there is one. */
 	root_setting = config_root_setting(ncfg);
 
-	/* 2 - Add our CMD_IN_KEYWORD list setting. */
-	list_setting = config_setting_add(root_setting, CMD_IN_KEYWORD, CONFIG_TYPE_LIST);
+	/* 2 - Add our AGH_CMD_IN_KEYWORD list setting. */
+	list_setting = config_setting_add(root_setting, AGH_CMD_IN_KEYWORD, CONFIG_TYPE_LIST);
 
 	if (!list_setting) {
 		goto wayout;
 	}
 
 	/* 3 - Add things */
-	src_in_keyword = config_lookup(src, CMD_IN_KEYWORD);
+	src_in_keyword = config_lookup(src, AGH_CMD_IN_KEYWORD);
 
 	while ( (elem = config_setting_get_elem(src_in_keyword, index)) ) {
 		current_setting_type = config_setting_type(elem);
@@ -335,13 +355,13 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
 	return m;
 }
 
-static config_setting_t *cmd_get_in_keyword_setting(struct command *cmd) {
+static config_setting_t *agh_cmd_get_in_keyword_setting(struct command *cmd) {
 
 	if (!cmd)
 		return NULL;
 
 	/* Should something go wrong, this returns NULL as well. */
-	return config_lookup(cmd->cmd, CMD_IN_KEYWORD);
+	return config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD);
 }
 
 static gint cmd_get_id(struct command *cmd) {
@@ -354,7 +374,7 @@ static gint cmd_get_id(struct command *cmd) {
 	if (!cmd)
 		return id;
 
-	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
 		return id;
 
 	id = config_setting_get_int(config_setting_get_elem(in_keyword, 0));
@@ -371,7 +391,7 @@ const gchar *cmd_get_operation(struct command *cmd) {
 	if (!cmd)
 		return operation;
 
-	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
 		return operation;
 
 	operation = config_setting_get_string(config_setting_get_elem(in_keyword, 1));
@@ -395,7 +415,7 @@ config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_
 	if (!arg_index)
 		return NULL;
 
-	if (! (in_keyword = cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
 		return outset;
 
 	outset = config_setting_get_elem(in_keyword, 1+arg_index);
@@ -468,7 +488,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 		return NULL;
 
 	/* Start with the EVENT keyword */
-	output = g_string_new(CMD_EVENT_KEYWORD" = ( ");
+	output = g_string_new(AGH_CMD_EVENT_KEYWORD" = ( ");
 
 	/* Appends event ID, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
 	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", event_id, cmd->answer->status);
@@ -595,15 +615,31 @@ void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolea
 }
 
 struct command *text_to_cmd(gchar *from, gchar *content) {
+
+	/* A new command, returned by the function in case of success. */
 	struct command *ocmd;
-	gchar *atext;
+
+	/* The config structure holding the user input. May not be a valid command. */
 	config_t *cmd_cfg;
-	gint cmd_id;
+
+	/* Input from user is converted to ascii text; this is a pointer to the converted text. */
+	gchar *atext;
+
+	/* libconfig setting pointer; should point to the AGH_CMD_IN_KEYWORD keyword when found */
 	config_setting_t *in_keyword;
+
+	/* command ID: libconfig setting pointer and integer ID value */
 	config_setting_t *id;
+	gint cmd_id;
+
+	/* command operation: libconfig setting element and the corresponding pointer */
 	config_setting_t *op;
 	const gchar *cmd_operation;
+
+	/* Used for holding lengths; command overall length and operation name length. */
 	guint lengths;
+
+	/* Source ID, converted to ASCII. */
 	gchar *afrom;
 
 	ocmd = NULL;
@@ -616,25 +652,39 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	lengths = 0;
 	afrom = NULL;
 
-	lengths = strlen(content);
-	if (lengths > CMD_MAX_TEXT_LEN) {
-		g_print("CMD_MAX_TEXT_LEN exceeded.\n");
+	if (!content) {
+		agh_log_cmd_dbg("content was NULL");
 		return ocmd;
 	}
 
-	/* We are not checking for errors, since GLib guarantees us we'll not survive an allocation failure by default. This needs
-	 * to be reviewed of course.
-	*/
-	cmd_cfg = g_malloc0(sizeof(config_t));
+	lengths = strlen(content);
+	if (lengths > AGH_CMD_MAX_TEXT_LEN) {
+		agh_log_cmd_dbg("AGH_CMD_MAX_TEXT_LEN exceeded (%d)",AGH_CMD_MAX_TEXT_LEN);
+		return ocmd;
+	}
+
+	cmd_cfg = g_try_malloc0(sizeof(config_t));
+	if (!cmd_cfg) {
+		agh_log_cmd_dbg("can not allocate memory for config structure");
+		return ocmd;
+	}
 
 	config_init(cmd_cfg);
 
-	/* Convert given input to ascii, just in case. */
+	/* Convert given input to ascii, just in case.
+	* Note: we will not check if the pointer returned by g_str_to_ascii is NULL, due to the fact we know the passed argument isn't.
+	*/
 	atext = g_str_to_ascii(content, "C");
+
+	/* Is this useless? */
+	if (!atext) {
+		agh_log_cmd_crit("oh, so it is possible to send an input which results in a NULL ptr from g_str_to_ascii!");
+		goto wayout;
+	}
 
 	if (!config_read_string(cmd_cfg, atext)) {
 		/* Invalid input. */
-		g_print("Invalid input.\n");
+		agh_log_cmd_dbg("invalid input: \n\t\t%s\n",atext);
 		goto wayout;
 	}
 
@@ -642,7 +692,7 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	 * A command should clearly respect the libconfig configuration grammar. In our context, it should be formed of the
 	 * following elements:
 	 *
-	 * - the CMD_IN_KEYWORD keyword / setting
+	 * - the AGH_CMD_IN_KEYWORD keyword / setting
 	 * - an equal sign
 	 * - a list, which should contain an operation ID (long unsigned int), and an operation name (char *).
 	 *
@@ -655,26 +705,26 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	 * always builds a group root setting, which contains whatever gets processed.
 	*/
 	if (config_setting_length(config_root_setting(cmd_cfg)) != 1) {
-		g_print("Excess data.\n");
+		agh_log_cmd_dbg("excess data while processing command config structure");
 		goto wayout;
 	}
 
-	/* 2 - CMD_IN_KEYWORD keyword */
-	in_keyword = config_lookup(cmd_cfg, CMD_IN_KEYWORD);
+	/* 2 - AGH_CMD_IN_KEYWORD keyword */
+	in_keyword = config_lookup(cmd_cfg, AGH_CMD_IN_KEYWORD);
 
 	if (!in_keyword) {
-		g_print(CMD_IN_KEYWORD" keyword not detected. Not processing.\n");
+		agh_log_cmd_dbg(AGH_CMD_IN_KEYWORD" attention keyword not found");
 		goto wayout;
 	}
 
-	/* 3 - The CMD_IN_KEYWORD setting should be a list, and contain at minimum of 2 keywords. */
+	/* 3 - The AGH_CMD_IN_KEYWORD setting should be a list, and contain a minimum of 2 keywords. */
 	if (!config_setting_is_list(in_keyword)) {
-		g_print("Unexpected command structure.\n");
+		agh_log_cmd_dbg("unexpected command config structure (not a config list)");
 		goto wayout;
 	}
 
 	if (config_setting_length(in_keyword) < 2) {
-		g_print("At least an operation and a command ID are required.\n");
+		agh_log_cmd_dbg("at least an operation and a command ID are required");
 		goto wayout;
 	}
 
@@ -682,7 +732,7 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	id = config_setting_get_elem(in_keyword, 0);
 	cmd_id = config_setting_get_int(id);
 	if (cmd_id < 1) {
-		g_print("Invalid command ID.\n");
+		agh_log_cmd_dbg("invalid command ID");
 		goto wayout;
 	}
 
@@ -690,49 +740,57 @@ struct command *text_to_cmd(gchar *from, gchar *content) {
 	op = config_setting_get_elem(in_keyword, 1);
 	cmd_operation = config_setting_get_string(op);
 	if (!cmd_operation) {
-		g_print("Operation can not be valid.\n");
+		agh_log_cmd_crit("NULL operation name is not considered legal");
 		goto wayout;
 	}
 
 	/* 6 - Operation name should consist at least of a single character. */
 	lengths = strlen(cmd_operation);
 	if (!lengths) {
-		g_print("An operation name should consist at least of a single character.\n");
+		agh_log_cmd_dbg("an operation name should consist of at least one character");
 		goto wayout;
 	}
 
 	/* 7 - Operation name may consist of CMD_MAX_OP_NAME_LEN characters at most. */
-	if (lengths > CMD_MAX_OP_NAME_LEN) {
-		g_print("CMD_MAX_OP_NAME_LEN exceeded.\n");
+	if (lengths > AGH_CMD_MAX_OP_NAME_LEN) {
+		agh_log_cmd_dbg("AGH_CMD_MAX_OP_NAME_LEN exceeded (%d)", AGH_CMD_MAX_OP_NAME_LEN);
 		goto wayout;
 	}
 
 	if (from) {
 		afrom = g_str_to_ascii(from, "C");
 
+		if (!afrom) {
+			agh_log_cmd_crit("source ID is NULL after ascii conversion");
+			goto wayout;
+		}
+
 		lengths = strlen(afrom);
 
-		if (lengths < 1 || lengths > CMD_MAX_FROM_LEN) {
-			g_print("Invalid source identifier.\n");
+		if (lengths < 1 || lengths > AGH_CMD_MAX_FROM_LEN) {
+			agh_log_cmd_crit("source identifier exceeds AGH_CMD_MAX_FROM_LEN (%d)",AGH_CMD_MAX_FROM_LEN);
 			g_free(afrom);
-			afrom = NULL;
 			goto wayout;
 		}
 
 	}
 
-	g_print("OK.\n");
+	ocmd = g_try_malloc0(sizeof(*ocmd));
 
-	ocmd = g_malloc0(sizeof(struct command));
+	if (!ocmd) {
+		agh_log_cmd_crit("can not allocate memory for command structure, ID=%" G_GINT16_FORMAT"",cmd_id);
+		g_free(afrom);
+		goto wayout;
+	}
+
 	ocmd->cmd = cmd_cfg;
 
 	if (afrom)
 		ocmd->cmd_source_id = afrom;
 
-	/* Makes me feel more peaceful, but it's useless. */
-	ocmd->answer = NULL;
-
 	g_free(atext);
+
+	agh_log_cmd_dbg("cmd OK, ID=%" G_GINT16_FORMAT"",cmd_id);
 	return ocmd;
 
 wayout:
