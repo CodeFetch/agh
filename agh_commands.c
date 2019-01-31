@@ -614,7 +614,7 @@ void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolea
 	return;
 }
 
-struct command *text_to_cmd(gchar *from, gchar *content) {
+struct command *agh_text_to_cmd(gchar *from, gchar *content) {
 
 	/* A new command, returned by the function in case of success. */
 	struct command *ocmd;

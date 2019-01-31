@@ -31,7 +31,7 @@ struct command {
 	gchar *cmd_source_id;
 };
 
-struct command *text_to_cmd(gchar *from, gchar *content);
+struct command *agh_text_to_cmd(gchar *from, gchar *content);
 
 /* command results */
 
