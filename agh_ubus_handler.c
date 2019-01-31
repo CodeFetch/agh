@@ -8,21 +8,21 @@
 #include "agh_ubus_logstream.h"
 
 /* Functions prototypes. */
-static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct command *cmd);
-static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct command *cmd);
-static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct command *cmd);
+static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
+static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
+static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
 static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg);
-static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct command *cmd);
+static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
 
 gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *m = hmessage;
 
-	struct command *cmd;
+	struct agh_cmd *cmd;
 	struct agh_ubus_ctx *uctx;
 	struct agh_message *answer;
-	void (*agh_ubus_cmd_handler_cb)(struct agh_ubus_ctx *uctx, struct command *cmd);
+	void (*agh_ubus_cmd_handler_cb)(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
 	config_setting_t *arg;
 	const gchar *argstr;
 
@@ -86,7 +86,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
  * You may think, as I did, that this is actually an asynchronous function, and that agh_ubus_list_receive_results is the callback invoked when operation is completed.
  * Actually, it seems the operation is synchronous, or at least this is what running this code showed. This is why it made sense to me to implement, and use, the cmd_answer_if_empty function.
 */
-static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct command *cmd) {
+static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	const gchar *path;
 	config_setting_t *arg;
 
@@ -105,7 +105,7 @@ static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct command *cmd
 	return;
 }
 
-static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct command *cmd) {
+static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	const gchar *path;
 	config_setting_t *arg;
 	const gchar *method;
@@ -173,7 +173,7 @@ static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct command *cmd
 	return;
 }
 
-static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct command *cmd) {
+static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	config_setting_t *arg;
 	const gchar *arg_str;
 	guint i;
@@ -247,7 +247,7 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct command *c
 }
 
 static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg) {
-	struct command *agh_event;
+	struct agh_cmd *agh_event;
 	gchar *event_message;
 
 	agh_event = cmd_event_prepare();
@@ -265,7 +265,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 	return;
 }
 
-static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct command *cmd) {
+static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	config_setting_t *arg;
 	const gchar *argstr;
 	gint logstream_ret;

@@ -53,7 +53,7 @@ static void agh_mm_sm_stateaction(struct agh_state *mstate, MMModem *modem, MMMo
 
 static void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
 	struct agh_state *mstate = user_data;
-	struct command *event;
+	struct agh_cmd *event;
 	gchar *modem_idx;
 
 	event = NULL;

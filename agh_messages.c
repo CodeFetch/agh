@@ -42,7 +42,7 @@ struct agh_message *agh_msg_alloc(void) {
 */
 gint agh_msg_dealloc(struct agh_message *m) {
 	struct text_csp *csptext;
-	struct command *cmd;
+	struct agh_cmd *cmd;
 	struct xmpp_csp *xmppdata;
 	gint retval;
 

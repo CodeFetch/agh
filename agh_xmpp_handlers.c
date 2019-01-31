@@ -48,7 +48,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
-	struct command __attribute__((unused)) *cmd;
+	struct agh_cmd __attribute__((unused)) *cmd;
 	struct agh_state *mstate;
 	struct xmpp_state __attribute__((unused)) *xstate;
 

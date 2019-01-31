@@ -259,7 +259,7 @@ static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *l
 	GIOStatus status;
 	gsize data_read;
 	gchar *parsed_text_log_message;
-	struct command *log_event;
+	struct agh_cmd *log_event;
 
 	message_part = NULL;
 	data_read = 0;

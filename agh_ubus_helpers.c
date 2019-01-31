@@ -55,7 +55,7 @@ const gchar *agh_ubus_helper_format_type(gpointer priv, struct blob_attr *attr) 
 
 /* The name and much of the code in this function has been inspired by ubus cli.c, function "receive_list_result". */
 void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus_object_data *obj, gpointer data) {
-	struct command *cmd = data;
+	struct agh_cmd *cmd = data;
 
 	guint rem;
 	struct blob_attr *cur;

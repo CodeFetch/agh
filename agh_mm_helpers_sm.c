@@ -27,7 +27,7 @@ static gchar *agh_mm_sm_call_outside_build_message(struct agh_state *mstate, MMB
 static gchar *agh_mm_sm_call_outside_build_message_add_element(const gchar *name, const gchar *value, gboolean last);
 
 void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
-	struct command *event;
+	struct agh_cmd *event;
 	gchar *modem_idx;
 
 	event = NULL;
@@ -48,7 +48,7 @@ void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 }
 
 void agh_mm_report_locked_reason(struct agh_state *mstate, MMModem *modem) {
-	struct command *event;
+	struct agh_cmd *event;
 	gchar *modem_idx;
 
 	event = NULL;
@@ -111,7 +111,7 @@ static void agh_mm_sm_sim_unlock_sim_for_pin_send_ready(MMModem *modem, GAsyncRe
 }
 
 static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
-	struct command *event;
+	struct agh_cmd *event;
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
 	event = NULL;
@@ -261,7 +261,7 @@ static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_secti
 
 static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
 	gboolean sres;
-	struct command *event;
+	struct agh_cmd *event;
 
 	sres = FALSE;
 	event = NULL;
@@ -294,7 +294,7 @@ static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, str
 }
 
 void agh_mm_sm_report_failure_modem(struct agh_state *mstate, MMModem *modem, gchar *mmarker) {
-	struct command *event;
+	struct agh_cmd *event;
 	gchar *modem_idx;
 
 	event = NULL;
@@ -490,7 +490,7 @@ out:
 }
 
 static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *eventname, gchar *mmarker, gchar *name, gchar *reason, gboolean is_data) {
-	struct command *event;
+	struct agh_cmd *event;
 
 	event = NULL;
 
@@ -767,7 +767,7 @@ static void agh_mm_sm_general_init_propschanges(struct agh_state *mstate, struct
 static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props, GStrv inv_props, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	GString *content;
-	struct command *event;
+	struct agh_cmd *event;
 	gchar *modem_idx;
 
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));

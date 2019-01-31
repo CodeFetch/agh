@@ -1092,7 +1092,7 @@ static void agh_xmpp_start_stressing(struct agh_state *mstate) {
 static gboolean agh_xmpp_stressing_callback(gpointer data) {
 	struct agh_state *mstate = data;
 	struct xmpp_state *xstate = mstate->xstate;
-	struct command *event;
+	struct agh_cmd *event;
 
 	event = NULL;
 

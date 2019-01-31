@@ -30,26 +30,26 @@
 #define agh_log_cmd_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 
 /* Function prototypes. */
-static gchar *cmd_answer_to_text(struct command *cmd);
+static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd);
 static config_t *cmd_copy_cfg(config_t *src);
-static config_setting_t *agh_cmd_get_in_keyword_setting(struct command *cmd);
-static gint cmd_get_id(struct command *cmd) __attribute__((unused));
+static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd);
+static gint cmd_get_id(struct agh_cmd *cmd) __attribute__((unused));
 static void print_config_type(gint type) __attribute__((unused));
 
 /* And some useful functions to access events */
-static const gchar *event_name(struct command *cmd) __attribute__((unused));
-static const gchar *event_arg(struct command *cmd, guint arg_index) __attribute__((unused));
+static const gchar *event_name(struct agh_cmd *cmd) __attribute__((unused));
+static const gchar *event_arg(struct agh_cmd *cmd, guint arg_index) __attribute__((unused));
 
-void cmd_answer_set_status(struct command *cmd, guint status) {
+void cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 	cmd->answer->status = status;
 	return;
 }
 
-guint cmd_answer_get_status(struct command *cmd) {
+guint cmd_answer_get_status(struct agh_cmd *cmd) {
 	return cmd->answer->status;
 }
 
-guint cmd_answer_addtext(struct command *cmd, const gchar *text) {
+guint cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text) {
 	guint retval;
 
 	retval = 0;
@@ -62,7 +62,7 @@ guint cmd_answer_addtext(struct command *cmd, const gchar *text) {
 	return retval;
 }
 
-guint cmd_answer_peektext(struct command *cmd, gchar *text) {
+guint cmd_answer_peektext(struct agh_cmd *cmd, gchar *text) {
 	guint retval;
 
 	retval = 0;
@@ -76,10 +76,10 @@ guint cmd_answer_peektext(struct command *cmd, gchar *text) {
 }
 
 /*
- * This function transforms a command_result structure content to text. It is destructive, and infact it also deallocates the
+ * This function transforms an agh_cmd_res structure content to text. It is destructive, and infact it also deallocates the
  * structure. Yeah, this is arguable design.
 */
-static gchar *cmd_answer_to_text(struct command *cmd) {
+static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	GString *output;
 	guint ntextparts;
 	guint i;
@@ -139,7 +139,7 @@ static gchar *cmd_answer_to_text(struct command *cmd) {
 	return g_string_free(output, FALSE);
 }
 
-guint cmd_answer_prepare(struct command *cmd) {
+guint cmd_answer_prepare(struct agh_cmd *cmd) {
 	guint retval;
 
 	retval = 0;
@@ -150,7 +150,7 @@ guint cmd_answer_prepare(struct command *cmd) {
 	}
 	else
 	{
-		cmd->answer = g_malloc0(sizeof(struct command_result));
+		cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
 
 		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
 		cmd->answer->restextparts = g_queue_new();
@@ -166,7 +166,7 @@ guint cmd_answer_prepare(struct command *cmd) {
  * -10 when command structure is NULL
  * -11 when a command answer structure was present, but no restextparts queue
 */
-gint agh_cmd_free(struct command *cmd) {
+gint agh_cmd_free(struct agh_cmd *cmd) {
 	gint retval;
 
 	retval = 0;
@@ -203,12 +203,12 @@ gint agh_cmd_free(struct command *cmd) {
 	return retval;
 }
 
-struct command *cmd_copy(struct command *cmd) {
-	struct command *ocmd;
+struct agh_cmd *cmd_copy(struct agh_cmd *cmd) {
+	struct agh_cmd *ocmd;
 	config_t *cfg;
-	struct command_result *cmd_answer;
+	struct agh_cmd_res *cmd_answer;
 
-	ocmd = g_malloc0(sizeof(struct command));
+	ocmd = g_malloc0(sizeof(struct agh_cmd));
 	cfg = NULL;
 	cmd_answer = NULL;
 
@@ -219,7 +219,7 @@ struct command *cmd_copy(struct command *cmd) {
 
 	if (cmd->answer) {
 		/* Anser processing. */
-		cmd_answer = g_malloc0(sizeof(struct command_result));
+		cmd_answer = g_malloc0(sizeof(struct agh_cmd_res));
 		cmd_answer->status = cmd->answer->status;
 
 		cmd_answer->restextparts = g_queue_new();
@@ -329,14 +329,14 @@ wayout:
 	return ncfg;
 }
 
-struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
+struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 	struct agh_message *m;
 	struct text_csp *textcsp;
 
 	m = NULL;
 	textcsp = g_malloc0(sizeof(struct text_csp));
 
-	textcsp->text = cmd_answer_to_text(cmd);
+	textcsp->text = agh_cmd_answer_to_text(cmd);
 
 	if (!textcsp->text) {
 		g_free(textcsp);
@@ -355,7 +355,7 @@ struct agh_message *cmd_answer_msg(struct command *cmd, struct agh_comm *src_com
 	return m;
 }
 
-static config_setting_t *agh_cmd_get_in_keyword_setting(struct command *cmd) {
+static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd) {
 
 	if (!cmd)
 		return NULL;
@@ -364,7 +364,7 @@ static config_setting_t *agh_cmd_get_in_keyword_setting(struct command *cmd) {
 	return config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD);
 }
 
-static gint cmd_get_id(struct command *cmd) {
+static gint cmd_get_id(struct agh_cmd *cmd) {
 	config_setting_t *in_keyword;
 	gint id;
 
@@ -381,7 +381,7 @@ static gint cmd_get_id(struct command *cmd) {
 	return id;
 }
 
-const gchar *cmd_get_operation(struct command *cmd) {
+const gchar *cmd_get_operation(struct agh_cmd *cmd) {
 	config_setting_t *in_keyword;
 	const gchar *operation;
 
@@ -398,7 +398,7 @@ const gchar *cmd_get_operation(struct command *cmd) {
 	return operation;
 }
 
-config_setting_t *cmd_get_arg(struct command *cmd, guint arg_index, gint config_type) {
+config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type) {
 	config_setting_t *outset;
 	config_setting_t *in_keyword;
 
@@ -455,14 +455,14 @@ static void print_config_type(gint type) {
 	return;
 }
 
-struct command *cmd_event_prepare(void) {
-	struct command *cmd;
+struct agh_cmd *cmd_event_prepare(void) {
+	struct agh_cmd *cmd;
 
 	cmd = NULL;
 
-	cmd = g_malloc0(sizeof(struct command));
+	cmd = g_malloc0(sizeof(struct agh_cmd));
 
-	cmd->answer = g_malloc0(sizeof(struct command_result));
+	cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
 
 	cmd->answer->status = CMD_EVENT_UNKNOWN_ID;
 	cmd->answer->restextparts = g_queue_new();
@@ -471,11 +471,11 @@ struct command *cmd_event_prepare(void) {
 }
 
 /*
- * This function transforms an event's command_result structure content to text. It is destructive, and infact it also
- * deallocates the command_result structure contained in the command used as event. Yeah, this is arguable design. A lot of code here is in common with the cmd_answer_to_text
+ * This function transforms an event's agh_cmd_res structure content to text. It is destructive, and infact it also
+ * deallocates the agh_cmd_res structure contained in the command used as event. And again, this is arguable design. A lot of code here is in common with the agh_cmd_answer_to_text
  * function, and infact it has been copied from there. Maybe unifying those function is a good idea.
 */
-gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
+gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id) {
 	GString *output;
 	guint ntextparts;
 	guint i;
@@ -525,7 +525,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 		g_string_append_printf(output, " )");
 
 	/*
-	* See cmd_answer_to_text for clarification.
+	* See agh_cmd_answer_to_text for clarification.
 	*/
 	g_queue_free(cmd->answer->restextparts);
 
@@ -539,7 +539,7 @@ gchar *cmd_event_to_text(struct command *cmd, gint event_id) {
 	return g_string_free(output, FALSE);
 }
 
-void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
+void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 	struct agh_message *m;
 
 	m = NULL;
@@ -567,7 +567,7 @@ void cmd_emit_event(struct agh_comm *agh_core_comm, struct command *cmd) {
  * Gets event name. It should not in general return NULL, but it may do so. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
  * Note that the pointer returned here is "inside" the structure itself, and that's why it's const. So don't try to modify, or free it. And clearly do not use it once you freed or sent the event.
 */
-static const gchar *event_name(struct command *cmd) {
+static const gchar *event_name(struct agh_cmd *cmd) {
 	const gchar *textop;
 
 	textop = NULL;
@@ -583,7 +583,7 @@ static const gchar *event_name(struct command *cmd) {
 /*
  * Gets an event argument. It returns NULL if specified argument is not present. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
 */
-static const gchar *event_arg(struct command *cmd, guint arg_index) {
+static const gchar *event_arg(struct agh_cmd *cmd, guint arg_index) {
 	const gchar *arg;
 
 	arg = NULL;
@@ -596,12 +596,12 @@ static const gchar *event_arg(struct command *cmd, guint arg_index) {
 	return arg;
 }
 
-void cmd_answer_set_data(struct command *cmd, gboolean is_data) {
+void cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data) {
 	cmd->answer->is_data = is_data;
 	return;
 }
 
-void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolean set_is_data) {
+void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean set_is_data) {
 	if (!cmd || !text)
 		return;
 
@@ -614,10 +614,10 @@ void cmd_answer_if_empty(struct command *cmd, guint status, gchar *text, gboolea
 	return;
 }
 
-struct command *agh_text_to_cmd(gchar *from, gchar *content) {
+struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 
 	/* A new command, returned by the function in case of success. */
-	struct command *ocmd;
+	struct agh_cmd *ocmd;
 
 	/* The config structure holding the user input. May not be a valid command. */
 	config_t *cmd_cfg;

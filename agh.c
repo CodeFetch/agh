@@ -372,7 +372,7 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct text_csp *csp = m->csp;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *command_message;
-	struct command *cmd;
+	struct agh_cmd *cmd;
 	guint num_threads;
 	guint i;
 	struct agh_thread *ct;
@@ -385,7 +385,7 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 
 	if (m->msg_type == MSG_RECVTEXT) {
 		/* Parse incoming text. */
-		cmd = text_to_cmd(csp->source_id, csp->text);
+		cmd = agh_text_to_cmd(csp->source_id, csp->text);
 
 		if (cmd) {
 			/* Send this message around. */
@@ -482,7 +482,7 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
-	struct command *cmd;
+	struct agh_cmd *cmd;
 
 	cmd = m->csp;
 
@@ -504,7 +504,7 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
-	struct command *cmd;
+	struct agh_cmd *cmd;
 	gchar *evtext;
 	struct agh_message *evmsg;
 	struct text_csp *textcsp;
@@ -548,10 +548,10 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 	struct handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
-	struct command *cmd;
+	struct agh_cmd *cmd;
 	struct agh_message *evmsg;
 	guint num_threads;
-	struct command *ncmd;
+	struct agh_cmd *ncmd;
 	guint i;
 	struct agh_thread *ct;
 
