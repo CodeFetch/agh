@@ -35,7 +35,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content);
 
 /* command results */
 
-void cmd_answer_set_status(struct agh_cmd *cmd, guint status);
+gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status);
 void cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data);
 void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean set_is_data);
 guint cmd_answer_get_status(struct agh_cmd *cmd);
