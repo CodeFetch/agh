@@ -619,7 +619,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 	/* A new command, returned by the function in case of success. */
 	struct agh_cmd *ocmd;
 
-	/* The config structure holding the user input. May not be a valid command. */
+	/* The config structure holding the user input. May not be considered a valid command. */
 	config_t *cmd_cfg;
 
 	/* Input from user is converted to ascii text; this is a pointer to the converted text. */
@@ -636,21 +636,13 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 	config_setting_t *op;
 	const gchar *cmd_operation;
 
-	/* Used for holding lengths; command overall length and operation name length. */
+	/* Used for holding lengths; command overall length, operation name length and the source ID one. */
 	guint lengths;
 
 	/* Source ID, converted to ASCII. */
 	gchar *afrom;
 
 	ocmd = NULL;
-	atext = NULL;
-	in_keyword = NULL;
-	cmd_id = 0;
-	id = NULL;
-	op = NULL;
-	cmd_operation = NULL;
-	lengths = 0;
-	afrom = NULL;
 
 	if (!content) {
 		agh_log_cmd_dbg("content was NULL");
@@ -671,9 +663,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 
 	config_init(cmd_cfg);
 
-	/* Convert given input to ascii, just in case.
-	* Note: we will not check if the pointer returned by g_str_to_ascii is NULL, due to the fact we know the passed argument isn't.
-	*/
+	/* Convert given input to ascii, just in case. */
 	atext = g_str_to_ascii(content, "C");
 
 	/* Is this useless? */
