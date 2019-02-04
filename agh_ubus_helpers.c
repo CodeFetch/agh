@@ -65,7 +65,7 @@ void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus
 	tmp = NULL;
 	rem = 0;
 
-	cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
 	cmd_answer_peektext(cmd, g_strdup_printf("\n\"OBJECT=%s, ID=@%08x\"\n", obj->path, obj->id));
 
 	if (!obj->signature) {

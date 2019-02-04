@@ -34,7 +34,7 @@ void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -55,7 +55,7 @@ void agh_mm_report_locked_reason(struct agh_state *mstate, MMModem *modem) {
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -120,7 +120,7 @@ static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
 		return;
 
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_SM_GENERIC_FAILURE);
 
 	if (message)
@@ -270,7 +270,7 @@ static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, str
 
 	if (!sres) {
 		event = cmd_event_prepare();
-		cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(event, AGH_MM_SIM_EVENT_NAME);
 		cmd_answer_addtext(event, mm_sim_get_identifier(sim));
 		cmd_answer_addtext(event, "send_pin_failure");
@@ -301,7 +301,7 @@ void agh_mm_sm_report_failure_modem(struct agh_state *mstate, MMModem *modem, gc
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -495,7 +495,7 @@ static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *even
 	event = NULL;
 
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, status);
+	agh_cmd_answer_set_status(event, status);
 	cmd_answer_addtext(event, eventname);
 
 	if (mmarker)
@@ -778,7 +778,7 @@ static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props
 
 	content = g_variant_print_string(changed_props, content, TRUE);
 	event = cmd_event_prepare();
-	cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"");
 	cmd_answer_set_data(event, TRUE);
 	cmd_answer_peektext(event, g_string_free(content, FALSE));
