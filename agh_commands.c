@@ -614,6 +614,22 @@ void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolea
 	return;
 }
 
+/*
+ * This function gets a string pointer as input ( gchar * ), returning an agh_cmd structure as output.
+ * If the passed in string isn't considered a valid command because of it's invalid structure, or because the resulting
+ * libconfig configuration isn't the one required / expected by this program, then NULL is returned.
+ * Furthermore, a memory allocation failure will result in a NULL pointer being returned.
+ *
+ * Returns: an agh_cmd structure holding a valid command (in terms of structure).
+ * A NULL pointer is returned when:
+ *   - memory allocation failure when allocating the agh_cmd or the config_t structure
+ *   - a NULL pointer was returned g_str_to_ascii during ascii conversion of input
+ *   - the input violated libconfig grammar rules
+ *   - configuration root setting length was different from 1
+ *   - AGH_CMD_IN_KEYWORD attention keyword was not found
+ *   - either an ID nor an operation name are absent or invalid
+ *   - a source ID was present, but it's ascii representation was not in the 1<len<AGH_CMD_MAX_FROM_LEN length range.
+*/
 struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 
 	/* A new command, returned by the function in case of success. */
@@ -643,6 +659,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 	gchar *afrom;
 
 	ocmd = NULL;
+	afrom = NULL;
 
 	if (!content) {
 		agh_log_cmd_dbg("content was NULL");
@@ -668,7 +685,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 
 	/* Is this useless? */
 	if (!atext) {
-		agh_log_cmd_crit("oh, so it is possible to send an input which results in a NULL ptr from g_str_to_ascii!");
+		agh_log_cmd_crit("oh, so it is possible to send an input which results in a NULL ptr as output from ascii conversion");
 		goto wayout;
 	}
 
@@ -741,25 +758,25 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 		goto wayout;
 	}
 
-	/* 7 - Operation name may consist of CMD_MAX_OP_NAME_LEN characters at most. */
+	/* 7 - Operation name may consist of AGH_CMD_MAX_OP_NAME_LEN characters at most. */
 	if (lengths > AGH_CMD_MAX_OP_NAME_LEN) {
 		agh_log_cmd_dbg("AGH_CMD_MAX_OP_NAME_LEN exceeded (%d)", AGH_CMD_MAX_OP_NAME_LEN);
 		goto wayout;
 	}
 
+	/* 8 - If present, the ascii representation of the source ID should be of 1<len<AGH_CMD_MAX_FROM_LEN length. */
 	if (from) {
+		lengths = strlen(from);
+
+		if (lengths < 1 || lengths > AGH_CMD_MAX_FROM_LEN) {
+			agh_log_cmd_crit("source identifier exceeds AGH_CMD_MAX_FROM_LEN (%d)",AGH_CMD_MAX_FROM_LEN);
+			goto wayout;
+		}
+
 		afrom = g_str_to_ascii(from, "C");
 
 		if (!afrom) {
 			agh_log_cmd_crit("source ID is NULL after ascii conversion");
-			goto wayout;
-		}
-
-		lengths = strlen(afrom);
-
-		if (lengths < 1 || lengths > AGH_CMD_MAX_FROM_LEN) {
-			agh_log_cmd_crit("source identifier exceeds AGH_CMD_MAX_FROM_LEN (%d)",AGH_CMD_MAX_FROM_LEN);
-			g_free(afrom);
 			goto wayout;
 		}
 
@@ -768,8 +785,7 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 	ocmd = g_try_malloc0(sizeof(*ocmd));
 
 	if (!ocmd) {
-		agh_log_cmd_crit("can not allocate memory for command structure, ID=%" G_GINT16_FORMAT"",cmd_id);
-		g_free(afrom);
+		agh_log_cmd_crit("can not allocate memory for agh_cmd structure, ID=%" G_GINT16_FORMAT"",cmd_id);
 		goto wayout;
 	}
 
@@ -785,8 +801,8 @@ struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content) {
 
 wayout:
 	g_free(atext);
+	g_free(afrom);
 	config_destroy(cmd_cfg);
 	g_free(cmd_cfg);
-	cmd_cfg = NULL;
 	return ocmd;
 }
