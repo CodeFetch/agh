@@ -39,12 +39,15 @@ struct agh_cmd_res {
 /*
  * Sets the status of an agh_cmd command's answer (agh_cmd_res structure).
  *
- * Returns: 1 if a NULL agh_cmd structure is passed in, or an agh_cmd structure with an "answer" pointer set to NULL.
+ * Returns 1 if:
+ *  - a NULL agh_cmd structure was passed
+ *  - an agh_cmd structure with a NULL agh_cmd_res member was given
+ *  - status value was set to 0 (not legal).
 */
 gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 	gint retval;
 
-	if ((!cmd) || (!cmd->answer)) {
+	if ((!cmd) || (!cmd->answer) || !status) {
 		agh_log_cmd_crit("can not set the answer status for a NULL agh_cmd structure, or one with an answer pointer set to NULL");
 		retval = 1;
 	}
@@ -56,7 +59,10 @@ gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 	return retval;
 }
 
-guint cmd_answer_get_status(struct agh_cmd *cmd) {
+/*
+ * Returns the current status value for a command
+*/
+guint agh_cmd_answer_get_status(struct agh_cmd *cmd) {
 	return cmd->answer->status;
 }
 
