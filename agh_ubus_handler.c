@@ -48,7 +48,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 
 	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_NO_CONNECTION);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_NO_CONNECTION);
 		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
@@ -56,7 +56,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
 	if (!arg) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_SUBCOMMAND);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_SUBCOMMAND);
 		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
@@ -73,7 +73,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 
 	if (!agh_ubus_cmd_handler_cb) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_INVALID_SUBCOMMAND);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_INVALID_SUBCOMMAND);
 	} else {
 		agh_ubus_cmd_handler_cb(uctx, cmd);
 	}
@@ -142,19 +142,19 @@ static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 
 		switch(status) {
 			case AGH_UBUS_CALL_MISSING_PATH:
-				cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_PATH);
+				agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_PATH);
 				break;
 			case AGH_UBUS_CALL_MISSING_METHOD:
-				cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_METHOD);
+				agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_METHOD);
 				break;
 			case AGH_UBUS_CALL_BLOB_BUF_INIT_FAILURE:
-				cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_BBUF_INIT_ERROR);
+				agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_BBUF_INIT_ERROR);
 				break;
 			case AGH_UBUS_CALL_INVALID_JSON_MESSAGE:
-				cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_INVALID_JSON_MESSAGE);
+				agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_INVALID_JSON_MESSAGE);
 				break;
 			case AGH_UBUS_CALL_METHOD_NOT_FOUND:
-				cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_METHOD_NOT_FOUND);
+				agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_METHOD_NOT_FOUND);
 				break;
 		}
 	}
@@ -192,7 +192,7 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 	if (!arg) {
 		if (!uctx->event_masks) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_NOT_ENABLED);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_NOT_ENABLED);
 			return;
 		}
 
@@ -201,7 +201,7 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 
 		for (i=0;i<num_events;i++) {
 			current_event_mask = g_queue_peek_nth(uctx->event_masks, i);
-			cmd_answer_addtext(cmd, current_event_mask);
+			agh_cmd_answer_addtext(cmd, current_event_mask);
 		}
 
 		return;
@@ -221,11 +221,11 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 		
 		if (agh_ubus_event_add(uctx, agh_ubus_handler_receive_event, current_event_mask)) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_FAILED);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_FAILED);
 			return;
 		}
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_OK);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_REGISTRATION_OK);
 		return;
 	}
 
@@ -233,16 +233,16 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 	if (!g_strcmp0(arg_str, AGH_CMD_UBUS_LISTEN_STOP)) {
 		if (agh_ubus_event_disable(uctx)) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_FAILED);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_FAILED);
 			return;
 		}
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_OK);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_EVENT_UNREGISTRATION_OK);
 		return;
 	}
 
 	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-	cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_UNKNOWN_SUBCOMMAND);
+	agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_EVENTS_UNKNOWN_SUBCOMMAND);
 	return;
 }
 
@@ -257,7 +257,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 
 	cmd_answer_set_data(agh_event, TRUE);
 	agh_cmd_answer_set_status(agh_event, AGH_CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(agh_event, "\""AGH_UBUS_HANDLER_UBUS_EVENTs_NAME"\"");
+	agh_cmd_answer_addtext(agh_event, "\""AGH_UBUS_HANDLER_UBUS_EVENTs_NAME"\"");
 	cmd_answer_peektext(agh_event, g_strdup_printf("\n{ \"%s\": %s }\n", type, event_message));
 	cmd_emit_event(agh_ubus_aghcomm, agh_event);
 	g_free(event_message);
@@ -278,7 +278,7 @@ static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd
 
 	if (!arg) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_MISSING_SUBCOMMAND);
+		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_MISSING_SUBCOMMAND);
 		return;
 	}
 
@@ -296,27 +296,27 @@ static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd
 	switch(logstream_ret) {
 		case 0:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_OK);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_OK);
 			break;
 		case 1:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
 			break;
 		case 2:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_ACTIVE);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_ACTIVE);
 			break;
 		case 4:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INTERNAL_ERROR);
 			break;
 		case 5:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_DEACTIVATED);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_ALREADY_DEACTIVATED);
 			break;
 		default:
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INVALID_SUBCOMMAND);
+			agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_LOGSTREAM_INVALID_SUBCOMMAND);
 	}
 
 	return;

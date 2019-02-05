@@ -168,7 +168,7 @@ struct handler *agh_new_handler(gchar *name) {
 
 	h = g_try_malloc0(sizeof(*h));
 	if (!h) {
-		agh_log_handlers_dbg("memory allocation failure while allocating an AGH handler");
+		agh_log_handlers_crit("memory allocation failure while allocating an AGH handler");
 		return h;
 	}
 

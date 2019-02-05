@@ -35,13 +35,13 @@ void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
-	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
-	cmd_answer_addtext(event, modem_idx);
+	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
+	agh_cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
 	modem_idx = NULL;
-	cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
-	cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))));
-	cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))));
+	agh_cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))));
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))));
 	cmd_emit_event(mstate->comm, event);
 
 	return;
@@ -56,13 +56,13 @@ void agh_mm_report_locked_reason(struct agh_state *mstate, MMModem *modem) {
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
-	cmd_answer_addtext(event, modem_idx);
+	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
+	agh_cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
 	modem_idx = NULL;
-	cmd_answer_addtext(event, "locknotice");
-	cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))));
-	cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_lock_get_string(mm_modem_get_unlock_required(modem))));
+	agh_cmd_answer_addtext(event, "locknotice");
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))));
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_lock_get_string(mm_modem_get_unlock_required(modem))));
 	cmd_emit_event(mstate->comm, event);
 
 	return;
@@ -121,21 +121,21 @@ static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
-	cmd_answer_addtext(event, AGH_MM_SM_GENERIC_FAILURE);
+	agh_cmd_answer_addtext(event, AGH_MM_SM_GENERIC_FAILURE);
 
 	if (message)
-		cmd_answer_addtext(event, message);
+		agh_cmd_answer_addtext(event, message);
 	else if (mmstate->gerror) {
 		if (mmstate->gerror->message)
-			cmd_answer_addtext(event, mmstate->gerror->message);
+			agh_cmd_answer_addtext(event, mmstate->gerror->message);
 		else
-			cmd_answer_addtext(event, "unknown");
+			agh_cmd_answer_addtext(event, "unknown");
 
 		g_error_free(mmstate->gerror);
 		mmstate->gerror = NULL;
 	}
 	else
-		cmd_answer_addtext(event, "unknown");
+		agh_cmd_answer_addtext(event, "unknown");
 
 	cmd_emit_event(mstate->comm, event);
 
@@ -271,21 +271,21 @@ static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, str
 	if (!sres) {
 		event = cmd_event_prepare();
 		agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
-		cmd_answer_addtext(event, AGH_MM_SIM_EVENT_NAME);
-		cmd_answer_addtext(event, mm_sim_get_identifier(sim));
-		cmd_answer_addtext(event, "send_pin_failure");
+		agh_cmd_answer_addtext(event, AGH_MM_SIM_EVENT_NAME);
+		agh_cmd_answer_addtext(event, mm_sim_get_identifier(sim));
+		agh_cmd_answer_addtext(event, "send_pin_failure");
 
 		if (mstate->mmstate->gerror) {
 			if (mstate->mmstate->gerror->message)
-				cmd_answer_addtext(event, mstate->mmstate->gerror->message);
+				agh_cmd_answer_addtext(event, mstate->mmstate->gerror->message);
 			else
-				cmd_answer_addtext(event, "unknown");
+				agh_cmd_answer_addtext(event, "unknown");
 
 			g_error_free(mstate->mmstate->gerror);
 			mstate->mmstate->gerror = NULL;
 		}
 		else
-			cmd_answer_addtext(event, "unknown");
+			agh_cmd_answer_addtext(event, "unknown");
 
 		cmd_emit_event(mstate->comm, event);
 	}
@@ -302,26 +302,26 @@ void agh_mm_sm_report_failure_modem(struct agh_state *mstate, MMModem *modem, gc
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
-	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
-	cmd_answer_addtext(event, modem_idx);
+	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
+	agh_cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
 	modem_idx = NULL;
 	if (mmarker)
-		cmd_answer_addtext(event, mmarker);
+		agh_cmd_answer_addtext(event, mmarker);
 	else
-		cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
+		agh_cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
 
 	if (mstate->mmstate->gerror) {
 		if (mstate->mmstate->gerror->message)
-			cmd_answer_addtext(event, mstate->mmstate->gerror->message);
+			agh_cmd_answer_addtext(event, mstate->mmstate->gerror->message);
 		else
-			cmd_answer_addtext(event, "unknown");
+			agh_cmd_answer_addtext(event, "unknown");
 
 		g_error_free(mstate->mmstate->gerror);
 		mstate->mmstate->gerror = NULL;
 	}
 	else
-		cmd_answer_addtext(event, "unknown");
+		agh_cmd_answer_addtext(event, "unknown");
 
 	cmd_emit_event(mstate->comm, event);
 
@@ -496,15 +496,15 @@ static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *even
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, status);
-	cmd_answer_addtext(event, eventname);
+	agh_cmd_answer_addtext(event, eventname);
 
 	if (mmarker)
-		cmd_answer_addtext(event, mmarker);
+		agh_cmd_answer_addtext(event, mmarker);
 	else
-		cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
+		agh_cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE);
 
-	cmd_answer_addtext(event, name);
-	cmd_answer_addtext(event, reason);
+	agh_cmd_answer_addtext(event, name);
+	agh_cmd_answer_addtext(event, reason);
 
 	if (is_data)
 		cmd_answer_set_data(event, is_data);
@@ -779,7 +779,7 @@ static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props
 	content = g_variant_print_string(changed_props, content, TRUE);
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
-	cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"");
+	agh_cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"");
 	cmd_answer_set_data(event, TRUE);
 	cmd_answer_peektext(event, g_string_free(content, FALSE));
 	cmd_emit_event(mstate->comm, event);

@@ -48,7 +48,7 @@ gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 	gint retval;
 
 	if ((!cmd) || (!cmd->answer) || !status || (status == AGH_CMD_ANSWER_STATUS_UNKNOWN)) {
-		agh_log_cmd_crit("can not set the answer status for a NULL agh_cmd structure, or one with an answer pointer set to NULL");
+		agh_log_cmd_crit("attempted to set AGH answer status to an invalid agh_cmd structure");
 		retval = 1;
 	}
 	else {
@@ -69,19 +69,23 @@ guint agh_cmd_answer_get_status(struct agh_cmd *cmd) {
 
 	if (cmd && cmd->answer)
 		retval = cmd->answer->status;
+	else
+		agh_log_cmd_crit("attempted to get the AGH answer status for an invalid agh_cmd structure");
 
 	return retval;
 }
 
-guint cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text) {
+guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text) {
 	guint retval;
 
 	retval = 0;
 
-	if (text)
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
-	else
+	if (!cmd || !cmd->answer || !text) {
 		retval = 1;
+		agh_log_cmd_crit("attempted to to push NULL text to an AGH answer, or to use an invalid agh_cmd structure");
+	}
+	else
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
 
 	return retval;
 }
@@ -196,7 +200,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 	retval = 0;
 
 	if (!cmd) {
-		agh_log_cmd_dbg("not deallocating a NULL AGH command");
+		agh_log_cmd_crit("not deallocating a NULL AGH command");
 		retval = -10;
 		return retval;
 	}
@@ -213,7 +217,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 		if (cmd->answer->restextparts)
 			g_queue_free_full(cmd->answer->restextparts, g_free);
 		else {
-			agh_log_cmd_dbg("command with an answer structure, but no restextparts");
+			agh_log_cmd_crit("command with an answer structure, but no restextparts");
 			retval = -11;
 		}
 
@@ -607,7 +611,7 @@ void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolea
 		return;
 
 	if (!g_queue_get_length(cmd->answer->restextparts)) {
-		cmd_answer_addtext(cmd, text);
+		agh_cmd_answer_addtext(cmd, text);
 		cmd->answer->is_data = set_is_data;
 		agh_cmd_answer_set_status(cmd, status);
 	}
