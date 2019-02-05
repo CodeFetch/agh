@@ -29,16 +29,12 @@
 #define agh_log_cmd_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 #define agh_log_cmd_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 
-/* Function prototypes. */
-static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd);
-static config_t *cmd_copy_cfg(config_t *src);
-static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd);
-static gint cmd_get_id(struct agh_cmd *cmd) __attribute__((unused));
-static void print_config_type(gint type) __attribute__((unused));
-
-/* And some useful functions to access events */
-static const gchar *event_name(struct agh_cmd *cmd) __attribute__((unused));
-static const gchar *event_arg(struct agh_cmd *cmd, guint arg_index) __attribute__((unused));
+/* Data structure for AGH command's "answers", or "results". */
+struct agh_cmd_res {
+	gboolean is_data;
+	guint status;
+	GQueue *restextparts;
+};
 
 /*
  * Sets the status of an agh_cmd command's answer (agh_cmd_res structure).
@@ -218,51 +214,12 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 	return retval;
 }
 
-struct agh_cmd *cmd_copy(struct agh_cmd *cmd) {
-	struct agh_cmd *ocmd;
-	config_t *cfg;
-	struct agh_cmd_res *cmd_answer;
-
-	ocmd = g_malloc0(sizeof(struct agh_cmd));
-	cfg = NULL;
-	cmd_answer = NULL;
-
-	cfg = cmd_copy_cfg(cmd->cmd);
-	if (cfg) {
-		ocmd->cmd = cfg;
-	}
-
-	if (cmd->answer) {
-		/* Anser processing. */
-		cmd_answer = g_malloc0(sizeof(struct agh_cmd_res));
-		cmd_answer->status = cmd->answer->status;
-
-		cmd_answer->restextparts = g_queue_new();
-
-		g_queue_foreach(cmd->answer->restextparts, agh_copy_textparts, cmd_answer->restextparts);
-
-		cmd_answer->is_data = cmd->answer->is_data;
-		ocmd->answer = cmd_answer;
-	}
-
-	if ((!ocmd->cmd) && (!ocmd->answer)) {
-		agh_cmd_free(ocmd);
-		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
-		ocmd = NULL;
-	}
-	else {
-		if (cmd->cmd_source_id)
-			ocmd->cmd_source_id = g_strdup(cmd->cmd_source_id);
-	}
-
-	return ocmd;
-}
 
 /*
  * This function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
  * function. Other config_t structures will not be handled correctly. Any better way to do this is apreciated.
 */
-static config_t *cmd_copy_cfg(config_t *src) {
+static config_t *agh_cmd_copy_cfg(config_t *src) {
 	config_t *ncfg;
 	config_setting_t *root_setting;
 	config_setting_t *list_setting;
@@ -344,6 +301,46 @@ wayout:
 	return ncfg;
 }
 
+struct agh_cmd *agh_cmd_copy(struct agh_cmd *cmd) {
+	struct agh_cmd *ocmd;
+	config_t *cfg;
+	struct agh_cmd_res *cmd_answer;
+
+	ocmd = g_malloc0(sizeof(struct agh_cmd));
+	cfg = NULL;
+	cmd_answer = NULL;
+
+	cfg = agh_cmd_copy_cfg(cmd->cmd);
+	if (cfg) {
+		ocmd->cmd = cfg;
+	}
+
+	if (cmd->answer) {
+		/* Anser processing. */
+		cmd_answer = g_malloc0(sizeof(struct agh_cmd_res));
+		cmd_answer->status = cmd->answer->status;
+
+		cmd_answer->restextparts = g_queue_new();
+
+		g_queue_foreach(cmd->answer->restextparts, agh_copy_textparts, cmd_answer->restextparts);
+
+		cmd_answer->is_data = cmd->answer->is_data;
+		ocmd->answer = cmd_answer;
+	}
+
+	if ((!ocmd->cmd) && (!ocmd->answer)) {
+		agh_cmd_free(ocmd);
+		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
+		ocmd = NULL;
+	}
+	else {
+		if (cmd->cmd_source_id)
+			ocmd->cmd_source_id = g_strdup(cmd->cmd_source_id);
+	}
+
+	return ocmd;
+}
+
 struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 	struct agh_message *m;
 	struct text_csp *textcsp;
@@ -379,7 +376,7 @@ static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd) {
 	return config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD);
 }
 
-static gint cmd_get_id(struct agh_cmd *cmd) {
+gint agh_cmd_get_id(struct agh_cmd *cmd) {
 	config_setting_t *in_keyword;
 	gint id;
 
@@ -444,30 +441,6 @@ config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_
 	}
 
 	return outset;
-}
-
-static void print_config_type(gint type) {
-	switch(type) {
-		case CONFIG_TYPE_INT:
-			g_print("CONFIG_TYPE_INT");
-			break;
-		case CONFIG_TYPE_INT64:
-			g_print("CONFIG_TYPE_INT64");
-			break;
-		case CONFIG_TYPE_FLOAT:
-			g_print("CONFIG_TYPE_FLOAT");
-			break;
-		case CONFIG_TYPE_STRING:
-			g_print("CONFIG_TYPE_STRING");
-			break;
-		case CONFIG_TYPE_BOOL:
-			g_print("CONFIG_TYPE_BOOL");
-			break;
-		default:
-			g_print("Unsupported (or unknown) setting type.\n");
-			break;
-	}
-	return;
 }
 
 struct agh_cmd *cmd_event_prepare(void) {
@@ -582,7 +555,7 @@ void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
  * Gets event name. It should not in general return NULL, but it may do so. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
  * Note that the pointer returned here is "inside" the structure itself, and that's why it's const. So don't try to modify, or free it. And clearly do not use it once you freed or sent the event.
 */
-static const gchar *event_name(struct agh_cmd *cmd) {
+const gchar *agh_cmd_event_name(struct agh_cmd *cmd) {
 	const gchar *textop;
 
 	textop = NULL;
@@ -598,7 +571,7 @@ static const gchar *event_name(struct agh_cmd *cmd) {
 /*
  * Gets an event argument. It returns NULL if specified argument is not present. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
 */
-static const gchar *event_arg(struct agh_cmd *cmd, guint arg_index) {
+const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index) {
 	const gchar *arg;
 
 	arg = NULL;

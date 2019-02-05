@@ -399,7 +399,7 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 					command_message->msg_type = MSG_SENDCMD;
 					ct = g_queue_peek_nth(mstate->agh_threads, i);
 					//g_print("Sending command message to %s thread\n",ct->thread_name);
-					command_message->csp = cmd_copy(cmd);
+					command_message->csp = agh_cmd_copy(cmd);
 					if (agh_msg_send(command_message, mstate->comm, ct->comm)) {
 						g_print("%s: error while sending message to %s thread\n",__FUNCTION__,ct->thread_name);
 						continue;
@@ -517,8 +517,8 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_EVENT)
 		return evmsg;
 
-	/* An event arrived, so we need to convert it to text, and add an event ID. We use cmd_copy / cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will then be NULL). */
-	cmd = cmd_copy(m->csp);
+	/* An event arrived, so we need to convert it to text, and add an event ID. We use agh_cmd_copy / agh_cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will then be NULL). */
+	cmd = agh_cmd_copy(m->csp);
 	evtext = cmd_event_to_text(cmd, mstate->event_id);
 
 	agh_cmd_free(cmd);
@@ -573,7 +573,7 @@ gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
 		for (i=0;i<num_threads;i++) {
 			evmsg = agh_msg_alloc();
 			evmsg->msg_type = MSG_EVENT;
-			ncmd = cmd_copy(cmd);
+			ncmd = agh_cmd_copy(cmd);
 			evmsg->csp = ncmd;
 			ct = g_queue_peek_nth(mstate->agh_threads, i);
 			if (agh_msg_send(evmsg, mstate->comm, ct->comm)) {

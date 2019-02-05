@@ -19,12 +19,6 @@
 #define BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
 #define BUG_EMPTY_EVENT_NAME "BUG_EMPTY_EVENT_NAME"
 
-struct agh_cmd_res {
-	gboolean is_data;
-	guint status;
-	GQueue *restextparts;
-};
-
 struct agh_cmd {
 	config_t *cmd;
 	struct agh_cmd_res *answer;
@@ -33,8 +27,7 @@ struct agh_cmd {
 
 struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content);
 
-/* command results */
-
+/* AGH commands results */
 gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status);
 void cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data);
 void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean set_is_data);
@@ -45,20 +38,23 @@ guint cmd_answer_prepare(struct agh_cmd *cmd);
 
 /* assorted management functions */
 gint agh_cmd_free(struct agh_cmd *cmd);
-struct agh_cmd *cmd_copy(struct agh_cmd *cmd);
+struct agh_cmd *agh_cmd_copy(struct agh_cmd *cmd);
 struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
 /* Some useful functions to access commands data.
  *
- * note: when one of these functions return a pointer to a string, it is of const type. This is due to the fact that libconfig
- * itself manages their storage. Don't try to modify them in any case.
+ * Note: when one of these functions return a pointer to a string, it is of const type. This is due to the fact that libconfig
+ * itself manages their storage.
 */
 const gchar *cmd_get_operation(struct agh_cmd *cmd);
 config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type);
+gint agh_cmd_get_id(struct agh_cmd *cmd);
 
 /* events */
 struct agh_cmd *cmd_event_prepare(void);
 gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id);
 void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd);
+const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index);
+const gchar *agh_cmd_event_name(struct agh_cmd *cmd);
 
 #endif
