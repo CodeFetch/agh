@@ -302,7 +302,7 @@ static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *l
 
 		log_event = cmd_event_prepare();
 		cmd_answer_set_data(log_event, TRUE);
-		agh_cmd_answer_set_status(log_event, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(log_event, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(log_event, "\""AGH_UBUS_LOGSTREAM_LOG_EVENTs_NAME"\"");
 		cmd_answer_peektext(log_event, parsed_text_log_message);
 		cmd_emit_event(agh_ubus_aghcomm, log_event);

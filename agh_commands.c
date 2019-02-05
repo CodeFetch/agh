@@ -42,12 +42,12 @@ struct agh_cmd_res {
  * Returns 1 if:
  *  - a NULL agh_cmd structure was passed
  *  - an agh_cmd structure with a NULL agh_cmd_res member was given
- *  - status value was set to 0 (not legal).
+ *  - status value was set to 0 or AGH_CMD_ANSWER_STATUS_UNKNOWN (not legal).
 */
 gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 	gint retval;
 
-	if ((!cmd) || (!cmd->answer) || !status) {
+	if ((!cmd) || (!cmd->answer) || !status || (status == AGH_CMD_ANSWER_STATUS_UNKNOWN)) {
 		agh_log_cmd_crit("can not set the answer status for a NULL agh_cmd structure, or one with an answer pointer set to NULL");
 		retval = 1;
 	}
@@ -60,10 +60,17 @@ gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status) {
 }
 
 /*
- * Returns the current status value for a command
+ * Returns the current status value for a command. A return value of 0 indicates a NULL agh_cmd struct was passed.
 */
 guint agh_cmd_answer_get_status(struct agh_cmd *cmd) {
-	return cmd->answer->status;
+	guint retval;
+
+	retval = 0;
+
+	if (cmd && cmd->answer)
+		retval = cmd->answer->status;
+
+	return retval;
 }
 
 guint cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text) {
@@ -117,7 +124,7 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
 
 	if (!ntextparts) {
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_ANSWER_TEXT));
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(AGH_CMD_BUG_EMPTY_ANSWER_TEXT));
 		ntextparts++;
 	}
 
@@ -147,7 +154,7 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	g_queue_free(cmd->answer->restextparts);
 
 	/* Yeah, probably useless. */
-	cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+	cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
 	cmd->answer->restextparts = NULL;
 
 	g_free(cmd->answer);
@@ -169,7 +176,7 @@ guint cmd_answer_prepare(struct agh_cmd *cmd) {
 	{
 		cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
 
-		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+		cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
 		cmd->answer->restextparts = g_queue_new();
 	}
 
@@ -201,7 +208,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 
 	/* Command answer. */
 	if (cmd->answer) {
-		cmd->answer->status = CMD_ANSWER_STATUS_UNKNOWN;
+		cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
 
 		if (cmd->answer->restextparts)
 			g_queue_free_full(cmd->answer->restextparts, g_free);
@@ -458,7 +465,7 @@ struct agh_cmd *cmd_event_prepare(void) {
 
 	cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
 
-	cmd->answer->status = CMD_EVENT_UNKNOWN_ID;
+	cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
 	cmd->answer->restextparts = g_queue_new();
 
 	return cmd;
@@ -491,7 +498,7 @@ gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id) {
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
 
 	if (!ntextparts) {
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(BUG_EMPTY_EVENT_NAME));
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(AGH_CMD_BUG_EMPTY_EVENT_NAME));
 		ntextparts++;
 	}
 
@@ -524,7 +531,7 @@ gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id) {
 	g_queue_free(cmd->answer->restextparts);
 
 	/* Yeah, probably useless. */
-	cmd->answer->status = CMD_EVENT_UNKNOWN_ID;
+	cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
 	cmd->answer->restextparts = NULL;
 
 	g_free(cmd->answer);

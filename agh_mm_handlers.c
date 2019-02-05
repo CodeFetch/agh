@@ -93,7 +93,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 			g_object_unref(modem);
 			modem = NULL;
 		} else {
-			agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 			cmd_answer_addtext(cmd, AGH_MM_INVALID_MODEM);
 		}
 
@@ -109,7 +109,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 		/* Implement general subcommands here. */
 
 		if (!general_subcommand_cb) {
-			agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 			cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND);
 		}
 		else
@@ -135,12 +135,12 @@ static void agh_mm_list_modems(struct agh_mm_state *mmstate, struct agh_cmd *cmd
 	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mmstate->manager));
 
 	if (!modems) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		return;
 	}
 	else {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		g_list_foreach(modems, agh_mm_list_modem_single, cmd);
 		g_list_free_full(modems, g_object_unref);
 	}
@@ -277,7 +277,7 @@ static void agh_modem_do(MMObject *modem, struct agh_cmd *cmd) {
 		cb = agh_modem_get_access_technologies;
 
 	if (!cb) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND);
 		return;
 	}
@@ -295,7 +295,7 @@ static MMModem3gpp *agh_get_MMModem3gpp_object(MMObject *modem, struct agh_cmd *
 	object = mm_object_get_modem_3gpp(modem);
 
 	if (!object) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_NO_MMModem3gpp_OBJECT);
 	}
 
@@ -315,11 +315,11 @@ static void agh_modem_get_imei(MMObject *modem, struct agh_cmd *cmd) {
 	imei = mm_modem_3gpp_get_imei(object);
 
 	if (!imei) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_IMEI_NOT_AVAILABLE);
 	}
 	else {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, imei);
 	}
 
@@ -335,7 +335,7 @@ static MMModem *agh_get_MMModem_object(MMObject *modem, struct agh_cmd *cmd) {
 	object = mm_object_get_modem(modem);
 
 	if (!object) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_NO_MMModem_OBJECT);
 	}
 
@@ -365,7 +365,7 @@ static void agh_modem_get_state(MMObject *modem, struct agh_cmd *cmd) {
 	enum_state_failed_reason = mm_modem_get_state_failed_reason(object);
 	state_failed_reason = AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(enum_state_failed_reason));
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(cmd, state);
 	cmd_answer_addtext(cmd, state_failed_reason);
 
@@ -390,7 +390,7 @@ static void agh_modem_get_power_state(MMObject *modem, struct agh_cmd *cmd) {
 	enum_power_state = mm_modem_get_power_state(object);
 	power_state = AGH_MM_VALIDATE_UNKNOWN(mm_modem_power_state_get_string(enum_power_state));
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(cmd, power_state);
 
 	g_object_unref(object);
@@ -414,7 +414,7 @@ static void agh_modem_get_supported_capabilities(MMObject *modem, struct agh_cmd
 		return;
 
 	if (!mm_modem_get_supported_capabilities(object, &caps, &n_caps)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return; /* caps array should "not be set" in this case, so we are not freeing it here */
@@ -422,7 +422,7 @@ static void agh_modem_get_supported_capabilities(MMObject *modem, struct agh_cmd
 
 	caps_str = agh_mm_common_build_capabilities_string(caps, n_caps);
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(cmd, caps_str);
 
 	g_free(caps_str);
@@ -446,7 +446,7 @@ static void agh_modem_get_current_capabilities(MMObject *modem, struct agh_cmd *
 	current_caps = mm_modem_capability_build_string_from_mask(mm_modem_get_current_capabilities(object));
 
 	if (current_caps) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, current_caps);
 		g_free(current_caps);
 		current_caps = NULL;
@@ -471,7 +471,7 @@ static void agh_modem_get_manifacturer(MMObject *modem, struct agh_cmd *cmd) {
 	manifacturer = mm_modem_get_manufacturer(object);
 
 	if (manifacturer) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, manifacturer);
 	}
 
@@ -493,7 +493,7 @@ static void agh_modem_get_model(MMObject *modem, struct agh_cmd *cmd) {
 	model = mm_modem_get_model(object);
 
 	if (model) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, model);
 	}
 
@@ -516,7 +516,7 @@ static void agh_modem_get_revision(MMObject *modem, struct agh_cmd *cmd) {
 	revision = mm_modem_get_revision(object);
 
 	if (revision) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, AGH_MM_VALIDATE_UNKNOWN(mm_modem_get_revision(object)));
 	}
 
@@ -539,7 +539,7 @@ static void agh_modem_get_hw_revision(MMObject *modem, struct agh_cmd *cmd) {
 	hrev = mm_modem_get_hardware_revision(object);
 
 	if (hrev) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, hrev);
 	}
 
@@ -562,7 +562,7 @@ static void agh_modem_get_drivers(MMObject *modem, struct agh_cmd *cmd) {
 	mm_drivers = g_strjoinv (", ", (gchar **)mm_modem_get_drivers(object));
 
 	if (mm_drivers) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_peektext(cmd, mm_drivers);
 	}
 
@@ -587,7 +587,7 @@ static void agh_modem_get_plugin(MMObject *modem, struct agh_cmd *cmd) {
 	current_plugin = mm_modem_get_plugin(object);
 
 	if (current_plugin) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, current_plugin);
 	}
 
@@ -610,7 +610,7 @@ static void agh_modem_get_primary_port(MMObject *modem, struct agh_cmd *cmd) {
 	primary_port = mm_modem_get_primary_port(object);
 
 	if (primary_port) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, primary_port);
 	}
 
@@ -635,7 +635,7 @@ static void agh_modem_get_ports(MMObject *modem, struct agh_cmd *cmd) {
 		return;
 
 	if (!mm_modem_get_ports(object, &ports, &n_ports)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return;
@@ -643,7 +643,7 @@ static void agh_modem_get_ports(MMObject *modem, struct agh_cmd *cmd) {
 
 	ports_str = agh_mm_common_build_ports_string(ports, n_ports);
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(cmd, ports_str);
 
 	mm_modem_port_info_array_free(ports, n_ports);
@@ -668,7 +668,7 @@ static void agh_modem_get_device(MMObject *modem, struct agh_cmd *cmd) {
 	sysfs_device = mm_modem_get_device(object);
 
 	if (sysfs_device) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, sysfs_device);
 	}
 
@@ -691,7 +691,7 @@ static void agh_modem_get_equipment_identifier(MMObject *modem, struct agh_cmd *
 	equipment_id = mm_modem_get_equipment_identifier(object);
 
 	if (equipment_id) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, equipment_id);
 	}
 
@@ -714,7 +714,7 @@ static void agh_modem_get_device_identifier(MMObject *modem, struct agh_cmd *cmd
 	device_id = mm_modem_get_device_identifier(object);
 
 	if (device_id) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, device_id);
 	}
 
@@ -737,7 +737,7 @@ static void agh_modem_get_unlock_required(MMObject *modem, struct agh_cmd *cmd) 
 	unlock_required = mm_modem_lock_get_string(mm_modem_get_unlock_required(object));
 
 	if (unlock_required) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, unlock_required);
 	}
 
@@ -762,7 +762,7 @@ static void agh_modem_get_unlock_retries(MMObject *modem, struct agh_cmd *cmd) {
 	retries = mm_modem_get_unlock_retries(object);
 
 	if (!retries) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		return;
 	}
@@ -770,7 +770,7 @@ static void agh_modem_get_unlock_retries(MMObject *modem, struct agh_cmd *cmd) {
 	retries_str = agh_mm_unlock_retries_build_string(retries);
 
 	if (retries_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, retries_str);
 		g_free(retries_str);
 	}
@@ -795,7 +795,7 @@ static void agh_modem_get_max_bearers(MMObject *modem, struct agh_cmd *cmd) {
 	maxbearers_str = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_modem_get_max_bearers(object));
 
 	if (maxbearers_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_peektext(cmd, maxbearers_str);
 	}
 
@@ -818,7 +818,7 @@ static void agh_modem_get_max_active_bearers(MMObject *modem, struct agh_cmd *cm
 	max_active_bearers_str = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_modem_get_max_active_bearers(object));
 
 	if (max_active_bearers_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_peektext(cmd, max_active_bearers_str);
 	}
 
@@ -851,7 +851,7 @@ static void agh_modem_get_own_numbers(MMObject *modem, struct agh_cmd *cmd) {
 	tmp = (gchar**)mm_modem_get_own_numbers(object);
 
 	if (!tmp) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return;
@@ -861,13 +861,13 @@ static void agh_modem_get_own_numbers(MMObject *modem, struct agh_cmd *cmd) {
 	if (!own_numbers[0]) {
 		g_free(own_numbers);
 		own_numbers = NULL;
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return;
 	}
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_peektext(cmd, own_numbers);
 
 	g_object_unref(object);
@@ -891,7 +891,7 @@ static void agh_modem_get_supported_modes(MMObject *modem, struct agh_cmd *cmd) 
 		return;
 
 	if (!mm_modem_get_supported_modes(object, &modes, &n_modes)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return; /* modes array should "not be set" in this case, so we are not freeing it here */
@@ -899,7 +899,7 @@ static void agh_modem_get_supported_modes(MMObject *modem, struct agh_cmd *cmd) 
 
 	modes_str = agh_mm_common_build_mode_combinations_string(modes, n_modes);
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(cmd, modes_str);
 
 	g_free(modes_str);
@@ -925,7 +925,7 @@ static void agh_modem_get_current_modes(MMObject *modem, struct agh_cmd *cmd) {
 		return;
 
 	if (!mm_modem_get_current_modes(object, &allowed_modes, &preferred_mode)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return; /* relevant data on the stack for now */
@@ -934,7 +934,7 @@ static void agh_modem_get_current_modes(MMObject *modem, struct agh_cmd *cmd) {
 	allowed_modes_str = mm_modem_mode_build_string_from_mask(allowed_modes);
 	preferred_modes_str = mm_modem_mode_build_string_from_mask(preferred_mode);
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 
 	if (allowed_modes_str) {
 		cmd_answer_addtext(cmd, allowed_modes_str);
@@ -968,7 +968,7 @@ static void agh_modem_get_supported_bands(MMObject *modem, struct agh_cmd *cmd) 
 		return;
 
 	if (!mm_modem_get_supported_bands(object, &bands, &n_bands)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return; /* bands array should "not be set" in this case, so we are not freeing it here */
@@ -977,7 +977,7 @@ static void agh_modem_get_supported_bands(MMObject *modem, struct agh_cmd *cmd) 
 	bands_str = agh_mm_common_build_bands_string(bands, n_bands);
 
 	if (bands_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, bands_str);
 		g_free(bands_str);
 	}
@@ -1005,7 +1005,7 @@ static void agh_modem_get_current_bands(MMObject *modem, struct agh_cmd *cmd) {
 		return;
 
 	if (!mm_modem_get_current_bands(object, &bands, &n_bands)) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(cmd, AGH_MM_MSG_DATA_NOT_AVAILABLE);
 		g_object_unref(object);
 		return; /* bands array should "not be set" in this case, so we are not freeing it here */
@@ -1014,7 +1014,7 @@ static void agh_modem_get_current_bands(MMObject *modem, struct agh_cmd *cmd) {
 	bands_str = agh_mm_common_build_bands_string(bands, n_bands);
 
 	if (bands_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, bands_str);
 		g_free(bands_str);
 	}
@@ -1039,7 +1039,7 @@ static void agh_modem_get_supported_IP_families(MMObject *modem, struct agh_cmd 
 	ip_families_str = mm_bearer_ip_family_build_string_from_mask(mm_modem_get_supported_ip_families(object));
 
 	if (ip_families_str) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, ip_families_str);
 		g_free(ip_families_str);
 	}
@@ -1068,7 +1068,7 @@ static void agh_modem_get_signal_quality(MMObject *modem, struct agh_cmd *cmd) {
 	signal_quality = mm_modem_get_signal_quality(object, &is_recent);
 	sigqual_str = g_strdup_printf("%" G_GUINT16_FORMAT"",signal_quality);
 
-	agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_peektext(cmd, sigqual_str);
 	if (is_recent)
 		cmd_answer_addtext(cmd, AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT);
@@ -1092,7 +1092,7 @@ static void agh_modem_get_access_technologies(MMObject *modem, struct agh_cmd *c
 	access_technologies = mm_modem_access_technology_build_string_from_mask(mm_modem_get_access_technologies(object));
 
 	if (access_technologies) {
-		agh_cmd_answer_set_status(cmd, CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_addtext(cmd, access_technologies);
 		g_free(access_technologies);
 	}

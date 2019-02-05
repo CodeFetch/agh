@@ -34,7 +34,7 @@ void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -55,7 +55,7 @@ void agh_mm_report_locked_reason(struct agh_state *mstate, MMModem *modem) {
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -120,7 +120,7 @@ static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
 		return;
 
 	event = cmd_event_prepare();
-	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_SM_GENERIC_FAILURE);
 
 	if (message)
@@ -270,7 +270,7 @@ static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, str
 
 	if (!sres) {
 		event = cmd_event_prepare();
-		agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+		agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
 		cmd_answer_addtext(event, AGH_MM_SIM_EVENT_NAME);
 		cmd_answer_addtext(event, mm_sim_get_identifier(sim));
 		cmd_answer_addtext(event, "send_pin_failure");
@@ -301,7 +301,7 @@ void agh_mm_sm_report_failure_modem(struct agh_state *mstate, MMModem *modem, gc
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
 	event = cmd_event_prepare();
-	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_FAIL);
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_FAIL);
 	cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
 	cmd_answer_addtext(event, modem_idx);
 	g_free(modem_idx);
@@ -393,7 +393,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_iptype(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_iptype", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_iptype", FALSE);
 			goto out;
 		}
 
@@ -404,7 +404,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_apn(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_apn", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_apn", FALSE);
 			goto out;
 		}
 
@@ -415,7 +415,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_auth_method(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_auth_method", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_auth_method", FALSE);
 			goto out;
 		}
 
@@ -426,7 +426,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_user(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_user", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_user", FALSE);
 			goto out;
 		}
 
@@ -437,7 +437,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_pass(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_pass", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_pass", FALSE);
 			goto out;
 		}
 
@@ -448,7 +448,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_roaming_allowed(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_roaming_allowed", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_roaming_allowed", FALSE);
 			goto out;
 		}
 
@@ -459,7 +459,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_number(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_number", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_number", FALSE);
 			goto out;
 		}
 
@@ -470,7 +470,7 @@ void agh_mm_sm_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci
 	if (o && (o->type == UCI_TYPE_STRING)) {
 		status = agh_mm_sm_build_bearer_set_rm_protocol(mstate, o, props);
 		if (status) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_rm_protocol", FALSE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_FAIL, AGH_MM_BEARER_EVENT_NAME, AGH_MM_SM_BEARER_SETUP_FAILURE, s->e.name, "agh_mm_sm_build_bearer_set_rm_protocol", FALSE);
 			goto out;
 		}
 
@@ -778,7 +778,7 @@ static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props
 
 	content = g_variant_print_string(changed_props, content, TRUE);
 	event = cmd_event_prepare();
-	agh_cmd_answer_set_status(event, CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
 	cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"");
 	cmd_answer_set_data(event, TRUE);
 	cmd_answer_peektext(event, g_string_free(content, FALSE));
@@ -821,7 +821,7 @@ static void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b)
 		callee_output = agh_ubus_get_call_result();
 
 		if (callee_output) {
-			agh_mm_sm_report(mstate, CMD_ANSWER_STATUS_OK, "agh_mm_sm_call_outside_helper", "agh_mm_sm_call_outside_helper_callee_output", "system", callee_output, TRUE);
+			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_OK, "agh_mm_sm_call_outside_helper", "agh_mm_sm_call_outside_helper_callee_output", "system", callee_output, TRUE);
 			g_free(callee_output);
 			callee_output = NULL;
 		}

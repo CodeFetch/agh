@@ -527,7 +527,7 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 		return evmsg;
 
 	mstate->event_id++;
-	if (mstate->event_id == CMD_EVENT_MAX_ID)
+	if (mstate->event_id == AGH_CMD_EVENT_MAX_ID)
 		mstate->event_id = 0;
 
 	evmsg = agh_msg_alloc();
