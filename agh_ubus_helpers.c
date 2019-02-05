@@ -66,7 +66,7 @@ void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus
 	rem = 0;
 
 	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-	cmd_answer_peektext(cmd, g_strdup_printf("\n\"OBJECT=%s, ID=@%08x\"\n", obj->path, obj->id));
+	agh_cmd_answer_addtext(cmd, g_strdup_printf("\n\"OBJECT=%s, ID=@%08x\"\n", obj->path, obj->id), FALSE);
 
 	if (!obj->signature) {
 		g_print("%s: no signature fo %s\n",__FUNCTION__,obj->path);
@@ -77,7 +77,7 @@ void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus
 		tmp = blobmsg_format_json_with_cb(cur, false, agh_ubus_helper_format_type, NULL, -1);
 
 		if (tmp) {
-			cmd_answer_peektext(cmd, g_strdup_printf("%s\n", tmp));
+			agh_cmd_answer_addtext(cmd, g_strdup_printf("%s\n", tmp), FALSE);
 			g_free(tmp);
 			tmp = NULL;
 		}

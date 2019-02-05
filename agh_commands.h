@@ -32,8 +32,7 @@ gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status);
 void cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data);
 void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean set_is_data);
 guint agh_cmd_answer_get_status(struct agh_cmd *cmd);
-guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text);
-guint cmd_answer_peektext(struct agh_cmd *cmd, gchar *text);
+guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup);
 guint cmd_answer_prepare(struct agh_cmd *cmd);
 
 /* assorted management functions */

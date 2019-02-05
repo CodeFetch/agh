@@ -61,12 +61,12 @@ static void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModem
 
 	event = cmd_event_prepare();
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
-	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME);
-	agh_cmd_answer_addtext(event, modem_idx);
-	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(oldstate)));
-	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(newstate)));
-	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(agh_mm_get_statechange_reason_string(reason)));
-	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))));
+	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME, TRUE);
+	agh_cmd_answer_addtext(event, modem_idx, TRUE);
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(oldstate)), TRUE);
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(newstate)), TRUE);
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(agh_mm_get_statechange_reason_string(reason)), TRUE);
+	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))), TRUE);
 	cmd_emit_event(mstate->comm, event);
 	g_free(modem_idx);
 	modem_idx = NULL;

@@ -75,30 +75,33 @@ guint agh_cmd_answer_get_status(struct agh_cmd *cmd) {
 	return retval;
 }
 
-guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text) {
+/*
+ * Adds a text argument to an agh_cmd's agh_cmd_res structure, by appending a pointer to the restextparts GQueue.
+ * If dup is TRUE, the pointer will point to a copy of the passed text allocated via g_strdup. An allocation failure in this context will lead to an unclean program termination.
+ * Otherwise, the passed pointer will become part of the GQueue.
+ *
+ * Returns 1 when:
+ *  - a NULL agh_cmd structure was passed
+ *  - the passed agh_cmd struct had a NULL agh_cmd_res pointer structure
+ *  - passed text pointer was NULL
+*/
+guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup) {
 	guint retval;
 
 	retval = 0;
 
 	if (!cmd || !cmd->answer || !text) {
 		retval = 1;
-		agh_log_cmd_crit("attempted to to push NULL text to an AGH answer, or to use an invalid agh_cmd structure");
+		agh_log_cmd_crit("attempted to push NULL text to an AGH answer, or to use an invalid agh_cmd structure");
 	}
-	else
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
+	else {
 
-	return retval;
-}
+		if (dup)
+			g_queue_push_tail(cmd->answer->restextparts, g_strdup(text));
+		else
+			g_queue_push_tail(cmd->answer->restextparts, (gchar *)text);
 
-guint cmd_answer_peektext(struct agh_cmd *cmd, gchar *text) {
-	guint retval;
-
-	retval = 0;
-
-	if (text)
-		g_queue_push_tail(cmd->answer->restextparts, text);
-	else
-		retval = 1;
+	}
 
 	return retval;
 }
@@ -611,7 +614,7 @@ void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolea
 		return;
 
 	if (!g_queue_get_length(cmd->answer->restextparts)) {
-		agh_cmd_answer_addtext(cmd, text);
+		agh_cmd_answer_addtext(cmd, text, TRUE);
 		cmd->answer->is_data = set_is_data;
 		agh_cmd_answer_set_status(cmd, status);
 	}
