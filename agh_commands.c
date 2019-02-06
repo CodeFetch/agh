@@ -216,9 +216,9 @@ guint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
 /*
  * Frees an AGH command structure.
  *
- * Returns: an integer with value 0 on success
+ * Returns: an integer with value 0 on success,
  * -10 when command structure is NULL
- * -11 when a command answer structure was present, but no restextparts queue
+ * -11 when a command answer structure was present, but no restextparts GQueue.
 */
 gint agh_cmd_free(struct agh_cmd *cmd) {
 	gint retval;
@@ -226,7 +226,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 	retval = 0;
 
 	if (!cmd) {
-		agh_log_cmd_crit("not deallocating a NULL AGH command");
+		agh_log_cmd_dbg("not deallocating a NULL AGH command");
 		retval = -10;
 		return retval;
 	}
@@ -243,7 +243,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 		if (cmd->answer->restextparts)
 			g_queue_free_full(cmd->answer->restextparts, g_free);
 		else {
-			agh_log_cmd_crit("command with an answer structure, but no restextparts");
+			agh_log_cmd_dbg("command with an answer structure, but no restextparts");
 			retval = -11;
 		}
 
