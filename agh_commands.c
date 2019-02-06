@@ -257,7 +257,6 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 	return retval;
 }
 
-
 /*
  * This function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
  * function. Other config_t structures will not be handled correctly. Any better way to do this is apreciated.

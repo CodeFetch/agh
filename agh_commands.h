@@ -12,8 +12,9 @@
 
 /* Unset event IDs. */
 #define AGH_CMD_EVENT_UNKNOWN_ID AGH_CMD_ANSWER_STATUS_UNKNOWN
+
+/* Max event ID: here due to the fact it's used by core. */
 #define AGH_CMD_EVENT_MAX_ID AGH_CMD_EVENT_UNKNOWN_ID-1
-/* End of unset event IDs. */
 
 struct agh_cmd {
 	config_t *cmd;
