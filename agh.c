@@ -492,6 +492,20 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
 		agh_start_exit(mstate);
 	}
+	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_DEVTEST)) {
+		struct agh_cmd *event;
+		struct agh_message *test_answer;
+
+		event = cmd_event_prepare();
+		cmd_answer_prepare(cmd);
+
+		agh_cmd_answer_addtext(event, "evtestname", TRUE);
+		cmd_emit_event(mstate->comm, event);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		cmd_answer_set_data(cmd, FALSE);
+		test_answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		return test_answer;
+	}
 
 	return NULL;
 }
