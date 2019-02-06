@@ -15,10 +15,6 @@
 #define AGH_CMD_EVENT_MAX_ID AGH_CMD_EVENT_UNKNOWN_ID-1
 /* End of unset event IDs. */
 
-/* Unset answer text or event name. */
-#define AGH_CMD_BUG_EMPTY_ANSWER_TEXT "BUG_EMPTY_ANSWER_TEXT"
-#define AGH_CMD_BUG_EMPTY_EVENT_NAME "BUG_EMPTY_EVENT_NAME"
-
 struct agh_cmd {
 	config_t *cmd;
 	struct agh_cmd_res *answer;

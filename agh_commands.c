@@ -29,6 +29,10 @@
 #define agh_log_cmd_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 #define agh_log_cmd_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_COMMAND, message, ##__VA_ARGS__)
 
+/* Unset answer text or event name. */
+#define AGH_CMD_NO_DATA_MSG "NO_DATA"
+#define AGH_CMD_BUG_EMPTY_EVENT_NAME "BUG_EMPTY_EVENT_NAME"
+
 /* Data structure for AGH command's "answers", or "results". */
 struct agh_cmd_res {
 	gboolean is_data;
@@ -108,7 +112,11 @@ guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean du
 
 /*
  * This function transforms an agh_cmd_res structure content to text. It is destructive, and infact it also deallocates the
- * structure. Yeah, this is arguable design.
+ * passed in agh_cmd_res structure. Yeah, this is arguable design.
+ *
+ * Returns: a gchar pointer, pointing to the resulting text, or NULL when a NULL agh_cmd structure was passed, or one containing a NULL agh_cmd_res pointer.
+ *
+ * This function can terminate the program uncleanly.
 */
 static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	GString *output;
@@ -118,20 +126,22 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 
 	ntextparts = 0;
 
-	if (!cmd)
+	if ((!cmd) || (!cmd->answer)) {
+		agh_log_cmd_crit("can not convert to text a NULL agh_cmd_res structure, or passed in agh_cmd structure was NULL");
 		return NULL;
+	}
 
 	/* Start with the OUT keyword */
 	output = g_string_new(AGH_CMD_OUT_KEYWORD" = ( ");
 
-	/* Appends command ID, and status code, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
+	/* Appends command ID, and status code, adding a comma and a space in between to keep the structure consistent when later appending text parts. */
 	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD), 0)), cmd->answer->status);
 
 	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
 
 	if (!ntextparts) {
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(AGH_CMD_BUG_EMPTY_ANSWER_TEXT));
+		g_queue_push_tail(cmd->answer->restextparts, g_strdup(AGH_CMD_NO_DATA_MSG));
 		ntextparts++;
 	}
 
@@ -160,7 +170,6 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	*/
 	g_queue_free(cmd->answer->restextparts);
 
-	/* Yeah, probably useless. */
 	cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
 	cmd->answer->restextparts = NULL;
 
