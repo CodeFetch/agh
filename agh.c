@@ -497,7 +497,7 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 		struct agh_message *test_answer;
 
 		event = cmd_event_prepare();
-		cmd_answer_prepare(cmd);
+		agh_cmd_answer_alloc(cmd);
 
 		agh_cmd_answer_addtext(event, "evtestname", TRUE);
 		cmd_emit_event(mstate->comm, event);

@@ -44,7 +44,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_UBUS))
 		return NULL;
 
-	cmd_answer_prepare(cmd);
+	agh_cmd_answer_alloc(cmd);
 
 	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);

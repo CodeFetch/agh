@@ -179,21 +179,35 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	return g_string_free(output, FALSE);
 }
 
-guint cmd_answer_prepare(struct agh_cmd *cmd) {
+/*
+ * Allocates an agh_cmd_res structure, and prepares it for later use by other AGH command's related functions.
+ *
+ * Returns: an unsigned integer with value 1 if the passed in agh_cmd structure is NULL or holds a not NULL pointer to an agh_cmd_res one.
+ * An unsigned integer of value 2 indicates a memory allocation failure.
+ *
+ * This function may lead to an unclean program termination.
+*/
+guint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
 	guint retval;
 
 	retval = 0;
 
-	if (!cmd) {
-		g_print("%s: can not prepare an answer to a NULL command\n",__FUNCTION__);
+	if (!cmd || cmd->answer) {
+		agh_log_cmd_crit("NULL agh_cmd structure or agh_cmd structure with an answer already allocated");
 		retval = 1;
 	}
-	else
-	{
-		cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
+	else {
 
-		cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
-		cmd->answer->restextparts = g_queue_new();
+		cmd->answer = g_try_malloc0(sizeof(*cmd->answer));
+		if (!cmd->answer) {
+			agh_log_cmd_crit("can not allocate memory for the answer agh_cmd_res structure");
+			retval = 2;
+		}
+		else {
+			cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
+			cmd->answer->restextparts = g_queue_new();
+		}
+
 	}
 
 	return retval;

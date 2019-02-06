@@ -78,7 +78,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	if (mstate->exiting || !mmstate->manager)
 		return NULL;
 
-	cmd_answer_prepare(cmd);
+	agh_cmd_answer_alloc(cmd);
 
 	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
 	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
