@@ -258,51 +258,62 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
 }
 
 /*
- * This function has been written to cope with known "valid" config_t command structures, as checked in the text_to_cmd()
- * function. Other config_t structures will not be handled correctly. Any better way to do this is apreciated.
+ * Creates a new copy of a libconfig command config structure, as used in AGH.
+ * This function has been written to cope with known "valid" config_t command structures, as checked in the agh_text_to_cmd
+ * function. Thus, not all config_t structures will be handled correctly. Any better way to do this is apreciated.
+ *
+ * Returns: a new config_t structure, or NULL when:
+ *  - the passed in source config_t structure was NULL
+ *  - failure while allocating the new config_t structure
 */
 static config_t *agh_cmd_copy_cfg(config_t *src) {
-	config_t *ncfg;
-	config_setting_t *root_setting;
-	config_setting_t *list_setting;
-	guint index;
-	config_setting_t *elem;
+	config_t *dest_cfg;
+	config_setting_t *dest_root_setting;
+	config_setting_t *dest_list_setting;
+	config_setting_t *dest_current_setting;
+	gint src_current_setting_type;
 	config_setting_t *src_in_keyword;
-	config_setting_t *current_setting;
-	gint current_setting_type;
 
-	ncfg = NULL;
-	root_setting = NULL;
-	list_setting = NULL;
+	/* Index used for scanning the source config structure in a while loop. */
+	guint index;
+
+	/* Element currently being processed. */
+	config_setting_t *src_elem;
+
 	index = 0;
-	elem = NULL;
-	src_in_keyword = NULL;
-	current_setting = NULL;
-	current_setting_type = 0;
+	dest_cfg = NULL;
 
-	if (!src)
-		return NULL;
+	/* This is going to happen every time this function operates on AGH events, which are basically "answers nobody asked for". */
+	if (!src) {
+		agh_log_cmd_dbg("can not copy a NULL config_t structure");
+		return dest_cfg;
+	}
 
-	ncfg = g_malloc0(sizeof(config_t));
+	dest_cfg = g_try_malloc0(sizeof(*dest_cfg));
+	if (!dest_cfg) {
+		agh_log_cmd_crit("can not allocate new config_t structure");
+		return dest_cfg;
+	}
 
-	config_init(ncfg);
+	config_init(dest_cfg);
 
-	/* 1 - Get root setting. We're guaranteed there is one. */
-	root_setting = config_root_setting(ncfg);
+	/* 1 - Get root setting on new config. We're sure there is one. */
+	dest_root_setting = config_root_setting(dest_cfg);
 
 	/* 2 - Add our AGH_CMD_IN_KEYWORD list setting. */
-	list_setting = config_setting_add(root_setting, AGH_CMD_IN_KEYWORD, CONFIG_TYPE_LIST);
+	dest_list_setting = config_setting_add(dest_root_setting, AGH_CMD_IN_KEYWORD, CONFIG_TYPE_LIST);
 
-	if (!list_setting) {
+	if (!dest_list_setting) {
+		agh_log_cmd_crit("internal error while adding the destination list config setting via config_setting_add when copying a command");
 		goto wayout;
 	}
 
-	/* 3 - Add things */
+	/* 3 - Copy config settings from source to destination. */
 	src_in_keyword = config_lookup(src, AGH_CMD_IN_KEYWORD);
 
-	while ( (elem = config_setting_get_elem(src_in_keyword, index)) ) {
-		current_setting_type = config_setting_type(elem);
-		current_setting = config_setting_add(list_setting, NULL, current_setting_type);
+	while ( (src_elem = config_setting_get_elem(src_in_keyword, index)) ) {
+		src_current_setting_type = config_setting_type(src_elem);
+		dest_current_setting = config_setting_add(dest_list_setting, NULL, src_current_setting_type);
 
 		/*
 		 * Given the fact we check for settings types before writing them to new ones, we are not checking the final result(s).
@@ -310,37 +321,37 @@ static config_t *agh_cmd_copy_cfg(config_t *src) {
 		 * Should components receive zero values unexpectedly, checking what's going on here could be a good idea. This place may
 		 * also be more subject than others to effects due to changes in libconfig.
 		*/
-		switch(current_setting_type) {
+		switch(src_current_setting_type) {
 			case CONFIG_TYPE_INT:
-				config_setting_set_int(current_setting, config_setting_get_int(elem));
+				config_setting_set_int(dest_current_setting, config_setting_get_int(src_elem));
 				break;
 			case CONFIG_TYPE_INT64:
-				config_setting_set_int64(current_setting, config_setting_get_int64(elem));
+				config_setting_set_int64(dest_current_setting, config_setting_get_int64(src_elem));
 				break;
 			case CONFIG_TYPE_FLOAT:
-				config_setting_set_float(current_setting, config_setting_get_float(elem));
+				config_setting_set_float(dest_current_setting, config_setting_get_float(src_elem));
 				break;
 			case CONFIG_TYPE_STRING:
-				config_setting_set_string(current_setting, config_setting_get_string(elem));
+				config_setting_set_string(dest_current_setting, config_setting_get_string(src_elem));
 				break;
 			case CONFIG_TYPE_BOOL:
-				config_setting_set_bool(current_setting, config_setting_get_bool(elem));
+				config_setting_set_bool(dest_current_setting, config_setting_get_bool(src_elem));
 				break;
 			default:
-				g_print("Unsupported (or unknown) setting type while processing command config structure.\n");
+				agh_log_cmd_crit("unsupported (or unknown) setting type while processing command config structure for copying.\n\tGrab a cup of coffee and look at this please");
 				goto wayout;
 		}
 
 		index++;
 	}
 
-	return ncfg;
+	return dest_cfg;
 
 wayout:
-	config_destroy(ncfg);
-	g_free(ncfg);
-	ncfg = NULL;
-	return ncfg;
+	config_destroy(dest_cfg);
+	g_free(dest_cfg);
+	dest_cfg = NULL;
+	return dest_cfg;
 }
 
 struct agh_cmd *agh_cmd_copy(struct agh_cmd *cmd) {
