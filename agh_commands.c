@@ -286,7 +286,7 @@ static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 
 	/* This is going to happen every time this function operates on AGH events, which are basically "answers nobody asked for". */
 	if (!src || *error_value) {
-		agh_log_cmd_dbg("NULL config_t structure or error_value not set to zero when calling this function");
+		agh_log_cmd_dbg("NULL config_t structure or error_value not set to zero");
 		return dest_cfg;
 	}
 
@@ -357,44 +357,80 @@ wayout:
 	return dest_cfg;
 }
 
+/*
+ * Copies an agh_cmd structure, and involved members structures.
+ *
+ * Returns: an agh_cmd struct on success, NULL when a memory allocation failure occurs, an error is encountered in agh_cmd_copy_cfg,
+ * or a NULL agh_cmd structure is passed as parameter.
+ *
+ * Note that, especially when processing agh_cmd_res structures, failures while allocating memory will result in the program terminating uncleanly.
+*/
 struct agh_cmd *agh_cmd_copy(struct agh_cmd *cmd) {
-	struct agh_cmd *ocmd;
-	config_t *cfg;
-	struct agh_cmd_res *cmd_answer;
+	struct agh_cmd *new_cmd;
+	config_t *new_cfg;
+	struct agh_cmd_res *new_cmd_answer;
+	gint agh_cmd_copy_cfg_error_value;
 
-	ocmd = g_malloc0(sizeof(struct agh_cmd));
-	cfg = NULL;
-	cmd_answer = NULL;
+	/* required by agh_cmd_copy_cfg */
+	agh_cmd_copy_cfg_error_value = 0;
 
-	cfg = agh_cmd_copy_cfg(cmd->cmd);
-	if (cfg) {
-		ocmd->cmd = cfg;
+	if (!cmd) {
+		agh_log_cmd_dbg("NULL agh_cmd structure");
+		return cmd;
 	}
+
+	new_cmd = g_try_malloc0(sizeof(*new_cmd));
+	if (!new_cmd) {
+		agh_log_cmd_crit("unable to allocate a new agh_cmd structure for copying");
+		return new_cmd;
+	}
+
+	new_cfg = agh_cmd_copy_cfg(cmd->cmd, &agh_cmd_copy_cfg_error_value);
+	if (new_cfg)
+		new_cmd->cmd = new_cfg;
+	else
+		switch(agh_cmd_copy_cfg_error_value) {
+			case 0:
+				/* no config was present on the original structure */
+				break;
+			case AGH_CMD_COPY_CFG_ENOMEM:
+				goto wayout;
+			default:
+				agh_log_cmd_crit("unhandled error while copying command");
+				goto wayout;
+		}
 
 	if (cmd->answer) {
-		/* Anser processing. */
-		cmd_answer = g_malloc0(sizeof(struct agh_cmd_res));
-		cmd_answer->status = cmd->answer->status;
+		new_cmd_answer = g_try_malloc0(sizeof(*new_cmd_answer));
+		if (!new_cmd_answer) {
+			agh_log_cmd_crit("failure while allocating new agh_cmd_res structure for copying");
+			goto wayout;
+		}
 
-		cmd_answer->restextparts = g_queue_new();
+		new_cmd_answer->status = cmd->answer->status;
+		new_cmd_answer->is_data = cmd->answer->is_data;
 
-		g_queue_foreach(cmd->answer->restextparts, agh_copy_textparts, cmd_answer->restextparts);
+		new_cmd_answer->restextparts = g_queue_new();
 
-		cmd_answer->is_data = cmd->answer->is_data;
-		ocmd->answer = cmd_answer;
+		g_queue_foreach(cmd->answer->restextparts, agh_copy_textparts, new_cmd_answer->restextparts);
+
+		new_cmd->answer = new_cmd_answer;
 	}
 
-	if ((!ocmd->cmd) && (!ocmd->answer)) {
-		agh_cmd_free(ocmd);
-		g_print("\ncmd_copy: no cmd_cfg or answer, discarding structure.\n");
-		ocmd = NULL;
-	}
-	else {
-		if (cmd->cmd_source_id)
-			ocmd->cmd_source_id = g_strdup(cmd->cmd_source_id);
+	if (cmd->cmd_source_id)
+		new_cmd->cmd_source_id = g_strdup(cmd->cmd_source_id);
+
+	if ((!new_cmd->cmd) && (!new_cmd->answer)) {
+		agh_log_cmd_dbg("no agh_cmd nor agh_cmd_res structures where successfully copied");
+		goto wayout;
 	}
 
-	return ocmd;
+	return new_cmd;
+
+wayout:
+	agh_cmd_free(new_cmd);
+	new_cmd = NULL;
+	return new_cmd;
 }
 
 struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
