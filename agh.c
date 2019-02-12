@@ -494,16 +494,24 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	}
 	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_DEVTEST)) {
 		struct agh_cmd *event;
+		struct agh_cmd *evcp;
 		struct agh_message *test_answer;
+		struct agh_cmd *copiedcmd;
 
 		event = cmd_event_prepare();
 		agh_cmd_answer_alloc(cmd);
 
 		agh_cmd_answer_addtext(event, "evtestname", TRUE);
+		evcp = agh_cmd_copy(event);
 		cmd_emit_event(mstate->comm, event);
+		cmd_emit_event(mstate->comm, evcp);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_set_data(cmd, FALSE);
 		test_answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+
+		copiedcmd = agh_cmd_copy(cmd);
+		agh_cmd_free(copiedcmd);
+
 		return test_answer;
 	}
 
