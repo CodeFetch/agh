@@ -265,8 +265,9 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
  * Returns: a new config_t structure, or NULL when:
  *  - the passed in source config_t structure was NULL
  *  - failure while allocating the new config_t structure
+ *  - the error_value integer is not initialized to zero when calling us
 */
-static config_t *agh_cmd_copy_cfg(config_t *src) {
+static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 	config_t *dest_cfg;
 	config_setting_t *dest_root_setting;
 	config_setting_t *dest_list_setting;
@@ -284,14 +285,16 @@ static config_t *agh_cmd_copy_cfg(config_t *src) {
 	dest_cfg = NULL;
 
 	/* This is going to happen every time this function operates on AGH events, which are basically "answers nobody asked for". */
-	if (!src) {
-		agh_log_cmd_dbg("can not copy a NULL config_t structure");
+	if (!src || *error_value) {
+		agh_log_cmd_dbg("NULL config_t structure or error_value not set to zero when calling this function");
 		return dest_cfg;
 	}
 
 	dest_cfg = g_try_malloc0(sizeof(*dest_cfg));
 	if (!dest_cfg) {
 		agh_log_cmd_crit("can not allocate new config_t structure");
+#define AGH_CMD_COPY_CFG_ENOMEM 1
+		*error_value = AGH_CMD_COPY_CFG_ENOMEM;
 		return dest_cfg;
 	}
 
