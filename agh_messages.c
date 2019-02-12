@@ -41,7 +41,7 @@ struct agh_message *agh_msg_alloc(void) {
  * When -2 or -3 are returned, a memory leak may have happened.
 */
 gint agh_msg_dealloc(struct agh_message *m) {
-	struct text_csp *csptext;
+	struct agh_text_payload *csptext;
 	struct agh_cmd *cmd;
 	struct xmpp_csp *xmppdata;
 	gint retval;
@@ -150,7 +150,7 @@ gint agh_msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_c
 static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 	struct agh_message *m = data;
 	guint num_handlers;
-	struct handler *h;
+	struct agh_handler *h;
 	struct agh_message *answer;
 	guint i;
 	GQueue *handlers;

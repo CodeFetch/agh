@@ -46,7 +46,7 @@ static void agh_modem_get_signal_quality(MMObject *modem, struct agh_cmd *cmd);
 static void agh_modem_get_access_technologies(MMObject *modem, struct agh_cmd *cmd);
 
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_mm_state *mmstate = mstate->mmstate;

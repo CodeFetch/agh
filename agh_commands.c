@@ -435,10 +435,10 @@ wayout:
 
 struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 	struct agh_message *m;
-	struct text_csp *textcsp;
+	struct agh_text_payload *textcsp;
 
 	m = NULL;
-	textcsp = g_malloc0(sizeof(struct text_csp));
+	textcsp = g_malloc0(sizeof(struct agh_text_payload));
 
 	textcsp->text = agh_cmd_answer_to_text(cmd);
 

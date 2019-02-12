@@ -5,12 +5,12 @@
 #include "agh_commands.h"
 
 gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
-	struct text_csp *csp;
+	struct agh_text_payload *csp;
 	struct agh_state *mstate;
 	struct xmpp_state *xstate;
-	struct text_csp *textcopy_csp;
+	struct agh_text_payload *textcopy_csp;
 	struct agh_message *omsg;
 
 	mstate = h->handler_data;
@@ -31,7 +31,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 
 		omsg = agh_msg_alloc();
 		omsg->msg_type = MSG_SENDTEXT;
-		textcopy_csp = g_malloc0(sizeof(struct text_csp));
+		textcopy_csp = g_malloc0(sizeof(struct agh_text_payload));
 		textcopy_csp->text = g_strdup(csp->text);
 
 		if (csp->source_id)
@@ -46,7 +46,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 }
 
 gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_cmd __attribute__((unused)) *cmd;
 	struct agh_state *mstate;

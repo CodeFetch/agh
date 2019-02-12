@@ -63,7 +63,7 @@ gint agh_handlers_teardown(GQueue *handlers) {
  *
  * Returns: an integer with value -1 on failure, 0 otherwise.
 */
-gint agh_handler_register(GQueue *handlers, struct handler *h) {
+gint agh_handler_register(GQueue *handlers, struct agh_handler *h) {
 	gint ret;
 
 	ret = 0;
@@ -88,7 +88,7 @@ gint agh_handler_register(GQueue *handlers, struct handler *h) {
 gint agh_handlers_init(GQueue *handlers, gpointer data) {
 	guint i;
 	guint num_handlers;
-	struct handler *h;
+	struct agh_handler *h;
 
 	num_handlers = -1;
 
@@ -121,7 +121,7 @@ gint agh_handlers_init(GQueue *handlers, gpointer data) {
  * Returns: nothing; it's invoked via the g_queue_free_foreach GLib function.
 */
 static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 
 	if (h->enabled && h->handler_finalize) {
 		agh_log_handlers_dbg("AGH handler finalize cb for %s being invoked",h->name);
@@ -156,8 +156,8 @@ void agh_handlers_finalize(GQueue *handlers) {
  *
  * Note: this function may terminate AGH should an allocation failure occur in g_strdup.
 */
-struct handler *agh_new_handler(gchar *name) {
-	struct handler *h;
+struct agh_handler *agh_new_handler(gchar *name) {
+	struct agh_handler *h;
 
 	h = NULL;
 
@@ -179,7 +179,7 @@ struct handler *agh_new_handler(gchar *name) {
 /*
  * Changes an AGH handler "enabled" state.
 */
-gint agh_handler_enable(struct handler *h, gboolean enabled) {
+gint agh_handler_enable(struct agh_handler *h, gboolean enabled) {
 	gint retval;
 
 	retval = 0;
@@ -199,7 +199,7 @@ gint agh_handler_enable(struct handler *h, gboolean enabled) {
  *
  * Returns: an integer with value -1 if the passed in handler (or callback) are NULL, 0 otherwise.
 */
-gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)(gpointer data)) {
+gint agh_handler_set_initialize(struct agh_handler *h, void (*handler_initialize_cb)(gpointer data)) {
 	gint retval;
 
 	retval = 0;
@@ -219,7 +219,7 @@ gint agh_handler_set_initialize(struct handler *h, void (*handler_initialize_cb)
  *
  * Returns: an integer value of 0 on success, -1 on failure (e.g.: handler or callback where NULL).
 */
-gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
+gint agh_handler_set_handle(struct agh_handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
 	gint retval;
 
 	retval = 0;
@@ -239,7 +239,7 @@ gint agh_handler_set_handle(struct handler *h, gpointer (*handler_handle_cb)(gpo
  *
  * Returns: an integer with value 0 on success, -1 otherwise (e.g.: NULL handler or callback).
 */
-gint agh_handler_set_finalize(struct handler *h, void (*handler_finalize_cb)(gpointer data)) {
+gint agh_handler_set_finalize(struct agh_handler *h, void (*handler_finalize_cb)(gpointer data)) {
 	gint retval;
 
 	retval = 0;

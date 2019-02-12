@@ -15,7 +15,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
 
 gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *m = hmessage;
 

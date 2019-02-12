@@ -89,7 +89,7 @@ struct agh_thread {
 void agh_copy_textparts(gpointer data, gpointer user_data);
 gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage);
 
-struct text_csp {
+struct agh_text_payload {
 	gchar *text;
 	gchar *source_id;
 };

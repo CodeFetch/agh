@@ -368,8 +368,8 @@ static gboolean agh_unix_signals_cb(gpointer data) {
 */
 static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
-	struct handler *h = data;
-	struct text_csp *csp = m->csp;
+	struct agh_handler *h = data;
+	struct agh_text_payload *csp = m->csp;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *command_message;
 	struct agh_cmd *cmd;
@@ -430,14 +430,14 @@ static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
 */
 static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
-	struct handler *h = data;
-	struct text_csp *csp = m->csp;
+	struct agh_handler *h = data;
+	struct agh_text_payload *csp = m->csp;
 	struct agh_state *mstate = h->handler_data;
 	guint num_threads;
 	guint i;
 	struct agh_thread *ct;
 	struct agh_message *text_message;
-	struct text_csp *ncsp;
+	struct agh_text_payload *ncsp;
 
 	num_threads = 0;
 	ct = NULL;
@@ -455,7 +455,7 @@ static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 			for (i=0;i<num_threads;i++) {
 				text_message = agh_msg_alloc();
 				text_message->msg_type = MSG_SENDTEXT;
-				ncsp = g_malloc0(sizeof(struct text_csp));
+				ncsp = g_malloc0(sizeof(struct agh_text_payload));
 				ncsp->text = g_strdup(csp->text);
 
 				if (csp->source_id)
@@ -479,7 +479,7 @@ static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
 }
 
 static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_cmd *cmd;
@@ -523,13 +523,13 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
  * The core is expected to broadcast them, for the benefit of other threads (e.g. XMPP).
 */
 static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_cmd *cmd;
 	gchar *evtext;
 	struct agh_message *evmsg;
-	struct text_csp *textcsp;
+	struct agh_text_payload *textcsp;
 
 	cmd = NULL;
 	evtext = NULL;
@@ -554,7 +554,7 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 
 	evmsg = agh_msg_alloc();
 
-	textcsp = g_malloc0(sizeof(struct text_csp));
+	textcsp = g_malloc0(sizeof(struct agh_text_payload));
 	textcsp->text = evtext;
 	evmsg->csp = textcsp;
 	evmsg->msg_type = MSG_SENDTEXT;
@@ -567,7 +567,7 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 }
 
 gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_message *m = hmessage;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_cmd *cmd;
@@ -642,13 +642,13 @@ static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deini
 
 static gint agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	/* Core handlers. */
-	struct handler *core_recvtextcommand_handler;
-	struct handler *core_sendtext_handler;
-	struct handler *core_cmd_handler;
-	struct handler *core_event_to_text_handler;
-	struct handler *core_event_broadcast_handler;
-	struct handler *core_ubus_cmd_handler;
-	struct handler *xmppmsg_to_text;
+	struct agh_handler *core_recvtextcommand_handler;
+	struct agh_handler *core_sendtext_handler;
+	struct agh_handler *core_cmd_handler;
+	struct agh_handler *core_event_to_text_handler;
+	struct agh_handler *core_event_broadcast_handler;
+	struct agh_handler *core_ubus_cmd_handler;
+	struct agh_handler *xmppmsg_to_text;
 	gint retval;
 
 	retval = -1;
@@ -756,7 +756,7 @@ static void agh_thread_eventloop_teardown(struct agh_thread *ct) {
 
 static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_thread *ct = h->handler_data;
 
 	if (m->msg_type != MSG_EXIT)
@@ -845,10 +845,10 @@ void agh_copy_textparts(gpointer data, gpointer user_data) {
 
 gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
 	struct agh_message *m = hmessage;
-	struct handler *h = data;
+	struct agh_handler *h = data;
 	struct agh_state *mstate = h->handler_data;
 
-	struct text_csp *tcsp;
+	struct agh_text_payload *tcsp;
 	struct xmpp_csp *xcsp;
 	struct agh_message *tm;
 
@@ -865,7 +865,7 @@ gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
 		return NULL;
 
 	tm = agh_msg_alloc();
-	tcsp = g_malloc0(sizeof(struct text_csp));
+	tcsp = g_malloc0(sizeof(struct agh_text_payload));
 	tcsp->text = g_strdup(xcsp->text);
 
 	if (xcsp->from) {

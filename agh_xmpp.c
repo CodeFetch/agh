@@ -442,7 +442,7 @@ static gboolean xmpp_idle(gpointer data) {
 
 static void agh_xmpp_send_out_messages(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
-	struct text_csp *tcsp;
+	struct agh_text_payload *tcsp;
 	struct agh_message *artificial_message;
 	gchar *agh_message_source_name;
 	gchar *agh_message_source_from;
@@ -469,7 +469,7 @@ static void agh_xmpp_send_out_messages(struct agh_state *mstate) {
 	/* Get a message */
 	artificial_message = g_queue_pop_head(xstate->outxmpp_messages);
 
-	/* We expect only MSG_SENDTEXT messages, or in any case, messages with a text_csp. */
+	/* We expect only MSG_SENDTEXT messages, or in any case, messages with a agh_text_payload. */
 	tcsp = artificial_message->csp;
 
 	if (tcsp->source_id) {
@@ -537,7 +537,7 @@ static void agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, con
 void discard_xmpp_messages(gpointer data, gpointer userdata) {
 	struct xmpp_state *xstate = userdata;
 	struct agh_message *artificial_message = data;
-	struct text_csp *tcsp;
+	struct agh_text_payload *tcsp;
 
 	tcsp = artificial_message->csp;
 
@@ -551,8 +551,8 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 }
 
 static void xmpp_set_handlers_ext(struct agh_state *mstate) {
-	struct handler *xmpp_sendmsg_handler;
-	struct handler *xmpp_cmd_handler;
+	struct agh_handler *xmpp_sendmsg_handler;
+	struct agh_handler *xmpp_cmd_handler;
 
 	xmpp_sendmsg_handler = agh_new_handler("xmpp_sendmsg_handler");
 	agh_handler_set_handle(xmpp_sendmsg_handler, xmpp_sendmsg_handle);
