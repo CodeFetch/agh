@@ -94,7 +94,8 @@ gint agh_msg_dealloc(struct agh_message *m) {
 }
 
 /*
- * Sends a message to this or another thread, so it can be seen by currently installed handlers.
+ * Sends a message to this or another thread, so it can be processed by currently installed handlers.
+ * If dest_comm is NULL, src_comm will be used as destination as well.
  *
  * Returns: 0 on success, 1 when a NULL message is passed in, 2 when both sender and receiver COMMs where NULL, 3 when a
  * teardown is in progress (e.g.: AGH is terminating). Negative integer values are directly returned fro agh_msg_dealloc, which
