@@ -489,10 +489,10 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_SENDCMD)
 		return NULL;
 
-	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_QUIT)) {
+	if (!g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_QUIT)) {
 		agh_start_exit(mstate);
 	}
-	if (!g_strcmp0(cmd_get_operation(cmd), AGH_CMD_DEVTEST)) {
+	if (!g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_DEVTEST)) {
 		struct agh_cmd *event;
 		struct agh_cmd *evcp;
 		struct agh_message *test_answer;

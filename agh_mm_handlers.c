@@ -72,7 +72,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	cmd = m->csp;
 
 	/* If this is not the AGH_CMD_MODEM command, then stop here. */
-	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_MODEM))
+	if (g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_MODEM))
 		return NULL;
 
 	if (mstate->exiting || !mmstate->manager)

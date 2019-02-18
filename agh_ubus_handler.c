@@ -41,7 +41,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 
 	cmd = m->csp;
 
-	if (g_strcmp0(cmd_get_operation(cmd), AGH_CMD_UBUS))
+	if (g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_UBUS))
 		return NULL;
 
 	agh_cmd_answer_alloc(cmd);

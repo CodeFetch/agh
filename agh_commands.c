@@ -541,20 +541,34 @@ gint agh_cmd_get_id(struct agh_cmd *cmd) {
 	return id;
 }
 
-const gchar *cmd_get_operation(struct agh_cmd *cmd) {
+/*
+ * Returns the "operation" string of the passed in agh_cmd structure.
+ *
+ * Returns: a pointer to the string representing the operation related to the passed agh_cmd structure on success, NULL when:
+ *  - the passed in agh_cmd structure is NULL
+ *  - the AGH_CMD_IN_KEYWORD list could not be found.
+ *
+ * Note: the agh_cmd structure is supposed to be valid.
+*/
+const gchar *agh_cmd_get_operation(struct agh_cmd *cmd) {
 	config_setting_t *in_keyword;
 	const gchar *operation;
 
-	in_keyword = NULL;
 	operation = NULL;
 
-	if (!cmd)
+	if (!cmd) {
+		agh_log_cmd_crit("NULL agh_cmd structure, hence no operation can be returned");
 		return operation;
+	}
 
-	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) ) {
+		agh_log_cmd_crit("no "AGH_CMD_IN_KEYWORD" list found");
 		return operation;
+	}
 
 	operation = config_setting_get_string(config_setting_get_elem(in_keyword, 1));
+
+	/* This maybe NULL! */
 	return operation;
 }
 

@@ -42,7 +42,7 @@ struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src
  * Note: when one of these functions return a pointer to a string, it is of const type. This is due to the fact that libconfig
  * itself manages their storage.
 */
-const gchar *cmd_get_operation(struct agh_cmd *cmd);
+const gchar *agh_cmd_get_operation(struct agh_cmd *cmd);
 config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type);
 gint agh_cmd_get_id(struct agh_cmd *cmd);
 
