@@ -507,7 +507,7 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 		cmd_emit_event(mstate->comm, evcp);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_set_data(cmd, FALSE);
-		test_answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		test_answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 
 		copiedcmd = agh_cmd_copy(cmd);
 		agh_cmd_free(copiedcmd);

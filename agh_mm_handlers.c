@@ -97,7 +97,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 			agh_cmd_answer_addtext(cmd, AGH_MM_INVALID_MODEM, TRUE);
 		}
 
-		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
 
@@ -115,13 +115,13 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 		else
 			general_subcommand_cb(mmstate, cmd);
 
-		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
 
 	agh_mm_list_modems(mmstate, cmd);
 
-	answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 
 	return answer;
 }

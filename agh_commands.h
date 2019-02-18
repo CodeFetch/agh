@@ -35,7 +35,7 @@ guint agh_cmd_answer_alloc(struct agh_cmd *cmd);
 /* assorted management functions */
 gint agh_cmd_free(struct agh_cmd *cmd);
 struct agh_cmd *agh_cmd_copy(struct agh_cmd *cmd);
-struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
+struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm);
 
 /* Some useful functions to access commands data.
  *

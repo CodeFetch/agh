@@ -49,7 +49,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_NO_CONNECTION, TRUE);
-		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
 
@@ -57,7 +57,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	if (!arg) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_SUBCOMMAND, TRUE);
-		answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 		return answer;
 	}
 
@@ -78,7 +78,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 		agh_ubus_cmd_handler_cb(uctx, cmd);
 	}
 
-	answer = cmd_answer_msg(cmd, mstate->comm, NULL);
+	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 	return answer;
 }
 

@@ -433,29 +433,67 @@ wayout:
 	return new_cmd;
 }
 
-struct agh_message *cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
+/*
+ * Builds a new agh_message structure, holding the text representation of the answer to the agh_cmd structure passed in input.
+ * If dest_comm is NULL, src_comm will be used as destination as well.
+ *
+ * Returns: on success, an agh_message containing the agh_cmd_res text representation, or NULL when:
+ *  - a NULL agh_cmd structure is passed in, or one with a NULl agh_cmd_res pointer
+ *  - both src_comm and dest_comm are NULL
+ *
+ * Note: this function performs the same checks we can find in agh_cmd_answer_to_text. No other failures are "possible" inside
+ * agh_cmd_answer_to_text itself at the moment (e.g.: memory allocations failures will cause the program to terminate uncleanly).
+ * Still, we keep these checks to try to catch changes in that function, possibly generating new failure conditions.
+ * Furthermore, this function may terminate the program uncleanly, too.
+*/
+struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src_comm, struct agh_comm *dest_comm) {
 	struct agh_message *m;
-	struct agh_text_payload *textcsp;
+	struct agh_text_payload *text_payload;
 
 	m = NULL;
-	textcsp = g_malloc0(sizeof(struct agh_text_payload));
 
-	textcsp->text = agh_cmd_answer_to_text(cmd);
-
-	if (!textcsp->text) {
-		g_free(textcsp);
+	if (!cmd || !cmd->answer) {
+		agh_log_cmd_crit("NULL agh_cmd structure, or NULL agh_cmd_res pointer");
 		return m;
 	}
 
+	if ((!dest_comm) && (!src_comm)) {
+		agh_log_cmd_crit("both source and dest COMMs are NULL");
+		return m;
+	}
+
+	if (!dest_comm)
+		dest_comm = src_comm;
+
+	text_payload = g_try_malloc0(sizeof(*text_payload));
+	if (!text_payload) {
+		agh_log_cmd_crit("failure while allocating text payload when building answer message from an agh_cmd structure");
+		goto wayout;
+	}
+
+	text_payload->text = agh_cmd_answer_to_text(cmd);
+	if (!text_payload->text) {
+		agh_log_cmd_crit("NULL answer text");
+		goto wayout;
+	}
+
 	if (cmd->cmd_source_id)
-		textcsp->source_id = g_strdup(cmd->cmd_source_id);
+		text_payload->source_id = g_strdup(cmd->cmd_source_id);
 
 	m = agh_msg_alloc();
-	m->csp = textcsp;
+	if (!m)
+		goto wayout;
+
+	m->csp = text_payload;
 	m->msg_type = MSG_SENDTEXT;
 	m->src = src_comm;
 	m->dest = dest_comm;
 
+	return m;
+
+wayout:
+	g_free(text_payload->text);
+	g_free(text_payload);
 	return m;
 }
 
