@@ -497,10 +497,20 @@ wayout:
 	return m;
 }
 
+/*
+ * Return the AGH_CMD_IN_KEYWORD configuration setting.
+ * This function has been tought to handle valid agh_cmd structures as per agh_text_to_cmd.
+
+ * Returns: a config_setting_t pointer on success, NULL on failure (NULL agh_cmd structure passed).
+ *
+ * Note: may we use an assert-like function here?
+*/
 static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd) {
 
-	if (!cmd)
-		return NULL;
+	if (!cmd) {
+		agh_log_cmd_crit("can not lookup the "AGH_CMD_IN_KEYWORD" list on a NULL agh_cmd structure");
+		return cmd;
+	}
 
 	/* Should something go wrong, this returns NULL as well. */
 	return config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD);
