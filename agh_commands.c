@@ -509,25 +509,33 @@ static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd) {
 
 	if (!cmd) {
 		agh_log_cmd_crit("can not lookup the "AGH_CMD_IN_KEYWORD" list on a NULL agh_cmd structure");
-		return cmd;
+		return NULL;
 	}
 
 	/* Should something go wrong, this returns NULL as well. */
 	return config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD);
 }
 
+/*
+ * Get the ID of the passed in agh_cmd structure.
+ *
+ * Returns: an integer with value set as the AGH command ID, or 0 on failure, when a NULL agh_cmd structure was passed in or the AGH_CMD_IN_KEYWORD list could not be found.
+*/
 gint agh_cmd_get_id(struct agh_cmd *cmd) {
 	config_setting_t *in_keyword;
 	gint id;
 
-	in_keyword = NULL;
 	id = 0;
 
-	if (!cmd)
+	if (!cmd) {
+		agh_log_cmd_crit("problem getting the ID of a NULL agh_cmd struct");
 		return id;
+	}
 
-	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) ) {
+		agh_log_cmd_crit("no "AGH_CMD_IN_KEYWORD" found!");
 		return id;
+	}
 
 	id = config_setting_get_int(config_setting_get_elem(in_keyword, 0));
 	return id;
