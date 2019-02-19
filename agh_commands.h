@@ -43,7 +43,7 @@ struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src
  * itself manages their storage.
 */
 const gchar *agh_cmd_get_operation(struct agh_cmd *cmd);
-config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type);
+config_setting_t *agh_cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type);
 gint agh_cmd_get_id(struct agh_cmd *cmd);
 
 /* events */

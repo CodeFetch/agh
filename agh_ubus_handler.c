@@ -53,7 +53,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 		return answer;
 	}
 
-	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
 	if (!arg) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
 		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_SUBCOMMAND, TRUE);
@@ -93,7 +93,7 @@ static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 	path = NULL;
 	arg = NULL;
 
-	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
 
 	if (arg)
 		path = config_setting_get_string(arg);
@@ -120,17 +120,17 @@ static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 	status = 0;
 	res = NULL;
 
-	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
 
 	if (arg)
 		path = config_setting_get_string(arg);
 
-	arg = cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
 
 	if (arg)
 		method = config_setting_get_string(arg);
 
-	arg = cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING);
 
 	if (arg)
 		message = config_setting_get_string(arg);
@@ -186,7 +186,7 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 	num_events = 0;
 	current_event_mask = NULL;
 
-	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
 
 	/* If no subcommand, then show current status. */
 	if (!arg) {
@@ -212,7 +212,7 @@ static void agh_ubus_handler_listen(struct agh_ubus_ctx *uctx, struct agh_cmd *c
 	/* Or maybe we want to add anew event mask? */
 	if (!g_strcmp0(arg_str, AGH_CMD_UBUS_LISTEN_ADD)) {
 
-		arg = cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
+		arg = agh_cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
 
 		if (!arg)
 			current_event_mask = "*";
@@ -274,7 +274,7 @@ static void agh_ubus_handler_logstream(struct agh_ubus_ctx *uctx, struct agh_cmd
 	logstream_ret = -1;
 	argstr = NULL;
 
-	arg = cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
 
 	if (!arg) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);

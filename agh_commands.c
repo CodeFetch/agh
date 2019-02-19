@@ -507,8 +507,8 @@ wayout:
 */
 static config_setting_t *agh_cmd_get_in_keyword_setting(struct agh_cmd *cmd) {
 
-	if (!cmd) {
-		agh_log_cmd_crit("can not lookup the "AGH_CMD_IN_KEYWORD" list on a NULL agh_cmd structure");
+	if (!cmd || !cmd->cmd) {
+		agh_log_cmd_crit("can not lookup the "AGH_CMD_IN_KEYWORD" list on a NULL agh_cmd structure, or an event-related one");
 		return NULL;
 	}
 
@@ -527,8 +527,8 @@ gint agh_cmd_get_id(struct agh_cmd *cmd) {
 
 	id = 0;
 
-	if (!cmd) {
-		agh_log_cmd_crit("problem getting the ID of a NULL agh_cmd struct");
+	if (!cmd || !cmd->cmd) {
+		agh_log_cmd_crit("problem getting the ID of a NULL agh_cmd struct, or an event-related one");
 		return id;
 	}
 
@@ -542,7 +542,7 @@ gint agh_cmd_get_id(struct agh_cmd *cmd) {
 }
 
 /*
- * Returns the "operation" string of the passed in agh_cmd structure.
+ * Obtain the "operation" string of the passed in agh_cmd structure.
  *
  * Returns: a pointer to the string representing the operation related to the passed agh_cmd structure on success, NULL when:
  *  - the passed in agh_cmd structure is NULL
@@ -556,8 +556,8 @@ const gchar *agh_cmd_get_operation(struct agh_cmd *cmd) {
 
 	operation = NULL;
 
-	if (!cmd) {
-		agh_log_cmd_crit("NULL agh_cmd structure, hence no operation can be returned");
+	if (!cmd || !cmd->cmd) {
+		agh_log_cmd_crit("NULL or event-related agh_cmd structure");
 		return operation;
 	}
 
@@ -572,36 +572,49 @@ const gchar *agh_cmd_get_operation(struct agh_cmd *cmd) {
 	return operation;
 }
 
-config_setting_t *cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type) {
+/*
+ * Get a specified argument and check it's of the specified type.
+ *
+ * Returns: the argument's libconfig setting on success, NULL otherwise
+ * (e.g.: specified argument does not exist or is not of the specified type, NULL or event-related agh_cmd struct was passed in, attention keyword list not found).
+ *
+ * Note: arg_index == 0 is not considered legal.
+*/
+config_setting_t *agh_cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint config_type) {
 	config_setting_t *outset;
 	config_setting_t *in_keyword;
 
 	outset = NULL;
-	in_keyword = NULL;
 
-	if (!cmd)
-		return outset;
+	if (!cmd || !cmd->cmd) {
+		agh_log_cmd_crit("NULL or event-related agh_cmd structure while checking for args");
+		goto wayout;
+	}
 
 	/*
-	 * An arg_index being zero should give the operation, and in general it should not be a problem. Still, we may decide or need
+	 * An arg_index == 0 should give the operation (1+0), and in general it should not be a problem. Still, we may decide or need
 	 * to "reserve" this value.
 	*/
-	if (!arg_index)
-		return NULL;
+	if (!arg_index) {
+		agh_log_cmd_crit("arg_index == 0 not allowed");
+		goto wayout;
+	}
 
-	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) )
+	if (! (in_keyword = agh_cmd_get_in_keyword_setting(cmd)) ) {
+		agh_log_cmd_dbg(AGH_CMD_IN_KEYWORD" attention keyword not found while getting args");
 		return outset;
+	}
 
 	outset = config_setting_get_elem(in_keyword, 1+arg_index);
 
 	if (!outset)
-		return outset;
+		goto wayout;
 
 	/* This should not leak memory, because we're managing memory pertaining to the command config structure. */
-	if (config_setting_type(outset) != config_type) {
+	if (config_setting_type(outset) != config_type)
 		outset = NULL;
-	}
 
+wayout:
 	return outset;
 }
 

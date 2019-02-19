@@ -81,7 +81,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 	agh_cmd_answer_alloc(cmd);
 
 	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
-	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
+	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
 	if (arg) {
 		/* A modem was specified. */
 		current_modem = config_setting_get_int(arg);
@@ -101,7 +101,7 @@ gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
 		return answer;
 	}
 
-	arg = cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
+	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
 
 	if (arg) {
 		string_arg = config_setting_get_string(arg);
@@ -217,7 +217,7 @@ static void agh_modem_do(MMObject *modem, struct agh_cmd *cmd) {
 	void (*cb)(MMObject *modem, struct agh_cmd *cmd);
 
 	cb = NULL;
-	current_operation = config_setting_get_string(cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING));
+	current_operation = config_setting_get_string(agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING));
 
 	if (!g_strcmp0(current_operation, AGH_CMD_MM_GET_IMEI))
 		cb = agh_modem_get_imei;
