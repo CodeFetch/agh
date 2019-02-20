@@ -13,15 +13,6 @@
 /* command source identifier max length */
 #define AGH_CMD_MAX_FROM_LEN 70
 
-/* IN keyword: should be used for incoming commands */
-#define AGH_CMD_IN_KEYWORD "AT"
-
-/* OUT keyword: for outgoing commands. */
-#define AGH_CMD_OUT_KEYWORD "IH"
-
-/* EVENT keyword, for events */
-#define AGH_CMD_EVENT_KEYWORD AGH_CMD_OUT_KEYWORD"!"
-
 /* Log messages from AGH_LOG_DOMAIN_COMMANDS domain. */
 #define AGH_LOG_DOMAIN_COMMAND	"COMMAND"
 
@@ -114,11 +105,16 @@ guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean du
  * This function transforms an agh_cmd_res structure content to text. It is destructive, and infact it also deallocates the
  * passed in agh_cmd_res structure. Yeah, this is arguable design.
  *
- * Returns: a gchar pointer, pointing to the resulting text, or NULL when a NULL agh_cmd structure was passed, or one containing a NULL agh_cmd_res pointer.
+ * Parameters:
+ *  - struct agh_cmd *cmd: command
+ *  - const gchar *keyword: the keyword to be used when building answer text
+ *  - gint event_id: event ID (if not 0, we are building an event, otherwise this is an answer, and ID is taken from the libconfig config_t structure);
+ *
+ * Returns: a gchar pointer, pointing to the resulting text, or NULL when a NULL agh_cmd structure was passed, or one containing a NULL "answer" pointer.
  *
  * This function can terminate the program uncleanly.
 */
-static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
+gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd, const gchar *keyword, gint event_id) {
 	GString *output;
 	guint ntextparts;
 	guint i;
@@ -131,11 +127,20 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 		return NULL;
 	}
 
-	/* Start with the OUT keyword */
-	output = g_string_new(AGH_CMD_OUT_KEYWORD" = ( ");
+	if (!keyword) {
+		agh_log_cmd_crit("keyword may not be NULL");
+		return NULL;
+	}
 
-	/* Appends command ID, and status code, adding a comma and a space in between to keep the structure consistent when later appending text parts. */
-	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD), 0)), cmd->answer->status);
+	/* Start with the keyword */
+	output = g_string_new(NULL);
+	g_string_append_printf(output, "%s = ( ", keyword);
+
+	/* Appends command ID or event ID, and status code, adding a comma and a space in between to keep the structure consistent when later appending text parts. */
+	if (event_id)
+		g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", event_id, cmd->answer->status);
+	else
+		g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", config_setting_get_int(config_setting_get_elem(config_lookup(cmd->cmd, AGH_CMD_IN_KEYWORD), 0)), cmd->answer->status);
 
 	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
 	ntextparts = g_queue_get_length(cmd->answer->restextparts);
@@ -145,8 +150,18 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 		ntextparts++;
 	}
 
-	if (cmd->answer->is_data)
-		g_string_append_printf(output, ", \"DATA\" )");
+	if (cmd->answer->is_data) {
+
+		if (event_id) {
+			current_textpart = g_queue_pop_head(cmd->answer->restextparts);
+			g_string_append_printf(output, ", %s, \"DATA\" ) ", current_textpart);
+			ntextparts--;
+			g_free(current_textpart);
+		}
+
+		else
+			g_string_append_printf(output, ", \"DATA\" )");
+	}
 
 	for (i=0;i<ntextparts;i++) {
 		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
@@ -170,7 +185,11 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
 	*/
 	g_queue_free(cmd->answer->restextparts);
 
-	cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
+	if (event_id)
+		cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
+	else
+		cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
+
 	cmd->answer->restextparts = NULL;
 
 	g_free(cmd->answer);
@@ -474,7 +493,7 @@ struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src
 		goto wayout;
 	}
 
-	text_payload->text = agh_cmd_answer_to_text(cmd);
+	text_payload->text = agh_cmd_answer_to_text(cmd, AGH_CMD_OUT_KEYWORD, 0);
 	if (!text_payload->text) {
 		agh_log_cmd_crit("NULL answer text");
 		goto wayout;
@@ -658,75 +677,6 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 		cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
 
 	return cmd;
-}
-
-/*
- * This function transforms an event's agh_cmd_res structure content to text. It is destructive, and infact it also
- * deallocates the agh_cmd_res structure contained in the command used as event. And again, this is arguable design. A lot of code here is in common with the agh_cmd_answer_to_text
- * function, and infact it has been copied from there. Maybe unifying those function is a good idea.
-*/
-gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id) {
-	GString *output;
-	guint ntextparts;
-	guint i;
-	gchar *current_textpart;
-
-	ntextparts = 0;
-	current_textpart = NULL;
-
-	if (!cmd)
-		return NULL;
-
-	/* Start with the EVENT keyword */
-	output = g_string_new(AGH_CMD_EVENT_KEYWORD" = ( ");
-
-	/* Appends event ID, adding at last a comma and a space to keep the structure consistent when later appending text parts. */
-	g_string_append_printf(output, "%" G_GINT16_FORMAT", %" G_GUINT16_FORMAT"", event_id, cmd->answer->status);
-
-	/* We are going to process the restextparts queue now: it's guaranteed to be not NULL, but it may contain 0 items. */
-	ntextparts = g_queue_get_length(cmd->answer->restextparts);
-
-	if (!ntextparts) {
-		g_queue_push_tail(cmd->answer->restextparts, g_strdup(AGH_CMD_BUG_EMPTY_EVENT_NAME));
-		ntextparts++;
-	}
-
-	if (cmd->answer->is_data) {
-		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
-		g_string_append_printf(output, ", %s, \"DATA\" )", current_textpart);
-		ntextparts--;
-		g_free(current_textpart);
-	}
-
-	for (i=0;i<ntextparts;i++) {
-		current_textpart = g_queue_pop_head(cmd->answer->restextparts);
-
-		if (!cmd->answer->is_data)
-			g_string_append_printf(output, ", \"%s\"", current_textpart);
-		else
-			g_string_append_printf(output, "%s", current_textpart);
-
-		g_free(current_textpart);
-
-	}
-
-	/* A space and a close round bracket are to be added to complete the answer. */
-	if (!cmd->answer->is_data)
-		g_string_append_printf(output, " )");
-
-	/*
-	* See agh_cmd_answer_to_text for clarification.
-	*/
-	g_queue_free(cmd->answer->restextparts);
-
-	/* Yeah, probably useless. */
-	cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
-	cmd->answer->restextparts = NULL;
-
-	g_free(cmd->answer);
-	cmd->answer = NULL;
-
-	return g_string_free(output, FALSE);
 }
 
 void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {

@@ -540,9 +540,9 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_EVENT)
 		return evmsg;
 
-	/* An event arrived, so we need to convert it to text, and add an event ID. We use agh_cmd_copy / agh_cmd_free, due to the fact cmd_event_to_text is destructive (cmd->answer will then be NULL). */
+	/* An event arrived, so we need to convert it to text, and add an event ID. We use agh_cmd_copy / agh_cmd_free, due to the fact agh_cmd_answer_to_text is destructive (cmd->answer will then be NULL). */
 	cmd = agh_cmd_copy(m->csp);
-	evtext = cmd_event_to_text(cmd, mstate->event_id);
+	evtext = agh_cmd_answer_to_text(cmd, AGH_CMD_EVENT_KEYWORD, mstate->event_id);
 
 	agh_cmd_free(cmd);
 

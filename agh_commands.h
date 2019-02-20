@@ -4,6 +4,8 @@
 #include <libconfig.h>
 #include "agh_messages.h"
 
+/* Most of the things you'll find there are used by the core. Things like AGH_CMD_ANSWER_STATUS_{OK,FAIL} are used all around in the code base. */
+
 /* Status codes. */
 #define AGH_CMD_ANSWER_STATUS_UNKNOWN 380
 #define AGH_CMD_ANSWER_STATUS_OK 200
@@ -13,8 +15,17 @@
 /* Unset event IDs. */
 #define AGH_CMD_EVENT_UNKNOWN_ID AGH_CMD_ANSWER_STATUS_UNKNOWN
 
-/* Max event ID: here due to the fact it's used by core. */
+/* Max event ID. */
 #define AGH_CMD_EVENT_MAX_ID AGH_CMD_EVENT_UNKNOWN_ID-1
+
+/* IN keyword: should be used for incoming commands */
+#define AGH_CMD_IN_KEYWORD "AT"
+
+/* OUT keyword: for outgoing commands. */
+#define AGH_CMD_OUT_KEYWORD "IH"
+
+/* EVENT keyword, for events */
+#define AGH_CMD_EVENT_KEYWORD AGH_CMD_OUT_KEYWORD"!"
 
 struct agh_cmd {
 	config_t *cmd;
@@ -48,7 +59,7 @@ gint agh_cmd_get_id(struct agh_cmd *cmd);
 
 /* events */
 struct agh_cmd *agh_cmd_event_alloc(gint *error_value);
-gchar *cmd_event_to_text(struct agh_cmd *cmd, gint event_id);
+gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd, const gchar *keyword, gint event_id);
 void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd);
 const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index);
 const gchar *agh_cmd_event_name(struct agh_cmd *cmd);
