@@ -184,6 +184,7 @@ static gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd) {
  *
  * Returns: an unsigned integer with value 1 if the passed in agh_cmd structure is NULL or holds a not NULL pointer to an agh_cmd_res one.
  * An unsigned integer of value 2 indicates a memory allocation failure.
+ * Oh - and on success it should return 0.
  *
  * This function may lead to an unclean program termination.
 */
@@ -194,14 +195,16 @@ guint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
 
 	if (!cmd || cmd->answer) {
 		agh_log_cmd_crit("NULL agh_cmd structure or agh_cmd structure with an answer already allocated");
-		retval = 1;
+#define AGH_CMD_ANSWER_ALLOC_BADCMD 1
+		retval = AGH_CMD_ANSWER_ALLOC_BADCMD;
 	}
 	else {
 
 		cmd->answer = g_try_malloc0(sizeof(*cmd->answer));
 		if (!cmd->answer) {
 			agh_log_cmd_crit("can not allocate memory for the answer agh_cmd_res structure");
-			retval = 2;
+#define AGH_CMD_ANSWER_ALLOC_ENOMEM 2
+			retval = AGH_CMD_ANSWER_ALLOC_ENOMEM;
 		}
 		else {
 			cmd->answer->status = AGH_CMD_ANSWER_STATUS_UNKNOWN;
@@ -618,17 +621,41 @@ wayout:
 	return outset;
 }
 
-struct agh_cmd *cmd_event_prepare(void) {
+/*
+ * Allocates a new AGH event, an agh_cmd struct with an agh_cmd_res struct member "only".
+ *
+ * Returns: on success, a new agh_cmd structure is returned.
+ * A NULL pointer may be returned upon memory allocation failure, or a failure while in agh_cmd_answer_alloc.
+ * Infact, this function may lead to an unclean program termination.
+*/
+struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 	struct agh_cmd *cmd;
+	gint answer_alloc_error;
 
-	cmd = NULL;
+	cmd = g_try_malloc0(sizeof(*cmd));
+	if (!cmd) {
+		agh_log_cmd_crit("unable to allocate an agh_cmd struct for new event");
 
-	cmd = g_malloc0(sizeof(struct agh_cmd));
+		if (*error_value) {
+#define AGH_CMD_EVENT_ALLOC_ENOMEM 10
+			*error_value = AGH_CMD_EVENT_ALLOC_ENOMEM;
+		}
 
-	cmd->answer = g_malloc0(sizeof(struct agh_cmd_res));
+		return cmd;
+	}
 
-	cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
-	cmd->answer->restextparts = g_queue_new();
+	answer_alloc_error = agh_cmd_answer_alloc(cmd);
+
+	if (answer_alloc_error) {
+		agh_cmd_free(cmd);
+		cmd = NULL;
+
+		if (*error_value)
+			*error_value = answer_alloc_error;
+
+	}
+	else
+		cmd->answer->status = AGH_CMD_EVENT_UNKNOWN_ID;
 
 	return cmd;
 }

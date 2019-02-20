@@ -166,6 +166,7 @@ static struct agh_state *agh_state_setup(void) {
 	/* Set up the main event loop */
 	mstate->ctx = g_main_context_default();
 	mstate->agh_mainloop = g_main_loop_new(mstate->ctx, FALSE);
+	mstate->event_id++;
 
 	return mstate;
 }
@@ -498,7 +499,7 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 		struct agh_message *test_answer;
 		struct agh_cmd *copiedcmd;
 
-		event = cmd_event_prepare();
+		event = agh_cmd_event_alloc(NULL);
 		agh_cmd_answer_alloc(cmd);
 
 		agh_cmd_answer_addtext(event, "evtestname", TRUE);
@@ -549,8 +550,8 @@ static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
 		return evmsg;
 
 	mstate->event_id++;
-	if (mstate->event_id == AGH_CMD_EVENT_MAX_ID)
-		mstate->event_id = 0;
+	if (mstate->event_id > AGH_CMD_EVENT_MAX_ID)
+		mstate->event_id = 1;
 
 	evmsg = agh_msg_alloc();
 

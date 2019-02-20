@@ -59,7 +59,7 @@ static void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModem
 	event = NULL;
 	modem_idx = agh_mm_modem_to_index(mm_modem_get_path(modem));
 
-	event = cmd_event_prepare();
+	event = agh_cmd_event_alloc(NULL);
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(event, AGH_MM_MODEM_EVENT_NAME, TRUE);
 	agh_cmd_answer_addtext(event, modem_idx, TRUE);

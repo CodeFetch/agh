@@ -250,7 +250,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 	struct agh_cmd *agh_event;
 	gchar *event_message;
 
-	agh_event = cmd_event_prepare();
+	agh_event = agh_cmd_event_alloc(NULL);
 	event_message = NULL;
 
 	event_message = blobmsg_format_json(msg, true);
