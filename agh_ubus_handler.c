@@ -259,7 +259,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 	agh_cmd_answer_set_status(agh_event, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(agh_event, "\""AGH_UBUS_HANDLER_UBUS_EVENTs_NAME"\"", TRUE);
 	agh_cmd_answer_addtext(agh_event, g_strdup_printf("\n{ \"%s\": %s }\n", type, event_message), FALSE);
-	cmd_emit_event(agh_ubus_aghcomm, agh_event);
+	agh_cmd_emit_event(agh_ubus_aghcomm, agh_event);
 	g_free(event_message);
 
 	return;

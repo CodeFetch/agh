@@ -67,7 +67,7 @@ static void agh_mm_sm_statechange(MMModem *modem, MMModemState oldstate, MMModem
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(newstate)), TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(agh_mm_get_statechange_reason_string(reason)), TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))), TRUE);
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 	g_free(modem_idx);
 	modem_idx = NULL;
 

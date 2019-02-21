@@ -504,8 +504,8 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 
 		agh_cmd_answer_addtext(event, "evtestname", TRUE);
 		evcp = agh_cmd_copy(event);
-		cmd_emit_event(mstate->comm, event);
-		cmd_emit_event(mstate->comm, evcp);
+		agh_cmd_emit_event(mstate->comm, event);
+		agh_cmd_emit_event(mstate->comm, evcp);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		cmd_answer_set_data(cmd, FALSE);
 		test_answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);

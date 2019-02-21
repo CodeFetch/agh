@@ -60,7 +60,7 @@ gint agh_cmd_get_id(struct agh_cmd *cmd);
 /* events */
 struct agh_cmd *agh_cmd_event_alloc(gint *error_value);
 gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd, const gchar *keyword, gint event_id);
-void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd);
+gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd);
 const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index);
 const gchar *agh_cmd_event_name(struct agh_cmd *cmd);
 

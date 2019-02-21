@@ -42,7 +42,7 @@ void agh_mm_report_failed_reason(struct agh_state *mstate, MMModem *modem) {
 	agh_cmd_answer_addtext(event, AGH_MM_SM_MODEM_INIITSTATE_FAILURE, TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))), TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem))), TRUE);
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return;
 }
@@ -63,7 +63,7 @@ void agh_mm_report_locked_reason(struct agh_state *mstate, MMModem *modem) {
 	agh_cmd_answer_addtext(event, "locknotice", TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(mm_modem_get_state(modem))), TRUE);
 	agh_cmd_answer_addtext(event, AGH_MM_VALIDATE_UNKNOWN(mm_modem_lock_get_string(mm_modem_get_unlock_required(modem))), TRUE);
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return;
 }
@@ -137,7 +137,7 @@ static void agh_mm_sm_report_error(struct agh_state *mstate, gchar *message) {
 	else
 		agh_cmd_answer_addtext(event, "unknown", TRUE);
 
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return;
 }
@@ -287,7 +287,7 @@ static void agh_mm_sm_sim_unlock_send_pin_res(MMSim *sim, GAsyncResult *res, str
 		else
 			agh_cmd_answer_addtext(event, "unknown", TRUE);
 
-		cmd_emit_event(mstate->comm, event);
+		agh_cmd_emit_event(mstate->comm, event);
 	}
 
 	return;
@@ -323,7 +323,7 @@ void agh_mm_sm_report_failure_modem(struct agh_state *mstate, MMModem *modem, gc
 	else
 		agh_cmd_answer_addtext(event, "unknown", TRUE);
 
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return;
 }
@@ -509,7 +509,7 @@ static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *even
 	if (is_data)
 		cmd_answer_set_data(event, is_data);
 
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return;
 }
@@ -782,7 +782,7 @@ static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props
 	agh_cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"", TRUE);
 	cmd_answer_set_data(event, TRUE);
 	agh_cmd_answer_addtext(event, g_string_free(content, FALSE), FALSE);
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 	content = NULL;
 
 	return;

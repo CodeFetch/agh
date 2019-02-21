@@ -679,41 +679,58 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 	return cmd;
 }
 
-void cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
+/*
+ * Emits an event, preparing a message on which the passed in agh_cmd structure is "linked" as CSP.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - -20 if the passed agh_cmd structure is NULL or invalid
+ *  - -21 when specified COMM is NULL
+ *  - -22 when message allocation fails
+ * Any other value comes directly from agh_msg_send.
+*/
+gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 	struct agh_message *m;
+	gint retval;
 
-	m = NULL;
+	retval = 0;
 
-	if (!cmd)
-		return;
+	if (!cmd || !cmd->answer) {
+		agh_log_cmd_crit("invalid or NULL agh_cmd structure");
+		retval = -20;
+		goto wayout;
+	}
 
-	if (!cmd->answer) {
-		g_print("%s: can not emit event with no answer (cmd->answer)\n",__FUNCTION__);
-		return;
+	if (!agh_core_comm) {
+		agh_log_cmd_crit("NULL COMM specified");
+		retval = -21;
+		goto wayout;
 	}
 
 	m = agh_msg_alloc();
-	m->msg_type = MSG_EVENT;
-	m->csp = cmd;
-	if (agh_msg_send(m, agh_core_comm, NULL)) {
-		g_print("%s: can not send message to core\n",__FUNCTION__);
-		return;
+	if (!m) {
+		retval = -22;
+		goto wayout;
 	}
 
-	return;
+	m->msg_type = MSG_EVENT;
+	m->csp = cmd;
+	retval = agh_msg_send(m, agh_core_comm, NULL);
+
+wayout:
+	return retval;
 }
 
 /*
- * Gets event name. It should not in general return NULL, but it may do so. Infact, g_queue_peek_nth may return NULL if you try to access a position off the end of queue.
- * Note that the pointer returned here is "inside" the structure itself, and that's why it's const. So don't try to modify, or free it. And clearly do not use it once you freed or sent the event.
+ * Gets event name. It can return NULL.
+ * Note that the pointer returned here is "inside" the structure itself, and so it's const.
 */
 const gchar *agh_cmd_event_name(struct agh_cmd *cmd) {
 	const gchar *textop;
 
-	textop = NULL;
-
-	if (!cmd->answer)
+	if (!cmd || !cmd->answer) {
+		agh_log_cmd_crit("NULL agh_cmd struct, or no agh_cmd_res one");
 		return NULL;
+	}
 
 	textop = g_queue_peek_nth(cmd->answer->restextparts, 0);
 

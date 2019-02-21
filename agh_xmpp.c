@@ -1106,7 +1106,7 @@ static gboolean agh_xmpp_stressing_callback(gpointer data) {
 	event = agh_cmd_event_alloc(NULL);
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(event, "STRESS", TRUE);
-	cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, event);
 
 	return TRUE;
 }
