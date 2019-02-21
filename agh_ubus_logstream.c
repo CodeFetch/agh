@@ -301,7 +301,7 @@ static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *l
 		g_free(message_part);
 
 		log_event = agh_cmd_event_alloc(NULL);
-		cmd_answer_set_data(log_event, TRUE);
+		agh_cmd_answer_set_data(log_event, TRUE);
 		agh_cmd_answer_set_status(log_event, AGH_CMD_ANSWER_STATUS_OK);
 		agh_cmd_answer_addtext(log_event, "\""AGH_UBUS_LOGSTREAM_LOG_EVENTs_NAME"\"", TRUE);
 		agh_cmd_answer_addtext(log_event, parsed_text_log_message, FALSE);

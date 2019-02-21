@@ -84,7 +84,7 @@ void agh_ubus_handler_list_receive_results(struct ubus_context *ctx, struct ubus
 
 	}
 
-	cmd_answer_set_data(cmd, TRUE);
+	agh_cmd_answer_set_data(cmd, TRUE);
 
 	return;
 }

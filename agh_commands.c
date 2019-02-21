@@ -745,30 +745,73 @@ const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index) {
 
 	arg = NULL;
 
-	if (!arg_index)
+	if (!arg_index) {
+		agh_log_cmd_crit("arg_index not legal");
 		return arg;
+	}
 
 	arg = g_queue_peek_nth(cmd->answer->restextparts, arg_index);
 
 	return arg;
 }
 
-void cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data) {
+/*
+ * Sets data flag for an agh_cmd_res structure.
+ *
+ * Returns: 0 on success, -1 when the passed in agh_cmd struct is NULL, or has a NULL agh_cmd_res pointer member.
+*/
+gint agh_cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data) {
+	gint retval;
+
+	retval = 0;
+
+	if (!cmd || !cmd->answer) {
+		agh_log_cmd_crit("can not set data flag on NULL agh_cmd or agh_cmd_res structure");
+		retval = -1;
+		goto wayout;
+	}
+	
 	cmd->answer->is_data = is_data;
-	return;
+
+wayout:
+	return retval;
 }
 
-void cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean set_is_data) {
-	if (!cmd || !text)
-		return;
+/*
+ * Act on an agh_cmd_res structure when restextparts is empty.
+ *
+ * What this function does is actually allow the caller to add some text, set the answer status and data flag in one call.
+ *
+ * Returns: 0 on success, -1 when one of these conditions are met:
+ *  - status is 0 (not legal)
+ *  - text is NULL
+ *  - agh_cmd struct is NULL or contains a NULL agh_cmd_res pointer
+ *  - restextparts queue is NULL (but we won't be running to check for this in case of a queue-related memory allocation failure)
+*/
+gint agh_cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean is_data) {
+	gint retval;
+
+	retval = 0;
+
+	if (!cmd || !cmd->answer || !cmd->answer->restextparts || !text || !status) {
+		agh_log_cmd_crit("NULL agh_cmd struct or agh_cmd_res struct pointer inside agh_cmd struct, or missing restextparts? Crazy...");
+		retval = -1;
+		goto wayout;
+	}
 
 	if (!g_queue_get_length(cmd->answer->restextparts)) {
+		/* Not checking - we check for all of these conditions in here */
 		agh_cmd_answer_addtext(cmd, text, TRUE);
-		cmd->answer->is_data = set_is_data;
+
+		/* true in this case, too */
+		agh_cmd_answer_set_data(cmd, is_data);
+
+		/* and this also */
 		agh_cmd_answer_set_status(cmd, status);
 	}
 
-	return;
+wayout:
+	return retval;
 }
 
 /*

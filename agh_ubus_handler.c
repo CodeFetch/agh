@@ -84,7 +84,7 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 
 /*
  * You may think, as I did, that this is actually an asynchronous function, and that agh_ubus_list_receive_results is the callback invoked when operation is completed.
- * Actually, it seems the operation is synchronous, or at least this is what running this code showed. This is why it made sense to me to implement, and use, the cmd_answer_if_empty function.
+ * Actually, it seems the operation is synchronous, or at least this is what running this code showed. This is why it made sense to me to implement, and use, the agh_cmd_answer_if_empty function.
 */
 static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	const gchar *path;
@@ -100,7 +100,7 @@ static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 
 	ubus_lookup(uctx->ctx, path, agh_ubus_handler_list_receive_results, cmd);
 
-	cmd_answer_if_empty(cmd, AGH_CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
+	agh_cmd_answer_if_empty(cmd, AGH_CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
 
 	return;
 }
@@ -162,13 +162,13 @@ static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 		res = agh_ubus_get_call_result();
 		if (res) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			cmd_answer_set_data(cmd, TRUE);
+			agh_cmd_answer_set_data(cmd, TRUE);
 			agh_cmd_answer_addtext(cmd, g_strdup_printf("\n%s", res), FALSE);
 			g_free(res);
 		}
 	}
 
-	cmd_answer_if_empty(cmd, AGH_CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
+	agh_cmd_answer_if_empty(cmd, AGH_CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
 
 	return;
 }
@@ -255,7 +255,7 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 
 	event_message = blobmsg_format_json(msg, true);
 
-	cmd_answer_set_data(agh_event, TRUE);
+	agh_cmd_answer_set_data(agh_event, TRUE);
 	agh_cmd_answer_set_status(agh_event, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(agh_event, "\""AGH_UBUS_HANDLER_UBUS_EVENTs_NAME"\"", TRUE);
 	agh_cmd_answer_addtext(agh_event, g_strdup_printf("\n{ \"%s\": %s }\n", type, event_message), FALSE);

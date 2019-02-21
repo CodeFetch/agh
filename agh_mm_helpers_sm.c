@@ -507,7 +507,7 @@ static void agh_mm_sm_report(struct agh_state *mstate, guint status, gchar *even
 	agh_cmd_answer_addtext(event, reason, TRUE);
 
 	if (is_data)
-		cmd_answer_set_data(event, is_data);
+		agh_cmd_answer_set_data(event, is_data);
 
 	agh_cmd_emit_event(mstate->comm, event);
 
@@ -780,7 +780,7 @@ static void agh_mm_sm_properties_changed(MMModem *modem, GVariant *changed_props
 	event = agh_cmd_event_alloc(NULL);
 	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(event, "\""AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME"\"", TRUE);
-	cmd_answer_set_data(event, TRUE);
+	agh_cmd_answer_set_data(event, TRUE);
 	agh_cmd_answer_addtext(event, g_string_free(content, FALSE), FALSE);
 	agh_cmd_emit_event(mstate->comm, event);
 	content = NULL;
