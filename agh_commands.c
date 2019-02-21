@@ -770,7 +770,7 @@ gint agh_cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data) {
 		retval = -1;
 		goto wayout;
 	}
-	
+
 	cmd->answer->is_data = is_data;
 
 wayout:
