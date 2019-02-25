@@ -62,6 +62,54 @@ static void agh_broadcast_exit(struct agh_state *mstate);
 static void agh_exit(struct agh_state *mstate);
 static void agh_start_exit(struct agh_state *mstate);
 
+gint agh_core_cmd_cb_quit(struct agh_state *mstate, struct agh_cmd *cmd) {
+	agh_start_exit(mstate);
+	return 100;
+}
+
+gint agh_core_cmd_cb_playground(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_cmd *event;
+	struct agh_cmd *evcp;
+	struct agh_message *test_answer;
+	struct agh_cmd *copiedcmd;
+
+	event = agh_cmd_event_alloc(NULL);
+	agh_cmd_answer_alloc(cmd);
+
+	agh_cmd_answer_addtext(event, "evtestname", TRUE);
+	evcp = agh_cmd_copy(event);
+	agh_cmd_emit_event(mstate->comm, event);
+	agh_cmd_emit_event(mstate->comm, evcp);
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_set_data(cmd, FALSE);
+	test_answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
+
+	copiedcmd = agh_cmd_copy(cmd);
+	agh_cmd_free(copiedcmd);
+
+	agh_msg_send(test_answer, mstate->comm, NULL);
+
+	return 100;
+}
+
+/* Core operations. */
+static const struct agh_cmd_operation core_ops[] = {
+	{
+		.op_name = AGH_CMD_QUIT,
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_core_cmd_cb_quit
+	},
+	{
+		.op_name = AGH_CMD_DEVTEST,
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_core_cmd_cb_playground
+	},
+
+	{ }
+};
+
 /* Print some messages at startup. */
 static void agh_print_data(void) {
 	agh_log_core_info("\n\n******************** Hello! This is AGH %s (%s), compiled %s (%s). ********************\n\n",AGH_VERSION,AGH_RELEASE_NAME,__DATE__,__TIME__);
@@ -490,33 +538,9 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 	if (m->msg_type != MSG_SENDCMD)
 		return NULL;
 
-	if (!g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_QUIT)) {
-		agh_start_exit(mstate);
-	}
-	if (!g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_DEVTEST)) {
-		struct agh_cmd *event;
-		struct agh_cmd *evcp;
-		struct agh_message *test_answer;
-		struct agh_cmd *copiedcmd;
+	agh_cmd_op_match(mstate, core_ops, cmd, 0);
 
-		event = agh_cmd_event_alloc(NULL);
-		agh_cmd_answer_alloc(cmd);
-
-		agh_cmd_answer_addtext(event, "evtestname", TRUE);
-		evcp = agh_cmd_copy(event);
-		agh_cmd_emit_event(mstate->comm, event);
-		agh_cmd_emit_event(mstate->comm, evcp);
-		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-		agh_cmd_answer_set_data(cmd, FALSE);
-		test_answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-
-		copiedcmd = agh_cmd_copy(cmd);
-		agh_cmd_free(copiedcmd);
-
-		return test_answer;
-	}
-
-	return NULL;
+	return agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 }
 
 /*
