@@ -8,45 +8,6 @@ gchar *agh_ubus_call_data_str;
 gint agh_ubus_connection_state;
 struct agh_comm *agh_ubus_aghcomm;
 
-/* Function prototypes. */
-static gboolean agh_ubus_handle_events(gpointer data);
-static void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg);
-static void agh_ubus_disconnect_cb(struct ubus_context *ctx);
-
-struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
-	struct agh_ubus_ctx *uctx;
-
-	uctx = NULL;
-	agh_ubus_call_data_str = NULL;
-	agh_ubus_aghcomm = NULL;
-
-	if (!comm) {
-		g_print("%s: NULL comm\n",__FUNCTION__);
-		return uctx;
-	}
-
-	if (!comm->ctx) {
-		g_print("%s: NULL gmctx\n",__FUNCTION__);
-		return uctx;
-	}
-
-	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
-
-	uctx = g_malloc0(sizeof(struct agh_ubus_ctx));
-
-	uctx->gmctx = comm->ctx;
-
-	uctx->agh_ubus_timeoutsrc = g_timeout_source_new(AGH_UBUS_POLL_INTERVAL);
-	g_source_set_callback(uctx->agh_ubus_timeoutsrc, agh_ubus_handle_events, uctx, NULL);
-	uctx->agh_ubus_timeoutsrc_tag = g_source_attach(uctx->agh_ubus_timeoutsrc, uctx->gmctx);
-	g_source_unref(uctx->agh_ubus_timeoutsrc);
-
-	uctx->event_handler = g_malloc0(sizeof(struct ubus_event_handler));
-	agh_ubus_aghcomm = comm;
-
-	return uctx;
-}
-
 void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
 
 	if (agh_ubus_call_data_str) {
@@ -86,6 +47,11 @@ void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
 
 	g_free(uctx);
 
+	return;
+}
+
+static void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
+	agh_ubus_connection_state++;
 	return;
 }
 
@@ -143,11 +109,6 @@ static void agh_receive_call_result_data(struct ubus_request *req, int type, str
 		return;
 
 	agh_ubus_call_data_str = blobmsg_format_json_with_cb(msg, true, NULL, NULL, 0);
-	return;
-}
-
-static void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
-	agh_ubus_connection_state++;
 	return;
 }
 
@@ -274,4 +235,38 @@ gchar *agh_ubus_get_call_result(void) {
 	}
 
 	return res;
+}
+
+struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
+	struct agh_ubus_ctx *uctx;
+
+	uctx = NULL;
+	agh_ubus_call_data_str = NULL;
+	agh_ubus_aghcomm = NULL;
+
+	if (!comm) {
+		g_print("%s: NULL comm\n",__FUNCTION__);
+		return uctx;
+	}
+
+	if (!comm->ctx) {
+		g_print("%s: NULL gmctx\n",__FUNCTION__);
+		return uctx;
+	}
+
+	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
+
+	uctx = g_malloc0(sizeof(struct agh_ubus_ctx));
+
+	uctx->gmctx = comm->ctx;
+
+	uctx->agh_ubus_timeoutsrc = g_timeout_source_new(AGH_UBUS_POLL_INTERVAL);
+	g_source_set_callback(uctx->agh_ubus_timeoutsrc, agh_ubus_handle_events, uctx, NULL);
+	uctx->agh_ubus_timeoutsrc_tag = g_source_attach(uctx->agh_ubus_timeoutsrc, uctx->gmctx);
+	g_source_unref(uctx->agh_ubus_timeoutsrc);
+
+	uctx->event_handler = g_malloc0(sizeof(struct ubus_event_handler));
+	agh_ubus_aghcomm = comm;
+
+	return uctx;
 }
