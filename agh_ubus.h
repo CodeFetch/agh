@@ -36,7 +36,7 @@ extern gchar *agh_ubus_call_data_str;
 extern gint agh_ubus_connection_state;
 extern struct agh_comm *agh_ubus_aghcomm;
 
-struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm);
+struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm, gint *retvptr);
 void agh_ubus_teardown(struct agh_ubus_ctx *uctx);
 gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message);
 gchar *agh_ubus_get_call_result(void);

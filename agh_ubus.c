@@ -3,6 +3,14 @@
 #include "agh_ubus.h"
 #include "agh_messages.h"
 #include "agh_ubus_logstream.h"
+#include "agh_logging.h"
+
+/* Log messages from AGH_LOG_DOMAIN_UBUS domain. */
+#define AGH_LOG_DOMAIN_UBUS	"UBUS"
+
+/* Logging macros. */
+#define agh_log_ubus_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_UBUS, message, ##__VA_ARGS__)
+#define agh_log_ubus_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_UBUS, message, ##__VA_ARGS__)
 
 gchar *agh_ubus_call_data_str;
 gint agh_ubus_connection_state;
@@ -68,7 +76,7 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 				agh_ubus_connection_state++;
 			}
 
-			/* let's wait next iteration, evne if not necessary */
+			/* let's wait next iteration, even if not necessary */
 			break;
 		case AGH_UBUS_STATE_CONNECTED:
 			ubus_handle_event(uctx->ctx);
@@ -237,36 +245,81 @@ gchar *agh_ubus_get_call_result(void) {
 	return res;
 }
 
-struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm) {
+/*
+ * Initializes our connection to the ubus messaging bus.
+ * Parameters: the AGH core's COMM, and a pointer to an integer value, where error values will be stored.
+ * The pointed integer should be 0.
+ *
+ * Returns: a struct agh_ubus_ctx pointer is returned on success, NULL on failure.
+ * NULL may be returned due to:
+ *  - the specified COMM being NULL, or has a NULL GMainContext pointer
+ *  - the retvptr pointer is NULL or points to a non-zero integer value
+ * In those cases, *retvptr value is not set.
+*
+ * Failure values (*retvptr):
+ *  - -1 = failure while allocating AGH ubus context
+ *  - -2 = failure while allocating ubus event handler structure
+ *  - -3 = GSource attach failure
+ *
+ * Note: this function may terminate the program uncleanly.
+*/
+struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm, gint *retvptr) {
 	struct agh_ubus_ctx *uctx;
+	struct ubus_event_handler *event_handler;
 
 	uctx = NULL;
+
+	if (!comm || !comm->ctx || !retvptr || *retvptr) {
+		agh_log_ubus_dbg("specified COMM for the AGH core is NULL or has NULL GMainContext, retvptr is NULL or *retvptr is not 0");
+		return uctx;
+	}
+
+	/* global vars */
+	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
+	agh_ubus_aghcomm = comm;
 	agh_ubus_call_data_str = NULL;
 	agh_ubus_aghcomm = NULL;
 
-	if (!comm) {
-		g_print("%s: NULL comm\n",__FUNCTION__);
-		return uctx;
+	uctx = g_try_malloc0(sizeof(*uctx));
+	if (!uctx) {
+		agh_log_ubus_crit("can not allocate AGH ubus context");
+		*retvptr = -1;
+		goto wayout;
 	}
 
-	if (!comm->ctx) {
-		g_print("%s: NULL gmctx\n",__FUNCTION__);
-		return uctx;
+	event_handler = g_try_malloc0(sizeof(*event_handler));
+	if (!event_handler) {
+		agh_log_ubus_crit("can not allocate ubus event handler struct");
+		*retvptr = -2;
+		goto wayout;
 	}
-
-	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
-
-	uctx = g_malloc0(sizeof(struct agh_ubus_ctx));
 
 	uctx->gmctx = comm->ctx;
+	uctx->event_handler = event_handler;
 
 	uctx->agh_ubus_timeoutsrc = g_timeout_source_new(AGH_UBUS_POLL_INTERVAL);
 	g_source_set_callback(uctx->agh_ubus_timeoutsrc, agh_ubus_handle_events, uctx, NULL);
 	uctx->agh_ubus_timeoutsrc_tag = g_source_attach(uctx->agh_ubus_timeoutsrc, uctx->gmctx);
+	if (!uctx->agh_ubus_timeoutsrc_tag) {
+		agh_log_ubus_crit("error while attaching the ubus timeout source to GMainContext");
+		g_source_destroy(uctx->agh_ubus_timeoutsrc);
+		uctx->agh_ubus_timeoutsrc = NULL;
+		*retvptr = -3;
+		goto wayout;
+	}
+
 	g_source_unref(uctx->agh_ubus_timeoutsrc);
 
-	uctx->event_handler = g_malloc0(sizeof(struct ubus_event_handler));
-	agh_ubus_aghcomm = comm;
+wayout:
+
+	if (*retvptr) {
+
+		if (uctx) {
+			g_free(uctx->event_handler);
+			g_free(uctx);
+		}
+
+	}
 
 	return uctx;
 }
