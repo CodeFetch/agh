@@ -13,7 +13,7 @@
 /* command source identifier max length */
 #define AGH_CMD_MAX_FROM_LEN 70
 
-/* Log messages from AGH_LOG_DOMAIN_COMMANDS domain. */
+/* Log messages from AGH_LOG_DOMAIN_COMMAND domain. */
 #define AGH_LOG_DOMAIN_COMMAND	"COMMAND"
 
 /* Logging macros. */
@@ -287,7 +287,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
  * Returns: a new config_t structure, or NULL when:
  *  - the passed in source config_t structure was NULL
  *  - failure while allocating the new config_t structure
- *  - the error_value integer is not initialized to zero when calling us
+ *  - the error_value integer is not initialized to 0 when calling us
 */
 static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 	config_t *dest_cfg;
@@ -308,7 +308,7 @@ static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 
 	/* This is going to happen every time this function operates on AGH events, which are basically "answers nobody asked for". */
 	if (!src || *error_value) {
-		agh_log_cmd_dbg("NULL config_t structure or error_value not set to zero");
+		agh_log_cmd_dbg("NULL config_t structure or error_value not set to 0");
 		return dest_cfg;
 	}
 
@@ -650,6 +650,9 @@ wayout:
  * Returns: on success, a new agh_cmd structure is returned.
  * A NULL pointer may be returned upon memory allocation failure, or a failure while in agh_cmd_answer_alloc.
  * Infact, this function may lead to an unclean program termination.
+ *
+ * If a not NULL pointer is passed as error_value, and the pointer integer has 0 value, this function returns error indications there.
+ * In particular, *error_value will be equal to 10 on memory allocation failure while allocating a new agh_cmd struct. All other values are directly from agh_cmd_answer_alloc.
 */
 struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 	struct agh_cmd *cmd;
@@ -659,7 +662,7 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 	if (!cmd) {
 		agh_log_cmd_crit("unable to allocate an agh_cmd struct for new event");
 
-		if (*error_value) {
+		if (error_value || !*error_value) {
 #define AGH_CMD_EVENT_ALLOC_ENOMEM 10
 			*error_value = AGH_CMD_EVENT_ALLOC_ENOMEM;
 		}
@@ -673,7 +676,7 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 		agh_cmd_free(cmd);
 		cmd = NULL;
 
-		if (*error_value)
+		if (error_value || !*error_value)
 			*error_value = answer_alloc_error;
 
 	}
@@ -1054,7 +1057,7 @@ static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd 
 	gint retval;
 	guint i;
 
-	g_assert(cmd->cmd && !cmd->answer && op);
+	g_assert(cmd->cmd && !cmd->answer && op && args_offset && !*args_offset);
 
 	i = 1;
 	retval = 0;
@@ -1117,6 +1120,7 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	gint args_needed;
 
 	retval = 0;
+	args_needed = 0;
 
 	if (!ops || !cmd || !cmd->cmd || cmd->answer || !mstate) {
 		agh_log_cmd_crit("NULL operations vector or the passed agh_cmd struct is NULL (missing required config_t pointer or agh_cmd_res struct pointer is not NULL). Or maybe we have a NULL AGH state?");
