@@ -33,6 +33,15 @@ struct agh_cmd {
 	gchar *cmd_source_id;
 };
 
+/* An operation entry on the table used for matching, checking and executing operations. */
+struct agh_cmd_operation {
+	const gchar *op_name;
+	guint min_args;
+	guint max_args;
+	gint flags;
+	gint (*cmd_cb)(struct agh_state *mstate, struct agh_cmd *cmd);
+};
+
 struct agh_cmd *agh_text_to_cmd(gchar *from, gchar *content);
 
 /* AGH commands results */
@@ -40,8 +49,8 @@ gint agh_cmd_answer_set_status(struct agh_cmd *cmd, guint status);
 gint agh_cmd_answer_set_data(struct agh_cmd *cmd, gboolean is_data);
 gint agh_cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gboolean is_data);
 guint agh_cmd_answer_get_status(struct agh_cmd *cmd);
-guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup);
-guint agh_cmd_answer_alloc(struct agh_cmd *cmd);
+gint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup);
+gint agh_cmd_answer_alloc(struct agh_cmd *cmd);
 
 /* assorted management functions */
 gint agh_cmd_free(struct agh_cmd *cmd);
@@ -63,5 +72,8 @@ gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd, const gchar *keyword, gint ev
 gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd);
 const gchar *agh_cmd_event_arg(struct agh_cmd *cmd, guint arg_index);
 const gchar *agh_cmd_event_name(struct agh_cmd *cmd);
+
+/* Operations related functions. */
+gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *ops, struct agh_cmd *cmd, guint index);
 
 #endif

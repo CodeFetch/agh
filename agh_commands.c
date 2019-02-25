@@ -80,7 +80,7 @@ guint agh_cmd_answer_get_status(struct agh_cmd *cmd) {
  *  - the passed agh_cmd struct had a NULL agh_cmd_res pointer structure
  *  - passed text pointer was NULL
 */
-guint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup) {
+gint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup) {
 	guint retval;
 
 	retval = 0;
@@ -201,13 +201,13 @@ gchar *agh_cmd_answer_to_text(struct agh_cmd *cmd, const gchar *keyword, gint ev
 /*
  * Allocates an agh_cmd_res structure, and prepares it for later use by other AGH command's related functions.
  *
- * Returns: an unsigned integer with value 1 if the passed in agh_cmd structure is NULL or holds a not NULL pointer to an agh_cmd_res one.
- * An unsigned integer of value 2 indicates a memory allocation failure.
+ * Returns: an integer with value 1 if the passed in agh_cmd structure is NULL or holds a not NULL pointer to an agh_cmd_res one.
+ * An integer of value 2 indicates a memory allocation failure.
  * Oh - and on success it should return 0.
  *
  * This function may lead to an unclean program termination.
 */
-guint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
+gint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
 	guint retval;
 
 	retval = 0;
@@ -596,6 +596,7 @@ const gchar *agh_cmd_get_operation(struct agh_cmd *cmd) {
 
 /*
  * Get a specified argument and check it's of the specified type.
+ * If config_type is set to CONFIG_TYPE_NONE, no type checking is performed.
  *
  * Returns: the argument's libconfig setting on success, NULL otherwise
  * (e.g.: specified argument does not exist or is not of the specified type, NULL or event-related agh_cmd struct was passed in, attention keyword list not found).
@@ -630,6 +631,9 @@ config_setting_t *agh_cmd_get_arg(struct agh_cmd *cmd, guint arg_index, gint con
 	outset = config_setting_get_elem(in_keyword, 1+arg_index);
 
 	if (!outset)
+		goto wayout;
+
+	if (config_type == CONFIG_TYPE_NONE)
 		goto wayout;
 
 	/* This should not leak memory, because we're managing memory pertaining to the command config structure. */
@@ -1005,4 +1009,172 @@ wayout:
 	config_destroy(cmd_cfg);
 	g_free(cmd_cfg);
 	return ocmd;
+}
+
+/*
+ * Utility function to report errors while processing a received command.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - -40 when a NULL agh_cmd struct is passed, or when the "answer" member of the struct is not NULL.
+ *
+ * Positive error values are coming directly from agh_cmd_answer_alloc.
+*/
+static gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
+	gint retval;
+
+	if (!cmd || cmd->answer) {
+		agh_log_cmd_crit("NULL agh_cmd struct, or an answer is already allocated");
+		retval = -40;
+		goto wayout;
+	}
+
+	if ( (retval = agh_cmd_answer_alloc(cmd)) )
+		goto wayout;
+
+	agh_cmd_answer_set_status(cmd, status);
+	agh_cmd_answer_addtext(cmd, text, dup);
+
+wayout:
+	return retval;
+}
+
+/*
+ * Checks if the required number of arguments is present. Also fails on excess of arguments.
+ * If the (*args_offset) is not NULL, we'll store here a number indicating how many arguments you miss, or how many excess arguments you have.
+ * A negative number indicates missing arguments, a positive one indicates excess arguments.
+ * The 0 value is stored here when an "acceptable" number of arguments is present.
+ *
+ * Returns: an integer of value 0 on success, or
+ *  - -10 when an insufficient number of arguments was present,
+ *  - -11 when too many arguments where given.
+ *
+ * This function makes use of g_assert.
+*/
+static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd *cmd, guint index, gint *args_offset) {
+	gint retval;
+	guint i;
+
+	g_assert(cmd->cmd && !cmd->answer && op);
+
+	i = 1;
+	retval = 0;
+
+	while(agh_cmd_get_arg(cmd, i, CONFIG_TYPE_NONE))
+		i++;
+
+	/*
+	 * Here, i was set to 1 (we where not interested in the "operation", and we where constrained by agh_cmd_get_arg).
+	*/
+	i--;
+
+	if (i < op->min_args) {
+		agh_log_cmd_dbg("got %" G_GUINT16_FORMAT" args but %" G_GUINT16_FORMAT" where needed",i,op->min_args);
+
+		if (args_offset)
+			*args_offset = op->min_args-i;
+
+		retval = -10;
+		goto wayout;
+	}
+
+	if (i > op->max_args) {
+		agh_log_cmd_dbg("got %" G_GUINT16_FORMAT" args (%" G_GUINT16_FORMAT" more than expected)",i,(i-op->max_args));
+
+		if (args_offset)
+			*args_offset = op->max_args-i;
+
+		retval = -11;
+		goto wayout;
+	}
+
+	if (args_offset)
+		*args_offset = 0;
+
+wayout:
+	return retval;
+}
+
+/*
+ * Given an operation table, an agh_cmd struct and an index, this function will search for the requested operation.
+ * When no errors are detected in the function, the agh_cmd_op_check one is called.
+ * This function won't complain if no cmd_cb callback is present on a given operation entry.
+ * In that case, the command is "answered" infact, reporting the issue.
+ *
+ * Returns: an integer value with value 0 on success;
+ *  - -1: NULL operations vector or the passed agh_cmd struct is NULL, misses the required config_t pointer or has a not-NULL answer member; a NULL AGH state struct may cause this value to be returned as well, but it should not be possible to reach here
+ *  - -2: unable to obtain operation argument, maybe specified index is out of range?
+ *  - -3: unable to obtain operation text (at index 0)
+ *  - -4: mo match
+ *
+ * Other error codes are directly from agh_cmd_op_check and functions it may invoke.
+ * Return codes greather than 100 are from callbacks.
+*/
+gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *ops, struct agh_cmd *cmd, guint index) {
+	gint retval;
+	const struct agh_cmd_operation **current_op;
+	const gchar *requested_op_text;
+	config_setting_t *arg;
+	gint args_needed;
+
+	retval = 0;
+
+	if (!ops || !cmd || !cmd->cmd || cmd->answer || !mstate) {
+		agh_log_cmd_crit("NULL operations vector or the passed agh_cmd struct is NULL (missing required config_t pointer or agh_cmd_res struct pointer is not NULL). Or maybe we have a NULL AGH state?");
+		retval = -1;
+		goto wayout;
+	}
+
+	current_op = &ops;
+
+	if (!index)
+		requested_op_text = agh_cmd_get_operation(cmd);
+	else {
+		arg = agh_cmd_get_arg(cmd, index, CONFIG_TYPE_STRING);
+
+		if (!arg) {
+			agh_log_cmd_crit("unable to obtain argument at index=%" G_GUINT16_FORMAT" (index out of range?)",index);
+			retval = -2;
+			goto wayout;
+		}
+
+		requested_op_text = config_setting_get_string(arg);
+	}
+
+	if (!requested_op_text) {
+		agh_log_cmd_crit("can not obtain operation text");
+		retval = -3;
+		goto wayout;
+	}
+
+	while ((*current_op)->op_name) {
+
+		if (!g_strcmp0((*current_op)->op_name, requested_op_text))
+			break;
+
+		(*current_op)++;
+	}
+
+	if (!(*current_op)->op_name) {
+		agh_log_cmd_dbg("no match while scanning for operation=%s (index=%" G_GUINT16_FORMAT")",requested_op_text,index);
+		retval = -4;
+		goto wayout;
+	}
+
+	/* check */
+	if (agh_cmd_op_check(*current_op, cmd, index, &args_needed)) {
+		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, g_strdup_printf("args=%" G_GINT16_FORMAT"", args_needed), FALSE);
+		goto wayout;
+	}
+
+	if (!(*current_op)->cmd_cb) {
+		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "NO_CB", TRUE);
+		goto wayout;
+	}
+
+	retval = (*current_op)->cmd_cb(mstate, cmd);
+	if (retval < 100)
+		agh_log_cmd_dbg("a (*current_op)->cmd_cb function invaded our return values space; this may complicate troubleshooting");
+
+wayout:
+	return retval;
 }
