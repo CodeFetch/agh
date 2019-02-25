@@ -287,7 +287,7 @@ gint agh_cmd_free(struct agh_cmd *cmd) {
  * Returns: a new config_t structure, or NULL when:
  *  - the passed in source config_t structure was NULL
  *  - failure while allocating the new config_t structure
- *  - the error_value integer is not initialized to 0 when calling us
+ *  - the integer pointed by error_value is not initialized to 0 when calling us
 */
 static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 	config_t *dest_cfg;
@@ -307,7 +307,7 @@ static config_t *agh_cmd_copy_cfg(config_t *src, gint *error_value) {
 	dest_cfg = NULL;
 
 	/* This is going to happen every time this function operates on AGH events, which are basically "answers nobody asked for". */
-	if (!src || *error_value) {
+	if (!src || !error_value || *error_value) {
 		agh_log_cmd_dbg("NULL config_t structure or error_value not set to 0");
 		return dest_cfg;
 	}
@@ -662,7 +662,7 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 	if (!cmd) {
 		agh_log_cmd_crit("unable to allocate an agh_cmd struct for new event");
 
-		if (error_value || !*error_value) {
+		if (error_value && !*error_value) {
 #define AGH_CMD_EVENT_ALLOC_ENOMEM 10
 			*error_value = AGH_CMD_EVENT_ALLOC_ENOMEM;
 		}
@@ -676,7 +676,7 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
 		agh_cmd_free(cmd);
 		cmd = NULL;
 
-		if (error_value || !*error_value)
+		if (error_value && !*error_value)
 			*error_value = answer_alloc_error;
 
 	}
