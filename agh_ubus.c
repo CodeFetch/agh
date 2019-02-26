@@ -94,7 +94,7 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 			ubus_handle_event(uctx->ctx);
 			break;
 		case AGH_UBUS_STATE_RECONNECTING:
-			if (uctx->logstream_ctx && (uctx->logstream_ctx->logstream_state != 2)))
+			if (uctx->logstream_ctx && (uctx->logstream_ctx->logstream_state != 2))
 				uctx->logstream_ctx->logstream_state = 3;
 
 			if (!ubus_reconnect(uctx->ctx, AGH_UBUS_UNIX_SOCKET)) {
