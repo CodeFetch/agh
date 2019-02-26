@@ -63,6 +63,19 @@ static void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
 	return;
 }
 
+/*
+ * This function is invoked by GLib, as a timeout GSource attached to a GMainContext.
+ *
+ * After a successful completion of the agh_ubus_setup function, we expect to be at state AGH_UBUS_STATE_INIT.
+ * We'll execute the corresponding branch of the switch statemenet in the function, until a connection can be established.
+ * Upon a successful connection, we install the agh_ubus_disconnect_cb handler as the "connection lost" one
+ * (ctx->connection_lost) and enter the AGH_UBUS_STATE_CONNECTED switch branch at next invocation, where we handle events
+ * invoking the related ubus function.
+ * Should a disconnection occur, we expect the agh_ubus_disconnect_cb function to be invoked. (It will simply increment the agh_ubus_connection_state variable.)
+ * At this point, we should be in the AGH_UBUS_STATE_RECONNECTING state, where we constantly try to reconnect to ubus. If logstreaming
+ * is not connected, it's state is changed so it should deinit the log channel and start busy-waiting for us to (re-)establish
+ * an ubus connection.
+*/
 static gboolean agh_ubus_handle_events(gpointer data) {
 	struct agh_ubus_ctx *uctx = data;
 
@@ -81,9 +94,8 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 			ubus_handle_event(uctx->ctx);
 			break;
 		case AGH_UBUS_STATE_RECONNECTING:
-			if (uctx->logstream_ctx)
-				if (uctx->logstream_ctx->logstream_state != 2)
-					uctx->logstream_ctx->logstream_state = 3;
+			if (uctx->logstream_ctx && (uctx->logstream_ctx->logstream_state != 2)))
+				uctx->logstream_ctx->logstream_state = 3;
 
 			if (!ubus_reconnect(uctx->ctx, AGH_UBUS_UNIX_SOCKET)) {
 				agh_log_ubus_dbg("ubus connection re-established with local ID %08x",uctx->ctx->local_id);
