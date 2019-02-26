@@ -818,7 +818,7 @@ static void agh_mm_sm_call_outside_helper(struct agh_state *mstate, MMBearer *b)
 	if (status)
 		agh_mm_sm_report_error(mstate, "agh_mm_sm_call_outside_helper_call_error");
 	else {
-		callee_output = agh_ubus_get_call_result();
+		callee_output = agh_ubus_get_call_result(TRUE);
 
 		if (callee_output) {
 			agh_mm_sm_report(mstate, AGH_CMD_ANSWER_STATUS_OK, "agh_mm_sm_call_outside_helper", "agh_mm_sm_call_outside_helper_callee_output", "system", callee_output, TRUE);

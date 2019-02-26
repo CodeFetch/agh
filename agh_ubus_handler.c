@@ -159,7 +159,7 @@ static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd
 		}
 	}
 	else {
-		res = agh_ubus_get_call_result();
+		res = agh_ubus_get_call_result(TRUE);
 		if (res) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 			agh_cmd_answer_set_data(cmd, TRUE);

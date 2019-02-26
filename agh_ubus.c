@@ -71,12 +71,11 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 			uctx->ctx = ubus_connect(AGH_UBUS_UNIX_SOCKET);
 
 			if (uctx->ctx) {
-				g_print("%s: ubus connection established with local ID %08x\n",__FUNCTION__,uctx->ctx->local_id);
+				agh_log_ubus_dbg("ubus connection established with local ID %08x",uctx->ctx->local_id);
 				uctx->ctx->connection_lost = agh_ubus_disconnect_cb;
 				agh_ubus_connection_state++;
 			}
 
-			/* let's wait next iteration, even if not necessary */
 			break;
 		case AGH_UBUS_STATE_CONNECTED:
 			ubus_handle_event(uctx->ctx);
@@ -87,19 +86,19 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 					uctx->logstream_ctx->logstream_state = 3;
 
 			if (!ubus_reconnect(uctx->ctx, AGH_UBUS_UNIX_SOCKET)) {
-				g_print("%s: ubus connection re-established with local ID %08x\n",__FUNCTION__,uctx->ctx->local_id);
+				agh_log_ubus_dbg("ubus connection re-established with local ID %08x",uctx->ctx->local_id);
 				agh_ubus_connection_state--;
 			}
 
 			break;
 		case AGH_UBUS_STATE_STOP:
-			g_print("%s: AGH_UBUS_STATE_STOP, bye bye!\n",__FUNCTION__);
+			agh_log_ubus_dbg("AGH_UBUS_STATE_STOP, bye bye!");
 
 			/* We can do this because we already called g_source_unref on this GSource. */
 			uctx->agh_ubus_timeoutsrc = NULL;
 			return FALSE;
 		default:
-			g_print("%s: unknown state\n",__FUNCTION__);
+			agh_log_ubus_crit("unknown state");
 			agh_ubus_connection_state = AGH_UBUS_STATE_STOP;
 	}
 
@@ -231,16 +230,33 @@ gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *me
 	return 0;
 }
 
-gchar *agh_ubus_get_call_result(void) {
+/*
+ * Returns a pointer to a string holding the data resulting from an ubus call.
+ *
+ * Optionally, this function will copy the text.
+ *
+ * Returns: a pointer pointing to the string (optionally the copied one) or NULL on failure.
+ *
+ * This function may terminate the program uncleanly.
+*/
+gchar *agh_ubus_get_call_result(gboolean dup) {
 	gchar *res;
 
 	res = NULL;
 
 	if (agh_ubus_call_data_str) {
-		res = g_strdup(agh_ubus_call_data_str);
-		g_free(agh_ubus_call_data_str);
-		agh_ubus_call_data_str = NULL;
+
+		if (dup) {
+			res = g_strdup(agh_ubus_call_data_str);
+			g_free(agh_ubus_call_data_str);
+			agh_ubus_call_data_str = NULL;
+		}
+		else
+			res = agh_ubus_call_data_str;
+
 	}
+	else
+		agh_log_ubus_dbg("no data to return");
 
 	return res;
 }

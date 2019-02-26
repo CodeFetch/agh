@@ -39,7 +39,7 @@ extern struct agh_comm *agh_ubus_aghcomm;
 struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm, gint *retvptr);
 void agh_ubus_teardown(struct agh_ubus_ctx *uctx);
 gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message);
-gchar *agh_ubus_get_call_result(void);
+gchar *agh_ubus_get_call_result(gboolean dup);
 
 /* ubus events */
 gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg), const gchar *mask);
