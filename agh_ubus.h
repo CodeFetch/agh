@@ -42,7 +42,7 @@ gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *me
 gchar *agh_ubus_get_call_result(gboolean dup);
 
 /* ubus events */
-gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg), const gchar *mask);
+gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, ubus_event_handler_t cb, const gchar *mask);
 gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx);
 
 #endif
