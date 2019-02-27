@@ -154,30 +154,42 @@ static void agh_receive_call_result_data(struct ubus_request *req, int type, str
 	return;
 }
 
-gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg), const gchar *mask) {
+/*
+ * Registers an ubus event handler for a specified event mask, allocating a GQueue of masks strings if not already allocated.
+ * New event masks strings are added to that GQueue if successfully added.
+ * This function may terminate the program uncleanly.
+ *
+ * Returns: an integer with value 0 on success.
+ *  - -1 = no AGH ubus context, NULL mask specified or NULL callback given
+ *  - -2 = specified mask was already present
+ *
+ * Any other value comes from ubus_register_event_handler, which I suppose / hope, returns positive values only.
+ * I am not sure of that, but it seems an enum is consistently used in here.
+*/
+gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, ubus_event_handler_t cb, const gchar *mask) {
 	gint retval;
 	gchar *mask_tmp;
 	guint i;
 	guint num_masks;
 
 	retval = 0;
-	mask_tmp = NULL;
-	i = 0;
-	num_masks = 0;
 
-	if (!uctx || !mask)
-		return retval;
-
-	if (!cb)
-		return retval;
+	if (!uctx || !mask || !cb) {
+		agh_log_ubus_crit("no AGH ubus context, NULL mask specified or NULL callback given");
+		retval = -1;
+		goto wayout;
+	}
 
 	if (uctx->event_masks) {
-		g_print("%s: searching for mask %s in event masks\n",__FUNCTION__,mask);
 		num_masks = g_queue_get_length(uctx->event_masks);
 		for (i=0;i<num_masks;i++) {
 			mask_tmp = g_queue_peek_nth(uctx->event_masks, i);
-			if (!g_strcmp0(mask_tmp, mask))
-				return ++retval;
+			if (!g_strcmp0(mask_tmp, mask)) {
+				agh_log_ubus_dbg("mask already present");
+				retval = -2;
+				goto wayout;
+			}
+
 		}
 	}
 
@@ -185,8 +197,9 @@ gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_contex
 
 	retval = ubus_register_event_handler(uctx->ctx, uctx->event_handler, mask);
 	if (retval) {
+		agh_log_ubus_dbg("ubus_register_event_handler returned a failure (code=%" G_GINT16_FORMAT")");
 		uctx->event_handler->cb = NULL;
-		return retval;
+		goto wayout;
 	}
 
 	if (!uctx->event_masks)
@@ -194,6 +207,7 @@ gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, void (*cb)(struct ubus_contex
 
 	g_queue_push_tail(uctx->event_masks, g_strdup(mask));
 
+wayout:
 	return retval;
 }
 
