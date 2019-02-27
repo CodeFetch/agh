@@ -211,20 +211,26 @@ wayout:
 	return retval;
 }
 
+/*
+ * This function "resets" the list of masks we're interested in being notified about.
+ *
+ * Returns: on success, an integer with value 0 is returned. A value of -10 is returned when the specified AGH ubus context is NULL, or no masks GQueue was found.
+ * Any other error comes directly from ubus_unregister_event_handler, and should be positive, as they seem to consistently use an enum.
+*/
 gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx) {
 	gint retval;
 
-	retval = 10;
+	retval = -10;
 
-	if (!uctx)
+	if (!uctx || !uctx->event_masks) {
+		agh_log_ubus_crit("AGH ubus context or uctx->event_masks where NULL");
 		return retval;
+	}
 
-	if (!uctx->event_masks)
+	if ( (retval = ubus_unregister_event_handler(uctx->ctx, uctx->event_handler)) ) {
+		agh_log_ubus_crit("ubus_unregister_event_handler returned a failure (code=%" G_GINT16_FORMAT")");
 		return retval;
-
-	retval = ubus_unregister_event_handler(uctx->ctx, uctx->event_handler);
-	if (retval)
-		return retval;
+	}
 
 	g_queue_free_full(uctx->event_masks, g_free);
 	uctx->event_masks = NULL;
