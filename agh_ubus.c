@@ -16,17 +16,25 @@ gchar *agh_ubus_call_data_str;
 gint agh_ubus_connection_state;
 struct agh_comm *agh_ubus_aghcomm;
 
-void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
+/*
+ * Disconnects from ubus and free resources. It also sets global pointers to NULL, and agh_ubus_connection_state to AGH_UBUS_STATE_INIT.
+ *
+ * Returns: an integer with value -1 when passed agh_ubus_ctx struct is NULL, 0 otherwise.
+*/
+gint agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
+	gint retval;
 
-	if (agh_ubus_call_data_str) {
-		g_free(agh_ubus_call_data_str);
-		agh_ubus_call_data_str = NULL;
-	}
+	retval = 0;
 
+	g_free(agh_ubus_call_data_str);
+	agh_ubus_call_data_str = NULL;
 	agh_ubus_aghcomm = NULL;
 
-	if (!uctx)
-		return;
+	if (!uctx) {
+		agh_log_ubus_dbg("NULL AGH ubus context");
+		retval = -1;
+		goto wayout;
+	}
 
 	if (uctx->ctx) {
 		ubus_free(uctx->ctx);
@@ -48,18 +56,28 @@ void agh_ubus_teardown(struct agh_ubus_ctx *uctx) {
 		g_free(uctx->event_handler);
 		uctx->event_handler = NULL;
 	}
-	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
 
-	if (uctx->logstream_ctx)
+	if (uctx->logstream_ctx) {
 		agh_ubus_logstream_deinit(uctx);
+		uctx->logstream_ctx = NULL;
+	}
+
+	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
 
 	g_free(uctx);
 
-	return;
+wayout:
+	return retval;
 }
 
+/*
+ * Invoked when ubus connection is lost.
+ *
+ * Returns: nothing.
+*/
 static void agh_ubus_disconnect_cb(struct ubus_context *ctx) {
 	agh_ubus_connection_state++;
+	agh_log_ubus_crit("we got disconnected!");
 	return;
 }
 
@@ -117,12 +135,17 @@ static gboolean agh_ubus_handle_events(gpointer data) {
 	return TRUE;
 }
 
+/*
+ * Invoked upon reception of data resulting from an ubus call.
+ * Result is placed on the agh_ubus_call_data_str global pointer variable. If any content is stored there, it's freed.
+ * After this function exits, agh_ubus_call_data_str may still be NULL.
+ *
+ * Returns: nothing.
+*/
 static void agh_receive_call_result_data(struct ubus_request *req, int type, struct blob_attr *msg) {
 
-	if (agh_ubus_call_data_str) {
-		g_free(agh_ubus_call_data_str);
-		agh_ubus_call_data_str = NULL;
-	}
+	g_free(agh_ubus_call_data_str);
+	agh_ubus_call_data_str = NULL;
 
 	if (!msg)
 		return;
