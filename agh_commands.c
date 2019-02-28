@@ -1073,8 +1073,7 @@ static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd 
 	if (i < op->min_args) {
 		agh_log_cmd_dbg("got %" G_GUINT16_FORMAT" args but %" G_GUINT16_FORMAT" where needed",i,op->min_args);
 
-		if (args_offset)
-			*args_offset = op->min_args-i;
+		*args_offset = op->min_args-i;
 
 		retval = -10;
 		goto wayout;
@@ -1083,15 +1082,11 @@ static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd 
 	if (i > op->max_args) {
 		agh_log_cmd_dbg("got %" G_GUINT16_FORMAT" args (%" G_GUINT16_FORMAT" more than expected)",i,(i-op->max_args));
 
-		if (args_offset)
-			*args_offset = op->max_args-i;
+		*args_offset = op->max_args-i;
 
 		retval = -11;
 		goto wayout;
 	}
-
-	if (args_offset)
-		*args_offset = 0;
 
 wayout:
 	return retval;
