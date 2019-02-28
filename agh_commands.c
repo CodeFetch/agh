@@ -1171,7 +1171,7 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	}
 
 	retval = (*current_op)->cmd_cb(mstate, cmd);
-	if (retval < 100)
+	if (retval && retval < 100)
 		agh_log_cmd_dbg("a (*current_op)->cmd_cb function invaded our return values space; this may complicate troubleshooting");
 
 wayout:
