@@ -1059,16 +1059,13 @@ static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd 
 
 	g_assert(cmd->cmd && !cmd->answer && op && args_offset && !*args_offset);
 
-	i = 1;
+	i = index+1;
 	retval = 0;
 
 	while(agh_cmd_get_arg(cmd, i, CONFIG_TYPE_NONE))
 		i++;
 
-	/*
-	 * Here, i was set to 1 (we where not interested in the "operation", and we where constrained by agh_cmd_get_arg).
-	*/
-	i--;
+	i = i-index-1;
 
 	if (i < op->min_args) {
 		agh_log_cmd_dbg("got %" G_GUINT16_FORMAT" args but %" G_GUINT16_FORMAT" where needed",i,op->min_args);
@@ -1155,6 +1152,10 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 
 	if (!(*current_op)->op_name) {
 		agh_log_cmd_dbg("no match while scanning for operation=%s (index=%" G_GUINT16_FORMAT")",requested_op_text,index);
+
+		if (index)
+			agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "INVALID_SUBCOMMAND", TRUE);
+
 		retval = -4;
 		goto wayout;
 	}
