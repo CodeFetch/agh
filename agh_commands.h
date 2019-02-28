@@ -51,6 +51,7 @@ gint agh_cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gbo
 guint agh_cmd_answer_get_status(struct agh_cmd *cmd);
 gint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup);
 gint agh_cmd_answer_alloc(struct agh_cmd *cmd);
+gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup);
 
 /* assorted management functions */
 gint agh_cmd_free(struct agh_cmd *cmd);

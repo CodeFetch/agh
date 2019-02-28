@@ -1022,7 +1022,7 @@ wayout:
  *
  * Positive error values are coming directly from agh_cmd_answer_alloc.
 */
-static gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
+gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
 	gint retval;
 
 	if (!cmd || cmd->answer) {
