@@ -8,11 +8,9 @@
 #define AGH_UBUS_POLL_INTERVAL 800
 
 /* ubus calls failure reasons */
-#define AGH_UBUS_CALL_MISSING_PATH 1
-#define AGH_UBUS_CALL_MISSING_METHOD 2
-#define AGH_UBUS_CALL_BLOB_BUF_INIT_FAILURE 3
-#define AGH_UBUS_CALL_INVALID_JSON_MESSAGE 4
-#define AGH_UBUS_CALL_METHOD_NOT_FOUND 5
+#define AGH_UBUS_CALL_ERROR_BAD_ARGS -80
+#define AGH_UBUS_CALL_ERROR_ALLOCFAILURE -81
+#define AGH_UBUS_CALL_ERROR_INVALID_JSON_MESSAGE -82
 /* end of ubus calls failure reasons */
 
 /* agh_ubus_handle_events states */

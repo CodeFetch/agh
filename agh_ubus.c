@@ -239,50 +239,75 @@ gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx) {
 	return retval;
 }
 
+/*
+ * This function performs ubus calls.
+ * It relies on the ubus APIs, so it may return errors directly from them.
+ * Call results are stored in the agh_ubus_call_data_str global pointer; the string to which it pointed before calling this function is freed.
+ *
+ * Some notes:
+ * 1 - Should blob_buf_init fail, returning -ENOMEM.
+ * 2 - At the end of this function, we check for bbuf not being NULL: we experienced segfaults otherwise.
+ *     (I think it's because of blob_buf_free accessing buf->buf via free, but did not check.)
+ *
+ * Returns: an integer value with value 0 on success, or
+ *  - AGH_UBUS_CALL_ERROR_BAD_ARGS (-80) when "path" or "method" parameters where NULL
+ * AGH_UBUS_CALL_ERROR_ALLOCFAILURE (-81) on memory allocation failure
+ * AGH_UBUS_CALL_ERROR_INVALID_JSON_MESSAGE (-82) when JSON message parsing failed.
+ * Any other value should be considered as returned by other functions
+ * (e.g.: -ENOMEM may be returned due to failure in blob_buf_init).
+ * For all positive value errors, we recommend the usage of ubus_strerror.
+*/
 gint agh_ubus_call(struct agh_ubus_ctx *uctx, const gchar *path, const gchar *method, const gchar *message) {
 	struct blob_buf *bbuf;
 	guint32 id;
+	gint retval;
 
-	bbuf = NULL;
 	id = 0;
+	retval = 0;
+	bbuf = NULL;
 
-	if (agh_ubus_call_data_str) {
-		g_free(agh_ubus_call_data_str);
-		agh_ubus_call_data_str = NULL;
+	g_free(agh_ubus_call_data_str);
+	agh_ubus_call_data_str = NULL;
+
+	if (!path || !method) {
+		agh_log_ubus_dbg("path or method are NULL, and this is not legal");
+		retval = AGH_UBUS_CALL_ERROR_BAD_ARGS;
+		goto wayout;
 	}
 
-	if (!path)
-		return AGH_UBUS_CALL_MISSING_PATH;
-
-	if (!method)
-		return AGH_UBUS_CALL_MISSING_METHOD;
-
-	bbuf = g_malloc0(sizeof(struct blob_buf));
-
-	if (blob_buf_init(bbuf, 0)) {
-		g_free(bbuf);
-		return AGH_UBUS_CALL_BLOB_BUF_INIT_FAILURE;
+	bbuf = g_try_malloc0(sizeof(*bbuf));
+	if (!bbuf) {
+		agh_log_ubus_crit("can not allocate a blob_buf structure");
+		retval = AGH_UBUS_CALL_ERROR_ALLOCFAILURE;
+		goto wayout;
 	}
 
-	if (message) {
-		if (!blobmsg_add_json_from_string(bbuf, message)) {
-			blob_buf_free(bbuf);
-			g_free(bbuf);
-			return AGH_UBUS_CALL_INVALID_JSON_MESSAGE;
-		}
+	if ( (retval = blob_buf_init(bbuf, 0)) ) {
+		agh_log_ubus_crit("blob_buf init failure");
+		goto wayout;
 	}
 
-	if (ubus_lookup_id(uctx->ctx, path, &id)) {
+	if (message && !blobmsg_add_json_from_string(bbuf, message)) {
+		agh_log_ubus_dbg("failure while parsing JSON message");
+		retval = AGH_UBUS_CALL_ERROR_INVALID_JSON_MESSAGE;
+		goto wayout;
+	}
+
+	if ( (retval = ubus_lookup_id(uctx->ctx, path, &id)) ) {
+		agh_log_ubus_dbg("failure from ubus_lookup_id");
+		goto wayout;
+	}
+
+	retval = ubus_invoke(uctx->ctx, id, method, bbuf->head, agh_receive_call_result_data, NULL, 80 * 1000);
+
+wayout:
+
+	if (bbuf) {
 		blob_buf_free(bbuf);
 		g_free(bbuf);
-		return AGH_UBUS_CALL_METHOD_NOT_FOUND;
 	}
 
-	ubus_invoke(uctx->ctx, id, method, bbuf->head, agh_receive_call_result_data, NULL, 80 * 1000);
-
-	blob_buf_free(bbuf);
-	g_free(bbuf);
-	return 0;
+	return retval;
 }
 
 /*
@@ -310,8 +335,10 @@ gchar *agh_ubus_get_call_result(gboolean dup) {
 			res = agh_ubus_call_data_str;
 
 	}
-	else
+	else {
 		agh_log_ubus_dbg("no data to return");
+		agh_ubus_log_dbg("caller asked us to return global pointer");
+	}
 
 	return res;
 }
