@@ -337,7 +337,7 @@ gchar *agh_ubus_get_call_result(gboolean dup) {
 	}
 	else {
 		agh_log_ubus_dbg("no data to return");
-		agh_ubus_log_dbg("caller asked us to return global pointer");
+		agh_log_ubus_dbg("caller asked us to return global pointer");
 	}
 
 	return res;
