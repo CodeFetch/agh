@@ -74,7 +74,6 @@ gint agh_core_cmd_cb_playground(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_cmd *copiedcmd;
 
 	event = agh_cmd_event_alloc(NULL);
-	agh_cmd_answer_alloc(cmd);
 
 	agh_cmd_answer_addtext(event, "evtestname", TRUE);
 	evcp = agh_cmd_copy(event);
@@ -120,6 +119,7 @@ gint main(void) {
 
 	struct agh_state *mstate;
 	gint retval = 0;
+	gint ubus_ret = 0;
 
 	agh_logging_init();
 
@@ -163,7 +163,7 @@ gint main(void) {
 	/* Here you may set up threads. */
 
 	/* ubus connection */
-	mstate->uctx = agh_ubus_setup(mstate->comm);
+	mstate->uctx = agh_ubus_setup(mstate->comm, &ubus_ret);
 
 	agh_threads_prepare(mstate);
 
