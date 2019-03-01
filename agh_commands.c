@@ -1018,13 +1018,15 @@ wayout:
  * Utility function to report errors while processing a received command.
  *
  * Returns: an integer with value 0 on success, or
- *  - -40 when a NULL agh_cmd struct is passed, or when the "answer" member of the struct is NULL.
+ *  - -40 when a NULL agh_cmd struct is passed, when the "answer" member of the struct is NULL, when the given status value is illegal (0) or the given text pointer is NULL.
 */
 gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
 	gint retval;
 
-	if (!cmd || !cmd->answer) {
-		agh_log_cmd_crit("NULL agh_cmd or agh_cmd_res struct");
+	retval = 0;
+
+	if (!cmd || !cmd->answer || !status || !text) {
+		agh_log_cmd_crit("NULL agh_cmd or agh_cmd_res struct NULL, illegal status value or NULL text given");
 		retval = -40;
 		goto wayout;
 	}
@@ -1033,6 +1035,9 @@ gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gbo
 	agh_cmd_answer_addtext(cmd, text, dup);
 
 wayout:
+	if (retval && !dup)
+		g_free(text);
+
 	return retval;
 }
 
@@ -1157,6 +1162,17 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 		goto wayout;
 	}
 
+	if (!cmd->answer) {
+		retval = agh_cmd_answer_alloc(cmd);
+		if (retval) {
+			agh_log_cmd_crit("agh_cmd_answer_alloc failure (code=%" G_GINT16_FORMAT")",retval);
+			goto wayout;
+		}
+
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
+
+	}
+
 	/* check */
 	if (agh_cmd_op_check(*current_op, cmd, index, &args_needed)) {
 		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, g_strdup_printf("args=%" G_GINT16_FORMAT"", args_needed), FALSE);
@@ -1166,17 +1182,6 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	if (!(*current_op)->cmd_cb) {
 		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "NO_CB", TRUE);
 		goto wayout;
-	}
-
-	if (!cmd->answer) {
-		retval = agh_cmd_answer_alloc(cmd);
-		if (retval) {
-			agh_log_cmd_crit("agh_cmd_answer_alloc failure when preparing to invoke callback");
-			goto wayout;
-		}
-
-		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-
 	}
 
 	retval = (*current_op)->cmd_cb(mstate, cmd);
