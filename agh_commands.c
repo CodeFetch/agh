@@ -790,7 +790,7 @@ wayout:
  * What this function does is actually allow the caller to add some text, set the answer status and data flag in one call.
  *
  * Returns: 0 on success, -1 when one of these conditions are met:
- *  - status is 0 (not legal)
+ *  - status is 0 or AGH_CMD_ANSWER_STATUS_UNKNOWN (not legal)
  *  - text is NULL
  *  - agh_cmd struct is NULL or contains a NULL agh_cmd_res pointer
  *  - restextparts queue is NULL (but we won't be running to check for this in case of a queue-related memory allocation failure)
@@ -800,7 +800,7 @@ gint agh_cmd_answer_if_empty(struct agh_cmd *cmd, guint status, gchar *text, gbo
 
 	retval = 0;
 
-	if (!cmd || !cmd->answer || !cmd->answer->restextparts || !text || !status) {
+	if (!cmd || !cmd->answer || !cmd->answer->restextparts || !text || !status || (status == AGH_CMD_ANSWER_STATUS_UNKNOWN)) {
 		agh_log_cmd_crit("NULL agh_cmd struct or agh_cmd_res struct pointer inside agh_cmd struct, or missing restextparts? Crazy...");
 		retval = -1;
 		goto wayout;
@@ -1018,14 +1018,14 @@ wayout:
  * Utility function to report errors while processing a received command.
  *
  * Returns: an integer with value 0 on success, or
- *  - -40 when a NULL agh_cmd struct is passed, when the "answer" member of the struct is NULL, when the given status value is illegal (0) or the given text pointer is NULL.
+ *  - -40 when a NULL agh_cmd struct is passed, when the "answer" member of the struct is NULL, when the given status value is illegal (0 or AGH_CMD_ANSWER_STATUS_UNKNOWN) or the given text pointer is NULL.
 */
 gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
 	gint retval;
 
 	retval = 0;
 
-	if (!cmd || !cmd->answer || !status || !text) {
+	if (!cmd || !cmd->answer || !status || !text || (status == AGH_CMD_ANSWER_STATUS_UNKNOWN)) {
 		agh_log_cmd_crit("NULL agh_cmd or agh_cmd_res struct NULL, illegal status value or NULL text given");
 		retval = -40;
 		goto wayout;

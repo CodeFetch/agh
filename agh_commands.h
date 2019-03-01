@@ -38,7 +38,6 @@ struct agh_cmd_operation {
 	const gchar *op_name;
 	guint min_args;
 	guint max_args;
-	gint flags;
 	gint (*cmd_cb)(struct agh_state *mstate, struct agh_cmd *cmd);
 };
 
