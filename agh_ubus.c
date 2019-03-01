@@ -251,8 +251,8 @@ gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx) {
  *
  * Returns: an integer value with value 0 on success, or
  *  - AGH_UBUS_CALL_ERROR_BAD_ARGS (-80) when "path" or "method" parameters where NULL
- * AGH_UBUS_CALL_ERROR_ALLOCFAILURE (-81) on memory allocation failure
- * AGH_UBUS_CALL_ERROR_INVALID_JSON_MESSAGE (-82) when JSON message parsing failed.
+ * - AGH_UBUS_CALL_ERROR_ALLOCFAILURE (-81) on memory allocation failure
+ * - AGH_UBUS_CALL_ERROR_INVALID_JSON_MESSAGE (-82) when JSON message parsing failed.
  * Any other value should be considered as returned by other functions
  * (e.g.: -ENOMEM may be returned due to failure in blob_buf_init).
  * For all positive value errors, we recommend the usage of ubus_strerror.
