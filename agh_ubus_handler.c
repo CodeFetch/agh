@@ -1,5 +1,6 @@
 #include <libubox/blobmsg_json.h>
 #include "agh_handlers.h"
+#include "agh_logging.h"
 #include "agh_messages.h"
 #include "agh_commands.h"
 #include "agh_ubus.h"
@@ -7,28 +8,76 @@
 #include "agh_ubus_helpers.h"
 #include "agh_ubus_logstream.h"
 
+/* Log messages from AGH_LOG_DOMAIN_UBUS_HANDLER domain. */
+#define AGH_LOG_DOMAIN_UBUS_HANDLER	"UBUS_HANDLER"
+
+/* Logging macros. */
+#define agh_log_ubus_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_UBUS_HANDLER, message, ##__VA_ARGS__)
+#define agh_log_ubus_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_UBUS_HANDLER_CRIT, message, ##__VA_ARGS__)
+
 /*
- * You may think, as I did, that this is actually an asynchronous function, and that agh_ubus_list_receive_results is the callback invoked when operation is completed.
- * Actually, it seems the operation is synchronous, or at least this is what running this code showed. This is why it made sense to me to implement, and use, the agh_cmd_answer_if_empty function.
+ * Lists ubus objects and related methods.
+ *
+ * Returns: always 0.
 */
-static void agh_ubus_handler_list(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
-	const gchar *path;
+static gint agh_ubus_cmd_list_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	config_setting_t *arg;
+	const gchar *path;
+	gint ubus_retval;
 
 	path = NULL;
-	arg = NULL;
 
 	arg = agh_cmd_get_arg(cmd, 2, CONFIG_TYPE_STRING);
-
 	if (arg)
 		path = config_setting_get_string(arg);
 
-	ubus_lookup(uctx->ctx, path, agh_ubus_handler_list_receive_results, cmd);
+	ubus_retval = ubus_lookup(mstate->uctx->ctx, path, agh_ubus_handler_list_receive_results, cmd);
 
-	agh_cmd_answer_if_empty(cmd, AGH_CMD_ANSWER_STATUS_FAIL, AGH_UBUS_HANDLER_NO_DATA, FALSE);
+	if (ubus_retval)
+		agh_cmd_answer_addtext(cmd, ubus_strerror(ubus_retval), TRUE);
 
-	return;
+	return 0;
 }
+
+static const struct agh_cmd_operation agh_ubus_handler_subcommands[] = {
+	{
+		.op_name = AGH_CMD_UBUS_LIST,
+		.min_args = 0,
+		.max_args = 1,
+		.cmd_cb = agh_ubus_cmd_list_cb
+	},
+
+	{ }
+};
+
+gint agh_ubus_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	gint retval;
+
+	retval = 0;
+
+	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
+		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "NO_CONNECTION", TRUE);
+		retval = 100;
+		goto wayout;
+	}
+
+	agh_cmd_op_match(mstate, agh_ubus_handler_subcommands, cmd, 1);
+
+wayout:
+	return retval;
+}
+
+/* ubus operations */
+static const struct agh_cmd_operation agh_ubus_handler_ops[] = {
+	{
+		.op_name = AGH_CMD_UBUS,
+		.min_args = 1,
+		.max_args = 4,
+		.cmd_cb = agh_ubus_cmd_cb
+	},
+
+	{ }
+};
 
 static void agh_ubus_handler_call(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd) {
 	const gchar *path;
@@ -237,66 +286,19 @@ gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
 	struct agh_handler *h = data;
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *m = hmessage;
-
 	struct agh_cmd *cmd;
-	struct agh_ubus_ctx *uctx;
 	struct agh_message *answer;
-	void (*agh_ubus_cmd_handler_cb)(struct agh_ubus_ctx *uctx, struct agh_cmd *cmd);
-	config_setting_t *arg;
-	const gchar *argstr;
 
 	cmd = NULL;
-	uctx = mstate->uctx;
 	answer = NULL;
-	agh_ubus_cmd_handler_cb = NULL;
-	arg = NULL;
-	argstr = NULL;
 
-	if (m->msg_type != MSG_SENDCMD)
-		return NULL;
-
-	if (!mstate->uctx)
-		return NULL;
+	if ((m->msg_type != MSG_SENDCMD) || (!mstate->uctx))
+		goto wayout;
 
 	cmd = m->csp;
+	agh_cmd_op_match(mstate, agh_ubus_handler_ops, cmd, 0);
 
-	if (g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_UBUS))
-		return NULL;
-
-	agh_cmd_answer_alloc(cmd);
-
-	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
-		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_NO_CONNECTION, TRUE);
-		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-		return answer;
-	}
-
-	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
-	if (!arg) {
-		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_MISSING_SUBCOMMAND, TRUE);
-		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-		return answer;
-	}
-
-	argstr = config_setting_get_string(arg);
-	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LIST))
-		agh_ubus_cmd_handler_cb = agh_ubus_handler_list;
-	if (!g_strcmp0(argstr, AGH_CMD_UBUS_CALL))
-		agh_ubus_cmd_handler_cb = agh_ubus_handler_call;
-	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LISTEN))
-		agh_ubus_cmd_handler_cb = agh_ubus_handler_listen;
-	if (!g_strcmp0(argstr, AGH_CMD_UBUS_LOGSTREAM))
-		agh_ubus_cmd_handler_cb = agh_ubus_handler_logstream;
-
-	if (!agh_ubus_cmd_handler_cb) {
-		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-		agh_cmd_answer_addtext(cmd, AGH_UBUS_HANDLER_INVALID_SUBCOMMAND, TRUE);
-	} else {
-		agh_ubus_cmd_handler_cb(uctx, cmd);
-	}
-
+wayout:
 	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 	return answer;
 }
