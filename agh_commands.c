@@ -1018,21 +1018,16 @@ wayout:
  * Utility function to report errors while processing a received command.
  *
  * Returns: an integer with value 0 on success, or
- *  - -40 when a NULL agh_cmd struct is passed, or when the "answer" member of the struct is not NULL.
- *
- * Positive error values are coming directly from agh_cmd_answer_alloc.
+ *  - -40 when a NULL agh_cmd struct is passed, or when the "answer" member of the struct is NULL.
 */
 gint agh_cmd_op_answer_error(struct agh_cmd *cmd, guint status, gchar *text, gboolean dup) {
 	gint retval;
 
-	if (!cmd || cmd->answer) {
-		agh_log_cmd_crit("NULL agh_cmd struct, or an answer is already allocated");
+	if (!cmd || !cmd->answer) {
+		agh_log_cmd_crit("NULL agh_cmd or agh_cmd_res struct");
 		retval = -40;
 		goto wayout;
 	}
-
-	if ( (retval = agh_cmd_answer_alloc(cmd)) )
-		goto wayout;
 
 	agh_cmd_answer_set_status(cmd, status);
 	agh_cmd_answer_addtext(cmd, text, dup);
@@ -1057,7 +1052,7 @@ static gint agh_cmd_op_check(const struct agh_cmd_operation *op, struct agh_cmd 
 	gint retval;
 	guint i;
 
-	g_assert(cmd->cmd && !cmd->answer && op && args_offset && !*args_offset);
+	g_assert(cmd->cmd && op && args_offset && !*args_offset);
 
 	i = index+1;
 	retval = 0;
@@ -1101,8 +1096,10 @@ wayout:
  *  - -3: unable to obtain operation text (at index 0)
  *  - -4: mo match
  *
- * Other error codes are directly from agh_cmd_op_check and functions it may invoke.
+ * Other (negative) error codes are directly from agh_cmd_op_check and functions it may invoke. Positive error codes with values less than 100 are from agh_cmd_answer_alloc.
  * Return codes greather than 100 are from callbacks.
+ *
+ * Note: this function may be executed recursively!
 */
 gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *ops, struct agh_cmd *cmd, guint index) {
 	gint retval;
@@ -1114,8 +1111,8 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	retval = 0;
 	args_needed = 0;
 
-	if (!ops || !cmd || !cmd->cmd || cmd->answer || !mstate) {
-		agh_log_cmd_crit("NULL operations vector or the passed agh_cmd struct is NULL (missing required config_t pointer or agh_cmd_res struct pointer is not NULL). Or maybe we have a NULL AGH state?");
+	if (!ops || !cmd || !cmd->cmd || !mstate) {
+		agh_log_cmd_crit("NULL operations vector or the passed agh_cmd struct is NULL (missing required config_t pointer). Or maybe we have a NULL AGH state?");
 		retval = -1;
 		goto wayout;
 	}
@@ -1169,6 +1166,14 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	if (!(*current_op)->cmd_cb) {
 		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "NO_CB", TRUE);
 		goto wayout;
+	}
+
+	if (!cmd->answer) {
+		retval = agh_cmd_answer_alloc(cmd);
+		if (retval) {
+			agh_log_cmd_crit("agh_cmd_answer_alloc failure when preparing to invoke callback");
+			goto wayout;
+		}
 	}
 
 	retval = (*current_op)->cmd_cb(mstate, cmd);
