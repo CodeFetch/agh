@@ -1174,6 +1174,9 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 			agh_log_cmd_crit("agh_cmd_answer_alloc failure when preparing to invoke callback");
 			goto wayout;
 		}
+
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
+
 	}
 
 	retval = (*current_op)->cmd_cb(mstate, cmd);
