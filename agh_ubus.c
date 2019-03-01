@@ -376,7 +376,6 @@ struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm, gint *retvptr) {
 	agh_ubus_connection_state = AGH_UBUS_STATE_INIT;
 	agh_ubus_aghcomm = comm;
 	agh_ubus_call_data_str = NULL;
-	agh_ubus_aghcomm = NULL;
 
 	uctx = g_try_malloc0(sizeof(*uctx));
 	if (!uctx) {
