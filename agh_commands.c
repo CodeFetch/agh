@@ -690,7 +690,7 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
  * Emits an event, preparing a message on which the passed in agh_cmd structure is "linked" as CSP.
  *
  * Returns: an integer with value 0 on success, or
- *  - -20 if the passed agh_cmd structure is NULL or invalid
+ *  - -20 if the passed agh_cmd structure is NULL or invalid (NULL agh_cmd_res pointer)
  *  - -21 when specified COMM is NULL
  *  - -22 when message allocation fails
  * Any other value comes directly from agh_msg_send.
@@ -700,6 +700,7 @@ gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 	gint retval;
 
 	retval = 0;
+	m = NULL;
 
 	if (!cmd || !cmd->answer) {
 		agh_log_cmd_crit("invalid or NULL agh_cmd structure");
@@ -722,8 +723,15 @@ gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 	m->msg_type = MSG_EVENT;
 	m->csp = cmd;
 	retval = agh_msg_send(m, agh_core_comm, NULL);
+	if (retval) {
+		agh_log_cmd_crit("failure when sending message; event not being emitted");
+		goto wayout_sendfailure;
+	}
 
 wayout:
+	if (retval)
+		agh_msg_dealloc(m);
+wayout_sendfailure:
 	return retval;
 }
 
