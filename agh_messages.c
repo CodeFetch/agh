@@ -96,8 +96,9 @@ gint agh_msg_dealloc(struct agh_message *m) {
 /*
  * Sends a message to this or another thread, so it can be processed by currently installed handlers.
  * If dest_comm is NULL, src_comm will be used as destination as well.
+ * Whenever a failure is encountered in agh_msg_dealloc, the return value coming from the specified source COMM, or both COMMs being NULL, is lost.
  *
- * Returns: 0 on success, 1 when a NULL message is passed in, 2 when both sender and receiver COMMs where NULL, 3 when a
+ * Returns: 0 on success, 1 when a NULL message or source COMM is passed in, 2 when both source and destination COMMs where NULL, 3 when a
  * teardown is in progress (e.g.: AGH is terminating). Negative integer values are directly returned fro agh_msg_dealloc, which
  * in turn may return errors from agh_cmd_free.
 */
@@ -106,7 +107,7 @@ gint agh_msg_send(struct agh_message *m, struct agh_comm *src_comm, struct agh_c
 
 	retval = 0;
 
-	if (!m) {
+	if (!m || !src_comm) {
 		agh_log_comm_crit("can not send a NULL message");
 		retval++;
 		return retval;
