@@ -1,6 +1,14 @@
 #include "agh_ubus_logstream.h"
 #include "agh_ubus_helpers.h"
 #include "agh_commands.h"
+#include "agh_logging.h"
+
+/* Log messages from AGH_LOG_DOMAIN_UBUS_LOGSTREAM domain. */
+#define AGH_LOG_DOMAIN_UBUS_LOGSTREAM "LOGSTREAM"
+
+/* Logging macros. */
+#define agh_log_ubus_logstream_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_UBUS_LOGSTREAM, message, ##__VA_ARGS__)
+#define agh_log_ubus_logstream_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_UBUS_LOGSTREAM, message, ##__VA_ARGS__)
 
 static void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd) {
 	struct agh_ubus_logstream_ctx *lctx = req->priv;
@@ -245,27 +253,59 @@ static gboolean agh_ubus_logstream_statemachine(gpointer data) {
 	return TRUE;
 }
 
+/*
+ * Initializes log streaming, by basically allocating needed context and attaching our timeout source (agh_ubus_logstream_statemachine)
+ * to a GMainContext.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - 1: no ubus context
+ *  - 2: logstream context already allocated
+ *  - 3: allocation failure
+ *  - 4: failure while attaching our timeout source.
+*/
 gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	struct agh_ubus_logstream_ctx *lctx;
+	gint retval;
 
-	lctx = NULL;
+	retval = 0;
 
-	if (!uctx)
-		return 1;
+	if (!uctx) {
+		agh_log_ubus_logstream_crit("no ubus context, not initializing");
+		retval = 1;
+		goto wayout;
+	}
 
-	if (uctx->logstream_ctx)
-		return 2;
+	if (uctx->logstream_ctx) {
+		agh_log_ubus_logstream_crit("logstream context already allocated");
+		retval = 2;
+		goto wayout;
+	}
 
-	uctx->logstream_ctx = g_malloc0(sizeof(struct agh_ubus_logstream_ctx));
+	uctx->logstream_ctx = g_try_malloc0(sizeof(*(uctx->logstream_ctx)));
+	if (!uctx->logstream_ctx) {
+		agh_log_ubus_logstream_crit("unable to allocate logstream context");
+		retval = 3;
+		goto wayout;
+	}
+
 	lctx = uctx->logstream_ctx;
 
 	lctx->logstream_reconnect = g_timeout_source_new(AGH_UBUS_LOGSTREAM_CHECK_INTERVAL);
 	g_source_set_callback(lctx->logstream_reconnect, agh_ubus_logstream_statemachine, uctx, NULL);
 	lctx->logstream_reconnect_tag = g_source_attach(lctx->logstream_reconnect, uctx->gmctx);
+	if (!lctx->logstream_reconnect_tag) {
+		agh_log_ubus_logstream_crit("failed to attach logstream timeout source to GMainContext");
+		g_source_destroy(lctx->logstream_reconnect);
+		lctx->logstream_reconnect = NULL;
+		retval = 4;
+		goto wayout;
+	}
+
 	g_source_unref(lctx->logstream_reconnect);
 	lctx->fd = -1;
 
-	return 0;
+wayout:
+	return retval;
 }
 
 gint agh_ubus_logstream_deinit(struct agh_ubus_ctx *uctx) {
