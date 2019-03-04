@@ -109,6 +109,11 @@ wayout:
 	return retval;
 }
 
+/*
+ * This function runs when an ubus event has been received.
+ *
+ * Returns: <nothing>.
+*/
 static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus_event_handler *ev, const char *type, struct blob_attr *msg) {
 	struct agh_cmd *agh_event;
 	gchar *event_message;
@@ -142,6 +147,11 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 	return;
 }
 
+/*
+ * Listen for new ubus events, and maintain an internal (to AGH) mask list.
+ *
+ * Returns: always 0;
+*/
 static gint agh_ubus_cmd_listen_add_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	gint ubus_retval;
 	config_setting_t *arg;
@@ -171,9 +181,15 @@ static gint agh_ubus_cmd_listen_add_cb(struct agh_state *mstate, struct agh_cmd 
 			break;
 	}
 
-	return ubus_retval;
+	return 0;
 }
 
+/*
+ * Disable ubus events reporting.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - 101: when no ubus context or event masks queue are found.
+*/
 static gint agh_ubus_cmd_listen_reset_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	gint retval;
 	gint ubus_retval;
@@ -198,6 +214,7 @@ wayout:
 	return retval;
 }
 
+/* AGH_CMD_UBUS_LISTEN subcommands struct */
 static const struct agh_cmd_operation agh_ubus_handler_listen_subcommands[] = {
 	{
 		.op_name = AGH_CMD_UBUS_LISTEN_ADD,
@@ -215,6 +232,11 @@ static const struct agh_cmd_operation agh_ubus_handler_listen_subcommands[] = {
 	{ }
 };
 
+/*
+ * Handle ubus events related commands. With no subcommands, gives back current status.
+ *
+ * Returns: an integer with value 0 on success, 101 when no event masks queue is present and no subcommand has been found.
+*/
 static gint agh_ubus_cmd_listen_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	config_setting_t *arg;
 	guint i;
@@ -255,13 +277,20 @@ wayout:
 	return retval;
 }
 
+/*
+ * Enables log streaming.
+ *
+ * Returns: an integer with value 0 on success, or 101 when ubus context was NULL.
+*/
 static gint agh_ubus_cmd_logstream_enable_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
-	gint retval;
 	gint logstream_ret;
+	gint retval;
 
 	retval = 0;
 
+	/* We should not be there if this is true... */
 	if (!mstate->uctx) {
+		agh_log_ubus_handler_crit("something apparently impossible happened while enabling logstream: mstate->uctx was NULL!");
 		retval = 101;
 		goto wayout;
 	}
@@ -285,13 +314,20 @@ wayout:
 	return retval;
 }
 
+/*
+ * Deactivates log streaming.
+ *
+ * Returns: an integer with value 0 on success, or 101 when ubus context was NULL.
+*/
 static gint agh_ubus_cmd_logstream_disable_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	gint retval;
 	gint logstream_ret;
 
 	retval = 0;
 
+	/* how did we get here? */
 	if (!mstate->uctx) {
+		agh_log_ubus_handler_crit("something apparently impossible happened while deactivating logstream: mstate->uctx was NULL!");
 		retval = 101;
 		goto wayout;
 	}
