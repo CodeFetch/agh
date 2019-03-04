@@ -691,8 +691,9 @@ struct agh_cmd *agh_cmd_event_alloc(gint *error_value) {
  *
  * Returns: an integer with value 0 on success, or
  *  - -20 if the passed agh_cmd structure is NULL or invalid (NULL agh_cmd_res pointer)
- *  - -22 when message allocation fails
+ *  - -22 when message allocation fails.
  * Any other value comes directly from agh_msg_send.
+ * Any failure will cause the passed agh_cmd struct to be deallocated.
 */
 gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 	struct agh_message *m;
@@ -715,11 +716,14 @@ gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 
 	m->msg_type = MSG_EVENT;
 	m->csp = cmd;
-	retval = agh_msg_send(m, agh_core_comm, NULL);
+	if ( (retval = agh_msg_send(m, agh_core_comm, NULL)) )
+		agh_msg_dealloc(m);
 
 wayout:
-	if (retval)
-		agh_msg_dealloc(m);
+	if (retval) {
+		agh_log_cmd_dbg("failure when emitting event, (code=%" G_GINT16_FORMAT")",retval);
+		agh_cmd_free(cmd);
+	}
 
 	return retval;
 }
