@@ -219,7 +219,7 @@ gint agh_cmd_answer_alloc(struct agh_cmd *cmd) {
 	}
 	else {
 
-		cmd->answer = g_try_malloc0(sizeof(struct agh_cmd_res));
+		cmd->answer = g_try_malloc0(sizeof(*cmd->answer));
 		if (!cmd->answer) {
 			agh_log_cmd_crit("can not allocate memory for the answer agh_cmd_res structure");
 #define AGH_CMD_ANSWER_ALLOC_ENOMEM 2
