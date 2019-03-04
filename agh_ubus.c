@@ -228,7 +228,7 @@ gint agh_ubus_event_disable(struct agh_ubus_ctx *uctx) {
 	}
 
 	if ( (retval = ubus_unregister_event_handler(uctx->ctx, uctx->event_handler)) ) {
-		agh_log_ubus_crit("ubus_unregister_event_handler returned a failure (code=%" G_GINT16_FORMAT")");
+		agh_log_ubus_crit("ubus_unregister_event_handler returned a failure (code=%" G_GINT16_FORMAT")",retval);
 		return retval;
 	}
 
