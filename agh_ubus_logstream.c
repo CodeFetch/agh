@@ -10,6 +10,11 @@
 #define agh_log_ubus_logstream_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_UBUS_LOGSTREAM, message, ##__VA_ARGS__)
 #define agh_log_ubus_logstream_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_UBUS_LOGSTREAM, message, ##__VA_ARGS__)
 
+/*
+ * This function should be invoked when we have the fd we can use to communicate with logd.
+ *
+ * Returns: <nothing>.
+*/
 static void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd) {
 	struct agh_ubus_logstream_ctx *lctx = req->priv;
 	lctx->fd = fd;
@@ -17,18 +22,28 @@ static void agh_ubus_logstream_fd_cb(struct ubus_request *req, int fd) {
 	return;
 }
 
-static void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx) {
+/*
+ * Deinitializes logstream channel, and in particular the GIOChannel and the GSource used to "watch" it.
+ *
+ * Returns: an integer with value 0 on success, 10 when the supplied logstream context was NULL, 11 when there is no channel context.
+*/
+static gint agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lctx) {
 
-	if (!lctx)
-		return;
+	if (!lctx) {
+		agh_log_ubus_logstream_crit("NULL logstream context");
+		return 10;
+	}
 
-	if (!lctx->logstream_channel)
-		return;
+	if (!lctx->logstream_channel) {
+		agh_log_ubus_logstream_dbg("channel context not present");
+		return 11;
+	}
 
 	if (lctx->logwatcher) {
+		agh_log_ubus_logstream_dbg("deactivating logwatcher GSource");
 		g_source_destroy(lctx->logwatcher);
 		lctx->logwatcher = NULL;
-		g_print("%s: deactivating logwatcher\n",__FUNCTION__);
+		lctx->logwatcher_id = 0;
 	}
 
 	if (lctx->logstream_channel) {
@@ -44,7 +59,7 @@ static void agh_ubus_logstream_channel_deinit(struct agh_ubus_logstream_ctx *lct
 		lctx->cmsg = NULL;
 	}
 
-	return;
+	return 0;
 }
 
 static void agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *lctx) {
