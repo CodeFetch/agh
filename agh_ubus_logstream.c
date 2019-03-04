@@ -262,6 +262,8 @@ static gboolean agh_ubus_logstream_statemachine(gpointer data) {
  *  - 2: logstream context already allocated
  *  - 3: allocation failure
  *  - 4: failure while attaching our timeout source.
+ *
+ * This function may lead to an unclean program termination.
 */
 gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	struct agh_ubus_logstream_ctx *lctx;
@@ -270,7 +272,7 @@ gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	retval = 0;
 
 	if (!uctx) {
-		agh_log_ubus_logstream_crit("no ubus context, not initializing");
+		agh_log_ubus_logstream_crit("no AGH ubus context, not initializing");
 		retval = 1;
 		goto wayout;
 	}
@@ -308,16 +310,25 @@ wayout:
 	return retval;
 }
 
+/*
+ * This function deinitializes logstream, and its log channel.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - 4 = no agh ubus context was present
+ *  - 5 = no logstream context
+*/
 gint agh_ubus_logstream_deinit(struct agh_ubus_ctx *uctx) {
 	struct agh_ubus_logstream_ctx *lctx;
 
-	lctx = NULL;
-
-	if (!uctx)
+	if (!uctx) {
+		agh_log_ubus_logstream_crit("no AGH ubus context");
 		return 4;
+	}
 
-	if (!uctx->logstream_ctx)
+	if (!uctx->logstream_ctx) {
+		agh_log_ubus_logstream_crit("no logstream context");
 		return 5;
+	}
 
 	lctx = uctx->logstream_ctx;
 
@@ -342,7 +353,6 @@ gint agh_ubus_logstream_deinit(struct agh_ubus_ctx *uctx) {
 
 	g_free(uctx->logstream_ctx);
 	uctx->logstream_ctx = NULL;
-	lctx = NULL;
 
 	return 0;
 }
