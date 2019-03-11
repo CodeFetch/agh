@@ -839,7 +839,7 @@ static void agh_start_exit(struct agh_state *mstate) {
 	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
 	g_source_unref(mstate->exitsrc);
 
-	agh_mm_start_deinit(mstate);
+	//agh_mm_start_deinit(mstate);
 
 	return;
 }

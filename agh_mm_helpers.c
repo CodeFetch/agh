@@ -1,17 +1,16 @@
 /*
  * This file contains some helpers functions to build strings out of various MM data structures.
  * Much of the code in this file comes from libmm-glib/mm-common-helpers.c; it may be present here in a modified form, or in a completely different one.
- * Or it may not come from that file. So any bugs in this code should be reported to me, not the original author.
- * Function names have been kept in some cases, but the "agh_" prefix was added to avoid naming collisions.
+ * Or it may not come from that file. So any bugs in this code should be reported to me, not the original author, Aleksander Morgado!
+ * I am very very thankful to him, as without his work AGH would not exist!
  *
- * The code in here may be subject to GPL, Version 2 or, at your option, any later version.
+ * Function names have been kept in some cases, but the "agh_" prefix was added to avoid naming collisions.
 */
 
 #include <libmm-glib.h>
 #include "agh.h"
 #include "agh_modem.h"
 #include "agh_mm_helpers.h"
-#include "agh_mm_handlers.h"
 
 gchar *agh_mm_common_build_capabilities_string(const MMModemCapability *capabilities, guint n_capabilities) {
 	GString *str;
@@ -27,7 +26,7 @@ gchar *agh_mm_common_build_capabilities_string(const MMModemCapability *capabili
 	str = g_string_new(NULL);
 
 	for (i = 0; i < n_capabilities; i++) {
-		tmp = AGH_MM_VALIDATE_UNKNOWN(mm_modem_capability_build_string_from_mask(capabilities[i]));
+		tmp = mm_modem_capability_build_string_from_mask(capabilities[i]);
 		g_string_append_printf(str, "%s%s", i ? " " : "", tmp);
 		g_free(tmp);
 		tmp = NULL;
@@ -50,7 +49,7 @@ gchar *agh_mm_common_build_ports_string(const MMModemPortInfo *ports, guint n_po
 	str = g_string_new(NULL);
 
 	for (i = 0; i < n_ports; i++) {
-		tmp = AGH_MM_VALIDATE_UNKNOWN(mm_modem_port_type_get_string(ports[i].type));
+		tmp = mm_modem_port_type_get_string(ports[i].type);
 		g_string_append_printf(str, "%s%s (%s)", i ? " " : "", ports[i].name, tmp);
 		tmp = NULL;
 	}

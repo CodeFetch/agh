@@ -361,9 +361,9 @@ static void agh_modem_get_state(MMObject *modem, struct agh_cmd *cmd) {
 		return;
 
 	enum_state = mm_modem_get_state(object);
-	state = AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_get_string(enum_state));
+	state = mm_modem_state_get_string(enum_state);
 	enum_state_failed_reason = mm_modem_get_state_failed_reason(object);
-	state_failed_reason = AGH_MM_VALIDATE_UNKNOWN(mm_modem_state_failed_reason_get_string(enum_state_failed_reason));
+	state_failed_reason = mm_modem_state_failed_reason_get_string(enum_state_failed_reason);
 
 	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(cmd, state, TRUE);
@@ -388,7 +388,7 @@ static void agh_modem_get_power_state(MMObject *modem, struct agh_cmd *cmd) {
 		return;
 
 	enum_power_state = mm_modem_get_power_state(object);
-	power_state = AGH_MM_VALIDATE_UNKNOWN(mm_modem_power_state_get_string(enum_power_state));
+	power_state = mm_modem_power_state_get_string(enum_power_state);
 
 	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(cmd, power_state, TRUE);
@@ -517,7 +517,7 @@ static void agh_modem_get_revision(MMObject *modem, struct agh_cmd *cmd) {
 
 	if (revision) {
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-		agh_cmd_answer_addtext(cmd, AGH_MM_VALIDATE_UNKNOWN(mm_modem_get_revision(object)), TRUE);
+		agh_cmd_answer_addtext(cmd, mm_modem_get_revision(object), TRUE);
 	}
 
 	g_object_unref(object);

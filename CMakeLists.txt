@@ -24,20 +24,14 @@ SET(SOURCES
 	# AGH core: infrastructure (e.g.: commands, handlers, messages...)
 	agh.c agh_commands.c agh_handlers.c agh_messages.c agh_logging.c
 
-	# Modem: connecting to ModemManager via D-Bus (e.g.: contains agh_mm_init)
-	agh_modem.c agh_mm_manager.c
+	# Cellular modem
+	agh_modem.c
 
 	# Modem: ModemManager general helpers
 	agh_mm_helpers.c
 
 	# Modem: configuration related stuff
 	agh_modem_config.c
-
-	# Modem: state machine for cellular connection handling
-	agh_mm_sm.c
-
-	# and state machine helper
-	agh_mm_helpers_sm.c
 
 	# Modem: AGH handler (e.g.: responds to the "modem" command)
 	agh_mm_handlers.c
