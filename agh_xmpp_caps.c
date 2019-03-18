@@ -5,12 +5,6 @@
 #include "agh_xmpp.h"
 #include "agh.h"
 
-static void agh_xmpp_caps_base_entities_free(gpointer data);
-static gchar *agh_xmpp_caps_sha1(gchar *text);
-static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e);
-static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data);
-static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data);
-
 /* I am not convinced about the correctness of this function. */
 static gchar *agh_xmpp_caps_sha1(gchar *text) {
 	struct sha1_ctx *ctx;
@@ -58,6 +52,16 @@ struct agh_xmpp_caps_entity *agh_xmpp_caps_entity_alloc(void) {
 	return e;
 }
 
+static void agh_xmpp_caps_base_entities_free(gpointer data) {
+	struct agh_xmpp_caps_base_entity *b = data;
+
+	g_free(b->name);
+	g_free(b->cat);
+	g_free(b->type);
+	g_free(b->lang);
+	g_free(b);
+}
+
 void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 
 	if (!e)
@@ -74,16 +78,6 @@ void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 	g_free(e);
 
 	return;
-}
-
-static void agh_xmpp_caps_base_entities_free(gpointer data) {
-	struct agh_xmpp_caps_base_entity *b = data;
-
-	g_free(b->name);
-	g_free(b->cat);
-	g_free(b->type);
-	g_free(b->lang);
-	g_free(b);
 }
 
 gint agh_xmpp_caps_add_entity(struct agh_xmpp_caps_entity *e) {
@@ -131,6 +125,30 @@ void agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gcha
 		b->lang = g_strdup(lang);
 
 	return;
+}
+
+static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data) {
+	struct agh_xmpp_caps_base_entity *b = data;
+	GQueue *dest = user_data;
+	GString *tmp;
+
+	tmp = g_string_new(NULL);
+
+	g_string_append_printf(tmp, "%s/%s/%s/%s<",b->cat, b->type, b->lang ? b->lang : "", b->name);
+
+	g_queue_push_tail(dest, g_string_free(tmp, FALSE));
+
+	return;
+}
+
+/*
+ * Only to make GCC 8+ happy. And in any case, stay on the safe side for now, avoiding to play with function casts.
+*/
+static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
+	const gchar *f = a;
+	const gchar *g = b;
+
+	return g_strcmp0(f, g);
 }
 
 static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
@@ -193,20 +211,6 @@ gint agh_xmpp_caps_add_feature(struct agh_xmpp_caps_entity *e, gchar *ftext) {
 	g_queue_push_tail(e->features, g_strdup(ftext));
 
 	return (g_queue_get_length(e->features)-1);
-}
-
-static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data) {
-	struct agh_xmpp_caps_base_entity *b = data;
-	GQueue *dest = user_data;
-	GString *tmp;
-
-	tmp = g_string_new(NULL);
-
-	g_string_append_printf(tmp, "%s/%s/%s/%s<",b->cat, b->type, b->lang ? b->lang : "", b->name);
-
-	g_queue_push_tail(dest, g_string_free(tmp, FALSE));
-
-	return;
 }
 
 void agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres) {
@@ -311,14 +315,4 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 	}
 
 	return capsdata;
-}
-
-/*
- * Only to make GCC 8+ happy. And in any case, stay on the safe side for now, avoiding to play with function casts.
-*/
-static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
-	const gchar *f = a;
-	const gchar *g = b;
-
-	return g_strcmp0(f, g);
 }
