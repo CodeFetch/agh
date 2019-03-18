@@ -4,9 +4,7 @@
 #include "agh_messages.h"
 #include "agh_commands.h"
 
-gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
+struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_text_payload *csp;
 	struct agh_state *mstate;
 	struct xmpp_state *xstate;
@@ -45,9 +43,7 @@ gpointer xmpp_sendmsg_handle(gpointer data, gpointer hmessage) {
 	return NULL;
 }
 
-gpointer xmpp_cmd_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
+struct agh_message *xmpp_cmd_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_cmd __attribute__((unused)) *cmd;
 	struct agh_state *mstate;
 	struct xmpp_state __attribute__((unused)) *xstate;

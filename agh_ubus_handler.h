@@ -26,6 +26,6 @@
 /* ubus events event name */
 #define AGH_UBUS_HANDLER_UBUS_EVENTs_NAME "UBUS_EVENT"
 
-gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage);
+struct agh_message *agh_core_ubus_cmd_handle(struct agh_handler *h, struct agh_message *m);
 
 #endif

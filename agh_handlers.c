@@ -199,7 +199,7 @@ gint agh_handler_enable(struct agh_handler *h, gboolean enabled) {
  *
  * Returns: an integer with value -1 if the passed in handler (or callback) are NULL, 0 otherwise.
 */
-gint agh_handler_set_initialize(struct agh_handler *h, void (*handler_initialize_cb)(gpointer data)) {
+gint agh_handler_set_initialize(struct agh_handler *h, agh_handler_init_cb *handler_initialize_cb) {
 	gint retval;
 
 	retval = 0;
@@ -219,7 +219,7 @@ gint agh_handler_set_initialize(struct agh_handler *h, void (*handler_initialize
  *
  * Returns: an integer value of 0 on success, -1 on failure (e.g.: handler or callback where NULL).
 */
-gint agh_handler_set_handle(struct agh_handler *h, gpointer (*handler_handle_cb)(gpointer data, gpointer hmessage)) {
+gint agh_handler_set_handle(struct agh_handler *h, agh_handler_handle_cb *handler_handle_cb) {
 	gint retval;
 
 	retval = 0;
@@ -239,7 +239,7 @@ gint agh_handler_set_handle(struct agh_handler *h, gpointer (*handler_handle_cb)
  *
  * Returns: an integer with value 0 on success, -1 otherwise (e.g.: NULL handler or callback).
 */
-gint agh_handler_set_finalize(struct agh_handler *h, void (*handler_finalize_cb)(gpointer data)) {
+gint agh_handler_set_finalize(struct agh_handler *h, agh_handler_finalize_cb *handler_finalize_cb) {
 	gint retval;
 
 	retval = 0;

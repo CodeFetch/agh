@@ -41,11 +41,6 @@ struct agh_state {
 	/* Idle source for exiting. */
 	GSource *exitsrc;
 	guint exitsrc_tag;
-	GSource *hacksrc;
-	guint hacksrc_tag;
-
-	/* our threads and handlers */
-	GQueue *agh_threads;
 	GQueue *agh_handlers;
 
 	/* current event ID */
@@ -55,39 +50,8 @@ struct agh_state {
 	struct agh_comm *comm;
 };
 
-struct agh_thread {
-	/* glib thread data */
-	GThread *current_thread;
-
-	/* used to help users distinguish threads; maybe we can avoid using this ? */
-	gchar *thread_name;
-
-	/* Expose AGH main loop and context: useful for threads to cause the core to exit; arguably a good choice. */
-	GMainContext *agh_maincontext;
-	GMainLoop *agh_mainloop;
-
-	GMainLoop *evl;
-	GMainContext *evl_ctx;
-	GQueue *handlers;
-
-	/* thread data */
-	gpointer thread_data;
-
-	/* thread comm */
-	struct agh_comm *comm;
-
-	/* core agh comm ptr */
-	struct agh_comm *agh_comm;
-
-	/* callbacks */
-	void (*agh_thread_init)(gpointer data);
-	gpointer (*agh_thread_main)(gpointer data);
-	void (*agh_thread_deinit)(gpointer data);
-};
-
 /* Function prototypes */
 void agh_copy_textparts(gpointer data, gpointer user_data);
-gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage);
 
 struct agh_text_payload {
 	gchar *text;

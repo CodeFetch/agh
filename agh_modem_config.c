@@ -2,6 +2,14 @@
 #include "agh.h"
 #include "agh_modem.h"
 #include "agh_modem_config.h"
+#include "agh_logging.h"
+
+/* Log messages from AGH_LOG_DOMAIN_MODEM_CONFIG domain. */
+#define AGH_LOG_DOMAIN_MODEM_CONFIG "MM_CONFIG"
+
+/* Logging macros. */
+#define agh_log_mm_config_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM_CONFIG, message, ##__VA_ARGS__)
+#define agh_log_mm_config_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM_CONFIG, message, ##__VA_ARGS__)
 
 /* config section types */
 #define AGH_MM_SECTION_UNKNOWN 0
@@ -18,6 +26,9 @@
 
 /* or in a modem section */
 #define AGH_MM_SECTION_MODEM_MAXBEARERS 2
+
+/* maximum number of SIM cards specified in a modem section */
+#define AGH_MM_SECTION_MODEM_MAXSIMS 4
 
 /* config options for AGH_MM_SECTION_MODEM. */
 #define AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID "Equipment_Identifier"
@@ -67,6 +78,8 @@
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED 10
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED_DESC "Equipment ID not specified, modem can not be identified"
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY 20
+#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_SIMLIST_GQUEUE_PRESENT_BUT_EMPTY 21
+#define AGH_MODEM_VALIDATE_CONFIG_MAXSIMS_EXCEEDED 22
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY_DESC "modem bearers GQueue was created, but is empty; this should not happen, but it did"
 
 /* AGH_MM_SECTION_SIMCARD issues */
@@ -76,43 +89,47 @@
 #define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY_DESC "SIM bearers GQueue was created, but is empty; this should not happen, but it did"
 
 /* AGH_MM_SECTION_BEARER issues */
-#define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND 15
+#define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTH_METHOD_NOT_FOUND 15
 #define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND_DESC "APN or authentication method not specified for this bearer"
 /* End of config validation errors. */
 
-static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers) {
+static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers, GError **error) {
 	gboolean equipment_id_found;
 	struct uci_element *e;
 	struct uci_option *opt;
-	gint retval;
+	gint error_code;
 	GQueue *bearers_names;
 	struct uci_element *f;
 	guint bcounter;
-	guint n_bearers;
+	guint scounter;
+
+	g_assert(error == NULL || *error == NULL);
 
 	equipment_id_found = FALSE;
-	e = NULL;
-	opt = NULL;
-	retval = 0;
+	error_code = 0;
 	bearers_names = NULL;
-	f = NULL;
-	bcounter = 0;
-	n_bearers = 0;
 
-	if ((*referenced_sims) || (*referenced_modem_bearers)) {
-		retval = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+	/* Maybe we can replace this with another g_assert? */
+	if ((!referenced_sims || *referenced_sims) || (!referenced_modem_bearers || *referenced_modem_bearers)) {
+		error_code = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+		agh_log_mm_config_crit("invalid referenced_sims or referenced_modem_bearers");
 		goto out;
 	}
 
+	/* configuration scanning block */
 	uci_foreach_element(&s->options, e) {
 		opt = uci_to_option(e);
 
+		/* if we face a AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID setting of type string, maybe we found an Equipment Identifier. */
 		if ((!g_strcmp0(e->name, AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID)) && (opt->type == UCI_TYPE_STRING))
 			equipment_id_found = TRUE;
 
+		/* If modem bearers definitions are found, then save them in a GQueue, until we reach allowed maximum. */
 		if ((!g_strcmp0(e->name, AGH_MM_SECTION_MODEM_OPTION_BEARERSLIST)) && (opt->type == UCI_TYPE_LIST)) {
 			bearers_names = g_queue_new();
 			bcounter = 0;
+
+			/* list "scanning" block */
 			uci_foreach_element(&opt->v.list, f) {
 				if (bcounter > AGH_MM_SECTION_MODEM_MAXBEARERS)
 					break;
@@ -123,9 +140,15 @@ static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueu
 
 		}
 
+		/* do the same for SIM cards that are allowed to be handled with this modem */
 		if ((!g_strcmp0(e->name, AGH_MM_SECTION_MODEM_OPTION_SIMLIST_NAME)) && (opt->type == UCI_TYPE_LIST)) {
 			*referenced_sims = g_queue_new();
+			scounter = 0;
+
 			uci_foreach_element(&opt->v.list, f) {
+				if (scounter > AGH_MM_SECTION_MODEM_MAXSIMS)
+					break;
+
 				g_queue_push_tail(*referenced_sims, g_strdup(f->name));
 			}
 		}
@@ -133,27 +156,44 @@ static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueu
 	}
 
 	if (!equipment_id_found) {
-		retval = AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED;
+		error_code = AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED;
+		agh_log_mm_config_crit("mandatory Equipment Identifier not found");
 		goto out;
 	}
 
 	if (bearers_names) {
-		/* This should not happen, even here. */
-		n_bearers = g_queue_get_length(bearers_names);
-		if (!n_bearers) {
-			retval = AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY;
+		if (!bcounter) {
+			error_code = AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY;
+			agh_log_mm_config_crit("empty modem bearers list");
 			goto out;
 		}
 
 		if (bcounter > AGH_MM_SECTION_MODEM_MAXBEARERS) {
-			retval = AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED;
+			error_code = AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED;
+			agh_log_mm_config_crit("maximum allowed number of modem bearers exceeded");
+			goto out;
+		}
+
+	}
+
+	/* repeat all togeter now */
+	if (*referenced_sims) {
+		if (!scounter) {
+			error_code = AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_SIMLIST_GQUEUE_PRESENT_BUT_EMPTY;
+			agh_log_mm_config_crit("SIM cards list present, but empty");
+			goto out;
+		}
+
+		if (scounter > AGH_MM_SECTION_MODEM_MAXSIMS) {
+			error_code = AGH_MODEM_VALIDATE_CONFIG_MAXSIMS_EXCEEDED;
+			agh_log_mm_config_crit("maximum number of specifiable SIM card for a modem section has been exceeded");
 			goto out;
 		}
 
 	}
 
 out:
-	if (retval) {
+	if (error_code) {
 
 		if (bearers_names) {
 			g_queue_free_full(bearers_names, g_free);
@@ -165,34 +205,33 @@ out:
 			*referenced_sims = NULL;
 		}
 
+		g_set_error(error, AGH_MM_SECTION_MODEM, error_code, "failure while validating modem section");
+
 	}
 
 	*referenced_modem_bearers = bearers_names;
 
-	return retval;
+	return error_code;
 }
 
-static gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers) {
+static gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQueue **referenced_bearers, GError **error) {
 	gboolean sim_id_found;
 	GQueue *bearers_names;
 	struct uci_element *e;
 	struct uci_element *f;
 	struct uci_option *opt;
-	gint retval;
+	gint error_code;
 	guint bcounter;
-	guint n_bearers;
 
-	retval = 0;
+	g_assert(error == NULL || *error == NULL);
+
+	error_code = 0;
 	sim_id_found = FALSE;
-	e = NULL;
-	f = NULL;
-	opt = NULL;
 	bearers_names = NULL;
-	bcounter = 0;
-	n_bearers = 0;
 
-	if (*referenced_bearers) {
-		retval = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+	if (!referenced_bearers || *referenced_bearers) {
+		error_code = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+		agh_log_mm_config_crit("invalid referenced_bearers");
 		goto out;
 	}
 
@@ -218,50 +257,54 @@ static gint agh_modem_validate_config_simcard_section(struct uci_section *s, GQu
 	}
 
 	if (!sim_id_found) {
-		retval = AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED;
+		error_code = AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED;
+		agh_log_mm_config_crit("SIM ID not found");
 		goto out;
 	}
 
 	if (bearers_names) {
-		/* This should not happen. */
-		n_bearers = g_queue_get_length(bearers_names);
-		if (!n_bearers) {
-			retval = AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY;
+		if (!bcounter) {
+			error_code = AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY;
+			agh_log_mm_config_crit("empty SIM bearer list");
 			goto out;
 		}
 
 		if (bcounter > AGH_MM_SECTION_SIMCARD_MAXBEARERS) {
-			retval = AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED;
+			error_code = AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED;
+			agh_log_mm_config_crit("maximum number of bearer specifiable on a SIM section has been exceeded");
 			goto out;
 		}
 
 	}
 
 out:
-	if (retval) {
+	if (error_code) {
 		if (bearers_names) {
 			g_queue_free_full(bearers_names, g_free);
 			bearers_names = NULL;
 		}
+
+		g_set_error(error, AGH_MM_SECTION_SIMCARD, error_code, "failure while validating SIM card section");
+
 	}
 
 	*referenced_bearers = bearers_names;
 
-	return retval;
+	return error_code;
 }
 
-static gint agh_modem_validate_config_bearer_section(struct uci_section *s) {
-	gint retval;
+static gint agh_modem_validate_config_bearer_section(struct uci_section *s, GError **error) {
+	gint error_code;
 	struct uci_element *e;
 	gboolean auth_method_found;
 	gboolean APN_found;
 	struct uci_option *opt;
 
-	retval = 0;
-	e = NULL;
+	g_assert(error == NULL || *error == NULL);
+
+	error_code = 0;
 	auth_method_found = FALSE;
 	APN_found = FALSE;
-	opt = NULL;
 
 	uci_foreach_element(&s->options, e) {
 		opt = uci_to_option(e);
@@ -274,89 +317,13 @@ static gint agh_modem_validate_config_bearer_section(struct uci_section *s) {
 
 	}
 
-	if (!APN_found || !auth_method_found)
-		retval = AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND;
-
-	return retval;
-}
-
-static gchar *agh_modem_validate_config_strerror(gint retval) {
-	gchar *error_desc;
-
-	error_desc = NULL;
-
-	switch(retval) {
-		case AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_ERROR_NOPKG:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_ERROR_NOPKG_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_ERROR_REFERENCED_SECTION_NOT_FOUND:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_ERROR_REFERENCED_SECTION_NOT_FOUND_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_UNIQUENESS_VIOLATION:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_UNIQUENESS_VIOLATION_DESC);
-			break;
-		case AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED:
-			error_desc = g_strdup(AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED_DESC);
-			break;
-		default:
-			error_desc = g_strdup("Unknown error");
+	if (!APN_found || !auth_method_found) {
+		error_code = AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTH_METHOD_NOT_FOUND;
+		agh_log_mm_config_crit("seems an APN or an authentication method have not been specified");
+		g_set_error(error, AGH_MM_SECTION_BEARER, error_code, "failure while validating bearer section");
 	}
 
-	return error_desc;
-}
-
-static struct agh_modem_config_validation_error *agh_modem_config_validation_error_alloc(void) {
-	struct agh_modem_config_validation_error *e;
-
-	e = NULL;
-
-	e = g_malloc0(sizeof(struct agh_modem_config_validation_error));
-
-	return e;
-}
-
-void agh_modem_config_validation_error_free(struct agh_modem_config_validation_error *e) {
-
-	if (!e)
-		return;
-
-	if (e->element_name) {
-		g_free(e->element_name);
-		e->element_name = NULL;
-	}
-
-	e->error_code = 0;
-
-	if (e->error_desc) {
-		g_free(e->error_desc);
-		e->error_desc = NULL;
-	}
-
-	g_free(e);
+	return error_code;
 }
 
 static gint agh_modem_validate_config_check_references(struct uci_context *ctx, struct uci_package *p, GQueue *names, gchar **current_section) {
@@ -368,41 +335,45 @@ static gint agh_modem_validate_config_check_references(struct uci_context *ctx, 
 	gint retval;
 	GList *hits;
 
-	visited_sections = NULL;
-	i = 0;
-	num_names = 0;
-	current_name = NULL;
-	cs = NULL;
 	retval = 0;
-	hits = NULL;
+	visited_sections = NULL;
 
-	if ((!p) || (!ctx))
-		return AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
-
-	if (!names)
-		return AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+	if (!p || !ctx || !current_section || !*current_section || !names) {
+		agh_log_mm_config_crit("!p || !ctx || !current_section || !*current_section || !names");
+		retval = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+		goto out;
+	}
 
 	num_names = g_queue_get_length(names);
 
-	if (!num_names)
-		return AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+	if (!num_names) {
+		agh_log_mm_config_crit("passed names GQueue is empty");
+		retval = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
+		goto out;
+	}
 
 	visited_sections = g_queue_new();
 
 	for (i=0;i<num_names;i++) {
 		current_name = g_queue_peek_nth(names, i);
-		g_print("Searching for %s\n",current_name);
+
+		if (!current_name) {
+			agh_log_mm_config_crit("current_name was NULL!");
+			break;
+		}
+
+		agh_log_mm_config_dbg("searching for %s",current_name);
 		cs = uci_lookup_section(ctx, p, current_name);
 		if (!cs) {
 			retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_REFERENCED_SECTION_NOT_FOUND;
 			*current_section = current_name;
+			agh_log_mm_config_crit("referenced section %s was not found",current_name);
 			goto out;
 		}
 
 		hits = g_queue_find(visited_sections, cs);
 		if (hits) {
 			/* Do not free this list with g_list_free. */
-			hits = NULL;
 			retval = AGH_MODEM_VALIDATE_CONFIG_UNIQUENESS_VIOLATION;
 			*current_section = current_name;
 			goto out;
@@ -412,18 +383,14 @@ static gint agh_modem_validate_config_check_references(struct uci_context *ctx, 
 
 	}
 
-	g_print("OK\n");
-
 out:
-	if (visited_sections) {
+	if (visited_sections)
 		g_queue_free(visited_sections);
-		visited_sections = NULL;
-	}
+
 	return retval;
 }
 
-void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, struct agh_modem_config_validation_error **validation_error) {
-	struct agh_mm_state *mmstate = mstate->mmstate;
+gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name) {
 	gint retval;
 	struct uci_context *uci_ctx;
 	struct uci_ptr ptr;
@@ -438,10 +405,6 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 	gchar *reference_error_element_name;
 	gint refstate;
 
-	uci_ctx = NULL;
-	section_type = AGH_MM_SECTION_UNKNOWN;
-	e = NULL;
-	current_section = NULL;
 	retval = 0;
 	referenced_sims = NULL;
 	referenced_sim_bearers = NULL;
@@ -449,15 +412,21 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 	error_location_str = NULL;
 	reference_error_element_name = NULL;
 	refstate = 0;
+	current_section = NULL;
 
-	if (*validation_error)
-		return;
+	if (!mmstate || !package_name) {
+		agh_log_mm_config_crit("passed AGH MM state where NULL, or NULL package name specified");
+		retval = 100;
+		goto out_noctx;
+	}
 
 	uci_ctx = uci_alloc_context();
 	if (!uci_ctx) {
 		retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM;
+		agh_log_mm_config_crit("UCI context allocation failure");
 		goto out_noctx;
 	}
+
 	uci_ctx->flags |= UCI_FLAG_STRICT;
 
 	/*
@@ -465,6 +434,7 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 	*/
 	if (uci_lookup_ptr(uci_ctx, &ptr, package_name, FALSE) != UCI_OK) {
 		retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_NOPKG;
+		agh_log_mm_config_crit("no UCI package %s was found",package_name);
 		goto out;
 	}
 
@@ -483,19 +453,19 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 
 		switch(section_type) {
 			case AGH_MM_SECTION_MODEM:
-				retval = agh_modem_validate_config_modem_section(current_section, &referenced_sims, &referenced_modem_bearers);
+				retval = agh_modem_validate_config_modem_section(current_section, &referenced_sims, &referenced_modem_bearers, &mmstate->current_gerror);
 
 				break;
 			case AGH_MM_SECTION_SIMCARD:
-				retval = agh_modem_validate_config_simcard_section(current_section, &referenced_sim_bearers);
+				retval = agh_modem_validate_config_simcard_section(current_section, &referenced_sim_bearers, &mmstate->current_gerror);
 
 				break;
 			case AGH_MM_SECTION_BEARER:
-				retval = agh_modem_validate_config_bearer_section(current_section);
+				retval = agh_modem_validate_config_bearer_section(current_section, &mmstate->current_gerror);
 
 				break;
 			default:
-				g_print("Invalid section\n");
+				agh_log_mm_config_crit("unknown section type found");
 				retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION;
 				goto out;
 		}
@@ -505,7 +475,9 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 
 	}
 
+	/* now we check for references, so we do not work with a specific section */
 	current_section = NULL;
+	reference_error_element_name = NULL;
 
 	/* Check for referenced, but missing, elements in config. */
 	while ((!retval) && (refstate < 3)) {
@@ -514,17 +486,23 @@ void agh_modem_validate_config(struct agh_state *mstate, gchar *package_name, st
 			case 0:
 				if (referenced_sims)
 					retval = agh_modem_validate_config_check_references(uci_ctx, ptr.p, referenced_sims, &reference_error_element_name);
+
 				break;
 			case 1:
 				if (referenced_modem_bearers)
 					retval = agh_modem_validate_config_check_references(uci_ctx, ptr.p, referenced_modem_bearers, &reference_error_element_name);
+
 				break;
 			case 2:
 				if (referenced_sim_bearers)
 					retval = agh_modem_validate_config_check_references(uci_ctx, ptr.p, referenced_sim_bearers, &reference_error_element_name);
+
 				break;
-			default:
-				g_print("%s: unknown state while checking references\n",__FUNCTION__);
+			default: {
+				agh_log_mm_config_crit("unknown state while checking references");
+				refstate = 4;
+				break;
+			}
 		}
 
 		if (!retval)
@@ -548,31 +526,19 @@ out:
 	}
 
 out_noctx:
-	if (referenced_sims) {
+	if (referenced_sims)
 		g_queue_free_full(referenced_sims, g_free);
-		referenced_sims = NULL;
-	}
 
-	if (referenced_modem_bearers) {
+	if (referenced_modem_bearers)
 		g_queue_free_full(referenced_modem_bearers, g_free);
-		referenced_modem_bearers = NULL;
-	}
 
-	if (referenced_sim_bearers) {
+	if (referenced_sim_bearers)
 		g_queue_free_full(referenced_sim_bearers, g_free);
-		referenced_sim_bearers = NULL;
-	}
 
-	uci_ctx = NULL;
+	if (retval)
+		agh_log_mm_config_crit("failure %" G_GINT16_FORMAT" (%s)",retval,error_location_str ? error_location_str : "??");
 
-	if (retval) {
-		*validation_error = agh_modem_config_validation_error_alloc();
-		(*validation_error)->error_code = retval;
-		(*validation_error)->error_desc = agh_modem_validate_config_strerror(retval);
-		if (error_location_str)
-			(*validation_error)->element_name = error_location_str;
+	g_free(error_location_str);
 
-	}
-
-	return;
+	return retval;
 }

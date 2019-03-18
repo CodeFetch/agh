@@ -448,10 +448,8 @@ static const struct agh_cmd_operation agh_ubus_handler_ops[] = {
 	{ }
 };
 
-gpointer agh_core_ubus_cmd_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
+struct agh_message *agh_core_ubus_cmd_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_state *mstate = h->handler_data;
-	struct agh_message *m = hmessage;
 	struct agh_cmd *cmd;
 	struct agh_message *answer;
 

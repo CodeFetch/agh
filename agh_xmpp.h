@@ -88,7 +88,7 @@ struct xmpp_csp {
 };
 
 gint agh_xmpp_init(struct agh_state *mstate);
-void agh_xmpp_deinit(gpointer data);
+gint agh_xmpp_deinit(gpointer data);
 
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 

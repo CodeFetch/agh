@@ -13,60 +13,91 @@
 #define agh_log_core_info(message, ...) agh_log_info(AGH_LOG_DOMAIN_CORE, message, ##__VA_ARGS__)
 #define agh_log_core_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_CORE, message, ##__VA_ARGS__)
 
-/* Function prototypes. */
+/*
+ * This function continues running until mstate->mainloop_needed is different from 0.
+ * The purpose of this function is to allow all of the parts of AGH needing the mainloop to be running to deinitialize correctly.
+ * This function respects GLib semantics for GSources.
+*/
+static gboolean exitsrc_idle_cb(gpointer data) {
+	struct agh_state *mstate = data;
 
-/* State handling */
-static struct agh_state * agh_state_setup(void);
-static void agh_state_teardown(struct agh_state *mstate);
+	if (!mstate) {
+		agh_log_core_crit("no AGH state while in %s GSource",__FUNCTION__);
+		return FALSE;
+	}
 
-/* GLib event Sources */
-static void agh_sources_setup(struct agh_state *mstate);
-static void agh_sources_teardown(struct agh_state *mstate);
-static gboolean exitsrc_idle_cb(gpointer data);
+	if (mstate->mainloop_needed)
+		return TRUE;
+	else {
+		mstate->exitsrc = NULL;
+		g_main_loop_quit(mstate->agh_mainloop);
+	}
 
-/* UNIX signals */
-static void process_signals(struct agh_state *mstate);
-static gboolean agh_unix_signals_cb(gpointer data);
-
-/* Threads */
-static void agh_threads_setup(struct agh_state *mstate);
-static void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) __attribute__((unused));
-static void agh_threads_prepare(struct agh_state *mstate);
-static void agh_threads_start(struct agh_state *mstate);
-static void agh_threads_stop(struct agh_state *mstate);
-static void agh_threads_deinit(struct agh_state *mstate);
-static void agh_threads_teardown(struct agh_state *mstate);
-static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) __attribute__((unused));
-static void agh_thread_eventloop_teardown(struct agh_thread *ct) __attribute__((unused));
-static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) __attribute__((unused));
-static void agh_threads_prepare_single(gpointer data, gpointer user_data);
-static void agh_threads_start_single(gpointer data, gpointer user_data);
-static void agh_threads_stop_single(gpointer data, gpointer user_data);
-static void agh_threads_deinit_single(gpointer data, gpointer user_data);
-
-/* threads structures helpers */
-static struct agh_thread *agh_thread_new(gchar *name) __attribute__((unused));
-static void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data)) __attribute__((unused));
-static void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) __attribute__((unused));
-static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) __attribute__((unused));
-
-/* AGH core handlers */
-static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage);
-static gpointer core_sendtext_handle(gpointer data, gpointer hmessage);
-static gpointer core_cmd_handle(gpointer data, gpointer hmessage);
-static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage);
-static gint agh_core_handlers_setup_ext(struct agh_state *mstate);
-
-/* "exit strategy" */
-static void agh_broadcast_exit(struct agh_state *mstate);
-static void agh_exit(struct agh_state *mstate);
-static void agh_start_exit(struct agh_state *mstate);
-
-gint agh_core_cmd_cb_quit(struct agh_state *mstate, struct agh_cmd *cmd) {
-	agh_start_exit(mstate);
-	return 100;
+	return FALSE;
 }
 
+/*
+ * Starts AGH exit process, which ideally should lead to program termination. :)
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - 1: passed AGH state was NULL
+ *  - 2: GSource already present
+ *  - 3: GSource attach failed
+*/
+static gint agh_start_exit(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate) {
+		agh_log_core_crit("no AGH state while starting AGH exit process");
+		retval = 1;
+		goto out;
+	}
+
+	if (mstate->exitsrc) {
+		agh_log_core_crit("seems our GSource is already present");
+		retval = 2;
+		goto out;
+	}
+
+	mstate->exitsrc = g_idle_source_new();
+	g_source_set_callback(mstate->exitsrc, exitsrc_idle_cb, mstate, NULL);
+	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
+	if (!mstate->exitsrc_tag) {
+		agh_log_core_crit("unable to attach mstate->exitsrc GSource to GMainContext");
+		g_source_destroy(mstate->exitsrc);
+		mstate->exitsrc = NULL;
+		retval = 3;
+		goto out;
+	}
+
+	g_source_unref(mstate->exitsrc);
+	mstate->exiting = 1;
+
+out:
+	return retval;;
+}
+
+/*
+ * This function is invoked when the "quit" operation is detected.
+ *
+ * Returns: an integer with value 100 on success, 100+<error from agh_start_exit> on failure.
+*/
+gint agh_core_cmd_cb_quit(struct agh_state *mstate, struct agh_cmd *cmd) {
+	gint retval;
+
+	retval = 0;
+
+	retval = agh_start_exit(mstate);
+	if (retval) {
+		agh_log_core_crit("agh_start_exit failure; I may need some help (code=%" G_GINT16_FORMAT")", retval);
+	}
+
+	return 100+retval;
+}
+
+/* playground: needs to be removed when no more needed */
 gint agh_core_cmd_cb_playground(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_cmd *event;
 	struct agh_cmd *evcp;
@@ -110,106 +141,51 @@ static const struct agh_cmd_operation core_ops[] = {
 };
 
 /* Print some messages at startup. */
-static void agh_print_data(void) {
+static void agh_hello(void) {
 	agh_log_core_info("\n\n******************** Hello! This is AGH %s (%s), compiled %s (%s). ********************\n\n",AGH_VERSION,AGH_RELEASE_NAME,__DATE__,__TIME__);
 	return;
 }
 
-gint main(void) {
+/*
+ * This is a GLib GSource, invoked upon UNIX SIGINT signal reception.
+ * This function should respect GLib GSources semantics.
+*/
+static gboolean agh_unix_signals_cb(gpointer data) {
+	struct agh_state *mstate = data;
+	gint retval;
 
-	struct agh_state *mstate;
-	gint retval = 0;
-	gint ubus_ret = 0;
-
-	agh_logging_init();
-
-	agh_print_data();
-
-	mstate = agh_state_setup();
 	if (!mstate) {
-		agh_log_core_crit("AGH state allocation failed");
-		retval--;
-		goto failure_statealloc;
+		agh_log_core_crit("we can not, literally, be called with a NULL AGH state");
+		return FALSE;
 	}
 
-	mstate->agh_handlers = agh_handlers_setup();
+	mstate->sigint_received = TRUE;
 
-	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, AGH_LOG_DOMAIN_CORE);
-	if (!mstate->comm) {
-		agh_log_core_crit("can not allocate COMM");
-		goto failure_commsetup;
+	retval = agh_start_exit(mstate);
+	if (retval) {
+		agh_log_core_crit("agh_start_exit failure; enjoy your permanence in AGH, but this needs to be fixed (code=%" G_GINT16_FORMAT")", retval);
 	}
 
-	/* This will need to be done in a better way; AGH handlers are registered from within the function called here. */
-	if ( (retval = agh_core_handlers_setup_ext(mstate)) ) {
-		agh_log_core_crit("can not register core AGH handlers");
-		goto failure_corehandlers_setup;
-	}
-
-	/*
-	 * We init XMPP here to give a chance to XMPP code to set up its handlers.
-	 * But we may directly invoke xmpp_set_handlers_ext here, especially if at some point XMPP init needs other parts of AGH to
-	 * be operational.
-	*/
-	if (agh_xmpp_init(mstate))
-		agh_log_core_info("XMPP init failure");
-
-	agh_mm_init(mstate);
-
-	agh_sources_setup(mstate);
-
-	agh_threads_setup(mstate);
-
-	/* Here you may set up threads. */
-
-	/* ubus connection */
-	mstate->uctx = agh_ubus_setup(mstate->comm, &ubus_ret);
-
-	agh_threads_prepare(mstate);
-
-	agh_threads_start(mstate);
-
-	g_print("%s: entering main loop\n",__FUNCTION__);
-
-	g_main_loop_run(mstate->agh_mainloop);
-
-	g_print("%s: main loop exited\n",__FUNCTION__);
-
-	agh_exit(mstate);
-
-	process_signals(mstate);
-
-	agh_threads_stop(mstate);
-	agh_threads_deinit(mstate);
-	agh_threads_teardown(mstate);
-
-	if (mstate->uctx) {
-		agh_ubus_teardown(mstate->uctx);
-	}
-
-	agh_xmpp_deinit(mstate);
-	agh_mm_deinit(mstate);
-
-	agh_sources_teardown(mstate);
-	agh_handlers_finalize(mstate->agh_handlers);
-failure_commsetup:
-failure_corehandlers_setup:
-	agh_handlers_teardown(mstate->agh_handlers);
-
-	/* agh_comm_teardown should handle properly the case where COMM setup failed */
-	agh_comm_teardown(mstate->comm, FALSE);
-
-	agh_state_teardown(mstate);
-failure_statealloc:
-	return retval;
+	return FALSE;
 }
 
+/*
+ * This function allocates AGH state in memory via g_try_malloc0, and performs some more setup:
+ *  - event loop: we grab the default context, and ask for a new GMainLoop,
+ *  - we increment event_id, so it starts from 1. :)
+ *
+ * Return: a new AGH state pointer on success, NULL on failure.
+ *
+ * Note: this function assumes logging is already initialised.
+*/
 static struct agh_state *agh_state_setup(void) {
 	struct agh_state *mstate;
 
 	mstate = g_try_malloc0(sizeof *mstate);
-	if (!mstate)
+	if (!mstate) {
+		agh_log_core_crit("state allocation failure");
 		return mstate;
+	}
 
 	/* Set up the main event loop */
 	mstate->ctx = g_main_context_default();
@@ -219,317 +195,184 @@ static struct agh_state *agh_state_setup(void) {
 	return mstate;
 }
 
-static void agh_sources_setup(struct agh_state *mstate) {
-	/* Intercepts SIGINT UNIX signal. This is useful at least to exit the main loop gracefully (on ctrl+c press) */
+/*
+ * Sets up AGH signal interception source.
+ *
+ * Returns: an integer with value  on success, 1 when a NULL AGH state is supplied, 2 when attaching the GSource to GMainContext fails.
+*/
+static gint agh_sources_setup(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate) {
+		agh_log_core_crit("can not install mstate->agh_main_unix_signals on a NULL mstate");
+		retval = 1;
+		goto out;
+	}
+
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
+	if (!mstate->agh_main_unix_signals_tag) {
+		agh_log_core_crit("failure while attaching mstate->agh_main_unix_signals to GMainContext");
+		g_source_destroy(mstate->agh_main_unix_signals);
+		mstate->agh_main_unix_signals = NULL;
+		retval = 2;
+		goto out;
+	}
+
 	g_source_unref(mstate->agh_main_unix_signals);
 
-	agh_handlers_init(mstate->agh_handlers, mstate);
-
-	return;
+out:
+	return retval;
 }
 
-static void agh_sources_teardown(struct agh_state *mstate) {
+/*
+ * Deallocates core GSOurces, at the moment UNIX signals interception only.
+ *
+ * Returns: an integer with value 0 on success, or
+ *  - 1: when no AGH state was present
+ *  - 2: signal source wasn't attached to GMainContext, after all
+*/
+static gint agh_sources_teardown(struct agh_state *mstate) {
+	gint retval;
 
-	/* UNIX SIGINT signal source */
+	retval = 0;
+
+	if (!mstate) {
+		agh_log_core_crit("no AGH state during GSources teardown");
+		retval = 10;
+		goto out;
+	}
+
+	if (!mstate->agh_main_unix_signals_tag || !mstate->agh_main_unix_signals) {
+		agh_log_core_crit("seems no UNIX signals interception was not present");
+		retval = 2;
+		goto out;
+	}
+
 	if (!mstate->sigint_received)
 		g_source_destroy(mstate->agh_main_unix_signals);
 
 	mstate->agh_main_unix_signals_tag = 0;
 	mstate->agh_main_unix_signals = NULL;
 
-	return;
+out:
+	return retval;
 }
 
-static void agh_state_teardown(struct agh_state *mstate) {
-	/* XXX is this the proper order? */
-	if (mstate->agh_mainloop)
+/*
+ * Deallocates AGH state, unreferencing associated GLib objects (hopefully not forgetting any of them).
+ *
+ * Returns: an integer with value 0 on failure, or
+ *  - 5 when the passed AGH state was NULL
+ *  - 1 when there was no mainloop
+ *  - 2 when there was no GMainContext.
+ *
+ * When values 1 or 2 are returned, mstate is still freed.
+*/
+static gint agh_state_teardown(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate) {
+		agh_log_core_crit("no AGH state to deallocate");
+		retval = 5;
+		goto out;
+	}
+
+	if (mstate->agh_mainloop) {
 		g_main_loop_unref(mstate->agh_mainloop);
+		mstate->agh_mainloop = NULL;
+	}
+	else {
+		agh_log_core_crit("mstate->agh_mainloop was not present, so not unreferencing it");
+		retval++;
+	}
 
-	if (mstate->ctx)
+	if (mstate->ctx) {
 		g_main_context_unref(mstate->ctx);
+		mstate->ctx = NULL;
+	}
+	else {
+		agh_log_core_crit("no mstate->ctx to unreference");
+		retval++;
+	}
 
-	mstate->agh_mainloop = NULL;
-	mstate->ctx = NULL;
 	g_free(mstate);
-	return;
+out:
+	return retval;
 }
 
-static void process_signals(struct agh_state *mstate) {
+/*
+ * This function does nothing particularly useful at the moment, except for printing a log message.
+ *
+ * Returns: an integer with value 0 when no signal was received, 1 when passed AGH state was NULL, 2 when a signal was received, hence the corresponding gboolean variable was set in mstate.
+*/
+static gint agh_process_signals(struct agh_state *mstate) {
+	gint retval;
 
-	if (mstate->sigint_received)
-		g_print("%s: exiting because of SIGINT!\n",__FUNCTION__);
+	retval = 0;
 
-	return;
-}
-
-static void agh_threads_start(struct agh_state *mstate) {
-	//g_print("%s: starting threads: ",__FUNCTION__);
-	g_queue_foreach(mstate->agh_threads, agh_threads_start_single, mstate);
-	//g_print("done\n");
-}
-
-static void agh_thread_register(struct agh_state *mstate, struct agh_thread *ct) {
-	if (!ct) {
-		g_print("%s: ** INVALID THREAD REGISTRATION CALL: NULL VALUE NOT ACCEPTABLE AS A THREAD\n",__FUNCTION__);
-		return;
+	if (!mstate) {
+		agh_log_core_crit("no AGH state, can not check for signals");
+		retval = 1;
+		goto out;
 	}
 
-	if (!mstate->agh_threads) {
-		g_print("%s: ** INVALID THREAD REGISTRATION CALL: THREADS QUEUE NOT INITIALIZED\n",__FUNCTION__);
-		return;
-	}
-	
-	g_print("%s: registering %s thread: ",__FUNCTION__,ct->thread_name);
-	g_queue_push_tail(mstate->agh_threads, ct);
-	g_print(" done\n");
-	return;
-}
-
-static void agh_threads_stop(struct agh_state *mstate) {
-	g_print("Stopping threads: ");
-
-	g_queue_foreach(mstate->agh_threads, agh_threads_stop_single, mstate);
-	g_print("done\n");
-}
-
-static void agh_threads_setup(struct agh_state *mstate) {
-	mstate->agh_threads = g_queue_new();
-	return;
-}
-
-static void agh_threads_teardown(struct agh_state *mstate) {
-	g_print("%s: deallocating threads queue\n",__FUNCTION__);
-	g_queue_free(mstate->agh_threads);
-	mstate->agh_threads = NULL;
-	return;
-}
-
-static void agh_threads_prepare(struct agh_state *mstate) {
-	//g_print("%s: preparing threads \n",__FUNCTION__);
-
-	g_queue_foreach(mstate->agh_threads, agh_threads_prepare_single, mstate);
-	//g_print(" done\n");
-	return;
-}
-
-static void agh_threads_deinit(struct agh_state *mstate) {
-	g_print("%s: invoking threads deinit functions ",__FUNCTION__);
-	g_queue_foreach(mstate->agh_threads, agh_threads_deinit_single, mstate);
-	g_print("done\n");
-	return;
-}
-
-static void agh_threads_prepare_single(gpointer data, gpointer user_data) {
-	struct agh_thread *ct = data;
-	struct agh_state *mstate = user_data;
-
-	g_print("%s\n",ct->thread_name);
-
-	ct->agh_maincontext = mstate->ctx;
-	ct->agh_mainloop = mstate->agh_mainloop;
-	ct->agh_comm = mstate->comm;
-	ct->handlers = NULL;
-
-	/* We would like to be informed about this situation: and if someone finds this useful we are going to remove this message
-	* and think about what's going on and what's needed. I don't think there's a valid reason for doing this, but who knows.
-	*/
-	if (ct->agh_thread_init)
-		ct->agh_thread_init(ct);
-	else
-		g_print("%s: %s has no init function\n",__FUNCTION__,ct->thread_name);
-
-	return;
-}
-
-static void agh_threads_deinit_single(gpointer data, gpointer user_data) {
-	struct agh_thread *ct = data;
-	struct agh_state *mstate = user_data;
-
-	g_print("%s\n",ct->thread_name);
-	if (ct->agh_thread_deinit)
-		ct->agh_thread_deinit(ct);
-
-	if (ct->handlers)
-		g_print("%s: WARNING: %s thread may not be deinitializing its handlers\n",__FUNCTION__, ct->thread_name);
-
-	ct->agh_maincontext = NULL;
-	ct->agh_mainloop = NULL;
-	ct->comm = NULL;
-	ct->agh_comm = NULL;
-
-	if (ct->evl) {
-		g_main_loop_unref(ct->evl);
-
-		if (ct->evl_ctx)
-			g_main_context_unref(ct->evl_ctx);
-
+	if (mstate->sigint_received) {
+		agh_log_core_crit("exiting because of signal");
+		retval = 2;
 	}
 
-	g_free(ct->thread_name);
-
-	/* XXX: a better way to do this? */
-	g_queue_remove(mstate->agh_threads, ct);
-	g_free(ct);
-	return;
-}
-
-static void agh_threads_start_single(gpointer data, gpointer user_data) {
-	struct agh_thread *ct = data;
-	struct agh_state *mstate = user_data;
-
-	g_print("%s ",ct->thread_name);
-
-	if (ct->agh_thread_main)
-		ct->current_thread = g_thread_new(ct->thread_name, ct->agh_thread_main, ct);
-	else
-		g_print("%s: %s has a NULL main function\n",__FUNCTION__,ct->thread_name);
-
-	return;
-}
-
-static void agh_threads_stop_single(gpointer data, gpointer user_data) {
-	struct agh_thread *ct = data;
-	struct agh_state *mstate = user_data;
-
-	g_print("%s ",ct->thread_name);
-	ct->current_thread = g_thread_join(ct->current_thread);
-	return;
-}
-
-/* Invoked upon SIGINT reception. */
-static gboolean agh_unix_signals_cb(gpointer data) {
-	struct agh_state *mstate = data;
-
-	mstate->sigint_received = TRUE;
-	agh_start_exit(mstate);
-
-	return FALSE;
+out:
+	return retval;
 }
 
 /*
  * This handler is meant to:
- * - receive text messages from components willing to send them
- * - build a command using the appropriate functions in commands.c
- * - if building a command succeeds, then build and send around a message containing it
+ * - receive text messages from handlers willing to send them
+ * - build a command using the appropriate functions in agh_commands.c
+ * - if building a command succeeds, then build and send around a message containing it.
+ *
+ * This function should respect AGH handlers semantics: NULL means nothing to say / something gone wrong, a message pointer will be processed by other handlers.
 */
-static gpointer core_recvtextcommand_handle(gpointer data, gpointer hmessage) {
-	struct agh_message *m = hmessage;
-	struct agh_handler *h = data;
+static struct agh_message *core_recvtextcommand_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_text_payload *csp = m->csp;
 	struct agh_state *mstate = h->handler_data;
+
 	struct agh_message *command_message;
 	struct agh_cmd *cmd;
-	guint num_threads;
-	guint i;
-	struct agh_thread *ct;
 
 	command_message = NULL;
-	cmd = NULL;
-	num_threads = 0;
-	ct = NULL;
-	i = 0;
 
 	if (m->msg_type == MSG_RECVTEXT) {
 		/* Parse incoming text. */
 		cmd = agh_text_to_cmd(csp->source_id, csp->text);
 
 		if (cmd) {
-			/* Send this message around. */
-			g_print("%s: processing CMD\n",__FUNCTION__);
-
-			num_threads = g_queue_get_length(mstate->agh_threads);
-			if (num_threads) {
-
-				for (i=0;i<num_threads;i++) {
-					command_message = agh_msg_alloc();
-					command_message->msg_type = MSG_SENDCMD;
-					ct = g_queue_peek_nth(mstate->agh_threads, i);
-					//g_print("Sending command message to %s thread\n",ct->thread_name);
-					command_message->csp = agh_cmd_copy(cmd);
-					if (agh_msg_send(command_message, mstate->comm, ct->comm)) {
-						g_print("%s: error while sending message to %s thread\n",__FUNCTION__,ct->thread_name);
-						continue;
-					}
-
-				} /* end of for loop */
-
-			} /* num_threads not zero */
-
-			/*
-			 * Send command messages to the core itself.
-			*/
 			command_message = agh_msg_alloc();
-			command_message->msg_type = MSG_SENDCMD;
-			command_message->csp = cmd;
-			if (agh_msg_send(command_message, mstate->comm, NULL))
-				g_print("%s: error while sending message to self\n",__FUNCTION__);
+
+			if (command_message) {
+				command_message->msg_type = MSG_SENDCMD;
+				command_message->csp = cmd;
+			}
 
 		} /* valid command was received */
 
 	}
 
-	return NULL;
+	return command_message;
 }
 
 /*
- * This handler receives MSG_SENDTEXT text messages from sources willing to send them, and broadcast them around.
+ * Commands for the core are handled in here, so what happens in essence is that agh_cmd_op_match is invoked.
+ *
+ * This function should respect AGH handlers semantics: NULL means nothing to say / something gone wrong, a message pointer will be processed by other handlers.
 */
-static gpointer core_sendtext_handle(gpointer data, gpointer hmessage) {
-	struct agh_message *m = hmessage;
-	struct agh_handler *h = data;
-	struct agh_text_payload *csp = m->csp;
-	struct agh_state *mstate = h->handler_data;
-	guint num_threads;
-	guint i;
-	struct agh_thread *ct;
-	struct agh_message *text_message;
-	struct agh_text_payload *ncsp;
-
-	num_threads = 0;
-	ct = NULL;
-	i = 0;
-	text_message = NULL;
-	ncsp = NULL;
-
-	if (m->msg_type == MSG_SENDTEXT) {
-		/* Send this message around to all registered components. */
-		//g_print("%s: broadcasting text\n",__FUNCTION__);
-
-		num_threads = g_queue_get_length(mstate->agh_threads);
-		if (num_threads) {
-
-			for (i=0;i<num_threads;i++) {
-				text_message = agh_msg_alloc();
-				text_message->msg_type = MSG_SENDTEXT;
-				ncsp = g_malloc0(sizeof(struct agh_text_payload));
-				ncsp->text = g_strdup(csp->text);
-
-				if (csp->source_id)
-					ncsp->source_id = g_strdup(csp->source_id);
-
-				text_message->csp = ncsp;
-				ct = g_queue_peek_nth(mstate->agh_threads, i);
-				//g_print("Sending text message to %s thread\n",ct->thread_name);
-				if (agh_msg_send(text_message, mstate->comm, ct->comm)) {
-					g_print("%s: error while sending text message to %s thread (not referring to an SMS message here)\n",__FUNCTION__,ct->thread_name);
-					continue;
-				}
-
-			} /* end of for loop */
-
-		} /* num_threads not zero */
-
-	} /* valid command was received */
-
-	return NULL;
-}
-
-static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
+static struct agh_message *core_cmd_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_state *mstate = h->handler_data;
 	struct agh_cmd *cmd;
 
@@ -545,191 +388,157 @@ static gpointer core_cmd_handle(gpointer data, gpointer hmessage) {
 
 /*
  * This handler converts events to text, and then send the resulting messages to the core itself.
- * The core is expected to broadcast them, for the benefit of other threads (e.g. XMPP).
+ * This function should respect AGH handlers semantics: NULL means nothing to say / something gone wrong, a message pointer will be processed by other handlers.
 */
-static gpointer core_event_to_text_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
+static struct agh_message *core_event_to_text_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_state *mstate = h->handler_data;
+
 	struct agh_cmd *cmd;
 	gchar *evtext;
 	struct agh_message *evmsg;
 	struct agh_text_payload *textcsp;
+	gint ret;
 
-	cmd = NULL;
-	evtext = NULL;
 	evmsg = NULL;
-	textcsp = NULL;
+	ret = 0;
 
 	if (m->msg_type != MSG_EVENT)
 		return evmsg;
 
 	/* An event arrived, so we need to convert it to text, and add an event ID. We use agh_cmd_copy / agh_cmd_free, due to the fact agh_cmd_answer_to_text is destructive (cmd->answer will then be NULL). */
 	cmd = agh_cmd_copy(m->csp);
+	if (!cmd)
+		return evmsg;
+
 	evtext = agh_cmd_answer_to_text(cmd, AGH_CMD_EVENT_KEYWORD, mstate->event_id);
-
 	agh_cmd_free(cmd);
-
 	if (!evtext)
 		return evmsg;
 
-	mstate->event_id++;
-	if (mstate->event_id > AGH_CMD_EVENT_MAX_ID)
-		mstate->event_id = 1;
-
 	evmsg = agh_msg_alloc();
+	if (!evmsg) {
+		g_free(evtext);
+		return evmsg;
+	}
 
-	textcsp = g_malloc0(sizeof(struct agh_text_payload));
+	textcsp = g_try_malloc0(sizeof(*textcsp));
+	if (!textcsp) {
+		g_free(evtext);
+		ret = agh_msg_dealloc(evmsg);
+		if (ret)
+			agh_log_core_crit("failure while deallocating message (code=%" G_GINT16_FORMAT")", ret);
+
+		evmsg = NULL;
+		return evmsg;
+	}
+
+	/* Connect the pieces we have: */
+
+	/* 1 - the text of the text CSP is the event text we got from agh_cmd_answer_to_text. */
 	textcsp->text = evtext;
+
+	/* 2 - the CSP of the event message should be the one we prepared in step 1 */
 	evmsg->csp = textcsp;
+
+	/* 3 - (unrelated) set message type */
 	evmsg->msg_type = MSG_SENDTEXT;
 
-	if (agh_msg_send(evmsg, mstate->comm, NULL)) {
-		evmsg = NULL;
+	mstate->event_id++;
+
+	if (mstate->event_id > AGH_CMD_EVENT_MAX_ID) {
+		agh_log_core_crit("resetting mstate->event_id to initial state");
+		mstate->event_id = 1;
 	}
 
-	return NULL;
+	return evmsg;
 }
 
-gpointer core_event_broadcast_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
+/*
+ * Converts an XMPP message to text, potentially causing unclean program termination on memory allocation failures.
+ *
+ * This function should respect AGH handlers semantics: NULL means nothing to say / something gone wrong, a message pointer will be processed by other handlers.
+ * Furthermore, it may lead to an unclean program termination.
+*/
+static struct agh_message *xmppmsg_to_text_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_state *mstate = h->handler_data;
-	struct agh_cmd *cmd;
-	struct agh_message *evmsg;
-	guint num_threads;
-	struct agh_cmd *ncmd;
-	guint i;
-	struct agh_thread *ct;
 
-	cmd = m->csp;
-	evmsg = NULL;
-	num_threads = 0;
-	ncmd = NULL;
-	ct = NULL;
+	struct agh_text_payload *tcsp;
+	struct xmpp_csp *xcsp;
+	struct agh_message *tm;
+	gint ret;
 
-	if (m->msg_type != MSG_EVENT)
-		return NULL;
+	tm = NULL;
 
-	/* An event arrived - so we'll broadcast it. */
-	//g_print("%s: broadcasting event\n",__FUNCTION__);
+	if (m->msg_type != MSG_XMPPTEXT)
+		return tm;
 
-	num_threads = g_queue_get_length(mstate->agh_threads);
-	if (num_threads) {
+	xcsp = m->csp;
 
-		for (i=0;i<num_threads;i++) {
-			evmsg = agh_msg_alloc();
-			evmsg->msg_type = MSG_EVENT;
-			ncmd = agh_cmd_copy(cmd);
-			evmsg->csp = ncmd;
-			ct = g_queue_peek_nth(mstate->agh_threads, i);
-			if (agh_msg_send(evmsg, mstate->comm, ct->comm)) {
-				g_print("%s: error while sending event message to %s thread\n",__FUNCTION__,ct->thread_name);
-				continue;
-			}
+	if (!xcsp->text)
+		return tm;
 
-		} /* end of for loop */
+	tm = agh_msg_alloc();
+	if (!tm)
+		return tm;
 
-	} /* num_threads not zero */
+	tcsp = g_try_malloc0(sizeof(*tcsp));
+	if (!tcsp) {
+		ret = agh_msg_dealloc(tm);
+		if (ret)
+			agh_log_core_crit("failure while deallocating message (code=%" G_GINT16_FORMAT")", ret);
 
-	return NULL;
-}
-
-static struct agh_thread *agh_thread_new(gchar *name) {
-	struct agh_thread *ct;
-
-	ct = NULL;
-
-	if (!name) {
-		g_print("%s: a thread may not have a NULL name\n",__FUNCTION__);
-		return ct;
+		tm = NULL;
+		return tm;
 	}
 
-	ct = g_malloc0(sizeof(struct agh_thread));
-	ct->thread_name = g_strdup(name);
-	return ct;
-}
+	tcsp->text = g_strdup(xcsp->text);
 
-static void agh_thread_set_init(struct agh_thread *ct, void (*agh_thread_init_cb)(gpointer data)) {
-	ct->agh_thread_init = agh_thread_init_cb;
-	return;
-}
+	if (xcsp->from)
+		tcsp->source_id = g_strdup_printf("XMPP=%s",xcsp->from);
 
-static void agh_thread_set_main(struct agh_thread *ct, gpointer (*agh_thread_main_cb)(gpointer data)) {
-	ct->agh_thread_main = agh_thread_main_cb;
-	return;
-}
+	tm->csp = tcsp;
+	tm->msg_type = MSG_RECVTEXT;
 
-static void agh_thread_set_deinit(struct agh_thread *ct, void (*agh_thread_deinit_cb)(gpointer data)) {
-	ct->agh_thread_deinit = agh_thread_deinit_cb;
-	return;
+	return tm;
 }
 
 static gint agh_core_handlers_setup_ext(struct agh_state *mstate) {
-	/* Core handlers. */
-	struct agh_handler *core_recvtextcommand_handler;
-	struct agh_handler *core_sendtext_handler;
-	struct agh_handler *core_cmd_handler;
-	struct agh_handler *core_event_to_text_handler;
-	struct agh_handler *core_event_broadcast_handler;
-	struct agh_handler *core_ubus_cmd_handler;
-	struct agh_handler *xmppmsg_to_text;
+	/* Core handlers structs. */
+	struct agh_handler *core_recvtextcommand_handler = NULL;
+	struct agh_handler *core_cmd_handler = NULL;
+	struct agh_handler *core_event_to_text_handler = NULL;
+	struct agh_handler *core_ubus_cmd_handler = NULL;
+	struct agh_handler *xmppmsg_to_text = NULL;
 	gint retval;
 
-	retval = -1;
+	retval = 1;
 
-	core_recvtextcommand_handler = agh_new_handler("core_recvtextcommand_handler");
-
-	if (!core_recvtextcommand_handler)
-		return retval;
+	if ( !(core_recvtextcommand_handler = agh_new_handler("core_recvtextcommand_handler")) )
+		goto out;
 
 	agh_handler_set_handle(core_recvtextcommand_handler, core_recvtextcommand_handle);
 	agh_handler_enable(core_recvtextcommand_handler, TRUE);
 
-	core_cmd_handler = agh_new_handler("core_cmd_handler");
-
-	if (!core_cmd_handler)
-		return retval;
+	if ( !(core_cmd_handler = agh_new_handler("core_cmd_handler")) )
+		goto out;
 
 	agh_handler_set_handle(core_cmd_handler, core_cmd_handle);
 	agh_handler_enable(core_cmd_handler, TRUE);
 
-	core_sendtext_handler = agh_new_handler("core_sendtext_handler");
-
-	if (!core_sendtext_handler)
-		return retval;
-
-	agh_handler_set_handle(core_sendtext_handler, core_sendtext_handle);
-	agh_handler_enable(core_sendtext_handler, TRUE);
-
-	core_event_to_text_handler = agh_new_handler("core_event_to_text_handler");
-
-	if (!core_event_to_text_handler)
-		return retval;
+	if ( !(core_event_to_text_handler = agh_new_handler("core_event_to_text_handler")) )
+		goto out;
 
 	agh_handler_set_handle(core_event_to_text_handler, core_event_to_text_handle);
 	agh_handler_enable(core_event_to_text_handler, TRUE);
 
-	core_event_broadcast_handler = agh_new_handler("core_event_broadcast_handler");
-
-	if (!core_event_broadcast_handler)
-		return retval;
-
-	agh_handler_set_handle(core_event_broadcast_handler, core_event_broadcast_handle);
-	agh_handler_enable(core_event_broadcast_handler, TRUE);
-
-	core_ubus_cmd_handler = agh_new_handler("core_ubus_cmd_handler");
-
-	if (!core_ubus_cmd_handler)
-		return retval;
+	if ( !(core_ubus_cmd_handler = agh_new_handler("core_ubus_cmd_handler")) )
+		goto out;
 
 	agh_handler_set_handle(core_ubus_cmd_handler, agh_core_ubus_cmd_handle);
 	agh_handler_enable(core_ubus_cmd_handler, TRUE);
 
-	xmppmsg_to_text = agh_new_handler("xmppmsg_to_text");
-
-	if (!xmppmsg_to_text)
-		return retval;
+	if ( !(xmppmsg_to_text = agh_new_handler("xmppmsg_to_text")) )
+		goto out;
 
 	agh_handler_set_handle(xmppmsg_to_text, xmppmsg_to_text_handle);
 	agh_handler_enable(xmppmsg_to_text, TRUE);
@@ -737,172 +546,156 @@ static gint agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	/* register handlers */
 	agh_handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
 	agh_handler_register(mstate->agh_handlers, core_cmd_handler);
-	agh_handler_register(mstate->agh_handlers, core_sendtext_handler);
 	agh_handler_register(mstate->agh_handlers, core_event_to_text_handler);
-	agh_handler_register(mstate->agh_handlers, core_event_broadcast_handler);
 	agh_handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
 	agh_handler_register(mstate->agh_handlers, xmppmsg_to_text);
-
 	retval = 0;
+
+out:
+	if (retval) {
+		g_clear_pointer(&core_recvtextcommand_handler, g_free);
+		g_clear_pointer(&core_cmd_handler, g_free);
+		g_clear_pointer(&core_event_to_text_handler, g_free);
+		g_clear_pointer(&core_ubus_cmd_handler, g_free);
+		g_clear_pointer(&xmppmsg_to_text, g_free);
+	}
 
 	return retval;
 }
 
-static void agh_thread_eventloop_setup(struct agh_thread *ct, gboolean as_default_context) {
+/*
+ * Really a wrapper around agh_comm_set_teardown_state.
 
-	if (!ct->handlers) {
-		g_print("%s: (%s) called us with a NULL handlers queue pointer\n\t(maybe you forgot to call handlers_setup ? )\n",__FUNCTION__,ct->thread_name);
-		return;
+ * Returns: an integer with value 40 when passed AGH state is NULL or there was no COMM; any other value comes directly from wrapped function.
+*/
+static gint agh_exit(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !mstate->comm) {
+		agh_log_core_crit("no AGH state while setting COMM teardown state");
+		retval = 40;
+		goto out;
 	}
 
-	/* Sets up a new Main Loop Context (and related Main Loop of course). */
-	ct->evl_ctx = g_main_context_new();
+	retval = agh_comm_set_teardown_state(mstate->comm, TRUE);
 
-	ct->evl = g_main_loop_new(ct->evl_ctx, FALSE);
-
-	if (as_default_context)
-		g_main_context_push_thread_default(ct->evl_ctx);
-
-	return;
+out:
+	return retval;
 }
 
-static void agh_thread_eventloop_teardown(struct agh_thread *ct) {
-	/* XXX is this the right order? */
-	g_main_loop_unref(ct->evl);
-	if (ct->evl_ctx)
-		g_main_context_unref(ct->evl_ctx);
-	else
-		g_print("%s had a NULL ct->evl_ctx\n",ct->thread_name);
-	ct->evl = NULL;
-	ct->evl_ctx = NULL;
-
-	return;
-}
-
-static gpointer agh_thread_default_exit_handle(gpointer data, gpointer hmessage) {
-	struct agh_message *m = hmessage;
-	struct agh_handler *h = data;
-	struct agh_thread *ct = h->handler_data;
-
-	if (m->msg_type != MSG_EXIT)
-		return NULL;
-
-	agh_comm_set_teardown_state(ct->comm, TRUE);
-	g_main_loop_quit(ct->evl);
-
-	return NULL;
-}
-
-static void agh_broadcast_exit(struct agh_state *mstate) {
-	guint num_threads;
-	struct agh_message *m;
-	struct agh_thread *ct;
-	guint i;
-
-	num_threads = 0;
-	m = NULL;
-	ct = NULL;
-
-	if (!mstate->agh_threads)
-		return;
-
-	num_threads = g_queue_get_length(mstate->agh_threads);
-
-	for (i=0;i<num_threads;i++) {
-		m = agh_msg_alloc();
-		m->msg_type = MSG_EXIT;
-		ct = g_queue_peek_nth(mstate->agh_threads, i);
-
-		if (agh_msg_send(m, mstate->comm, ct->comm))
-			g_print("%s: error while sending exit message to %s\n",__FUNCTION__,ct->thread_name);
-
-	}
-
-	return;
-}
-
-static void agh_exit(struct agh_state *mstate) {
-	agh_comm_set_teardown_state(mstate->comm, TRUE);
-	agh_broadcast_exit(mstate);
-	return;
-}
-
-static void agh_start_exit(struct agh_state *mstate) {
-	mstate->exiting = 1;
-
-	/* Install exit process idle source. */
-	if (mstate->exitsrc)
-		return;
-
-	mstate->exitsrc = g_idle_source_new();
-	g_source_set_callback(mstate->exitsrc, exitsrc_idle_cb, mstate, NULL);
-	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
-	g_source_unref(mstate->exitsrc);
-
-	//agh_mm_start_deinit(mstate);
-
-	return;
-}
-
-static gboolean exitsrc_idle_cb(gpointer data) {
-	struct agh_state *mstate = data;
-
-	if (mstate->mainloop_needed)
-		return TRUE;
-	else {
-		mstate->exitsrc = NULL;
-		g_main_loop_quit(mstate->agh_mainloop);
-	}
-
-	return FALSE;
-}
-
+/*
+ * Utility function, metant to copy text fragments from one GQueue to another. Complains about NULL GQueue or text; the first of these conditions is checked in GLib g_queue_push_tail as well.
+ * I am pretty sure we do not need this function.
+ *
+ * Note: this function may lead to unclean program termination.
+*/
 void agh_copy_textparts(gpointer data, gpointer user_data) {
 	GQueue *destqueue = user_data;
+	gchar *text = data;
 
-	/*
-	 * The function calling us should check if the destination queue actually has been allocated. Anyway, it seems g_queue_new
-	 * can not fail.
-	*/
+	if (!destqueue || !text) {
+		agh_log_core_crit("mhm, agh_copy_textparts invoked on a NULL destqueue or text, and since g_queue_new can not fail, and passing a NULL pointer here is not a good idea...");
+		goto out;
+	}
+
 	g_queue_push_tail(destqueue, g_strdup(data));
+
+out:
 	return;
 }
 
-gpointer xmppmsg_to_text_handle(gpointer data, gpointer hmessage) {
-	struct agh_message *m = hmessage;
-	struct agh_handler *h = data;
-	struct agh_state *mstate = h->handler_data;
+gint main(void) {
+	struct agh_state *mstate;
+	gint retval;
+	gint nonfatal_retval;
 
-	struct agh_text_payload *tcsp;
-	struct xmpp_csp *xcsp;
-	struct agh_message *tm;
+	retval = 0;
+	nonfatal_retval = 0;
 
-	tcsp = NULL;
-	xcsp = NULL;
-	tm = NULL;
+	/* Operations not allowed to fail. */
+	agh_logging_init();
+	agh_hello();
 
-	if (m->msg_type != MSG_XMPPTEXT)
-		return NULL;
-
-	xcsp = m->csp;
-
-	if (!xcsp->text)
-		return NULL;
-
-	tm = agh_msg_alloc();
-	tcsp = g_malloc0(sizeof(struct agh_text_payload));
-	tcsp->text = g_strdup(xcsp->text);
-
-	if (xcsp->from) {
-		tcsp->source_id = g_strdup_printf("XMPP=%s",xcsp->from);
+	mstate = agh_state_setup();
+	if (!mstate) {
+		retval = 1;
+		goto out;
 	}
 
-	tm->csp = tcsp;
-	tm->msg_type = MSG_RECVTEXT;
+	/* just a wrapper around g_queue_new */
+	mstate->agh_handlers = agh_handlers_setup();
 
-	if (agh_msg_send(tm, mstate->comm, NULL)) {
-		g_print("%s: unable to send message\n",__FUNCTION__);
+	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, AGH_LOG_DOMAIN_CORE);
+	if (!mstate->comm) {
+		retval = 2;
+		goto out;
 	}
 
-	return NULL;
+	retval = agh_core_handlers_setup_ext(mstate);
+	if (retval) {
+		agh_log_core_crit("unable to set up core handlers (code=%" G_GINT16_FORMAT")", retval);
+		goto out;
+	}
+
+	retval = agh_sources_setup(mstate);
+	if (retval) {
+		agh_log_core_crit("failure while setting up core GSources");
+		goto out;
+	}
+
+	mstate->uctx = agh_ubus_setup(mstate->comm, &nonfatal_retval);
+	if (nonfatal_retval)
+		agh_log_core_crit("ubus code init failure (code=%" G_GINT16_FORMAT")", nonfatal_retval);
+
+	nonfatal_retval = agh_xmpp_init(mstate);
+	if (nonfatal_retval)
+		agh_log_core_crit("XMPP code init failure (code=%" G_GINT16_FORMAT")", nonfatal_retval);
+
+	nonfatal_retval = agh_mm_init(mstate);
+	if (nonfatal_retval)
+		agh_log_core_crit("MM code init failure (code=%" G_GINT16_FORMAT")", nonfatal_retval);
+
+	agh_handlers_init(mstate->agh_handlers, mstate);
+
+	g_main_loop_run(mstate->agh_mainloop);
+
+	agh_log_core_crit("seems we exited from the main loop");
+
+out:
+
+	retval = agh_process_signals(mstate);
+	if (retval)
+		agh_log_core_crit("failure from agh_process_signals (code=%" G_GINT16_FORMAT")", retval);
+
+	retval = agh_ubus_teardown(mstate->uctx);
+	if (retval)
+		agh_log_core_crit("failure when trying to deinit ubus (code=%" G_GINT16_FORMAT")", retval);
+
+	retval = agh_xmpp_deinit(mstate);
+	if (retval)
+		agh_log_core_crit("failure when deinitializing XMPP code (code=%" G_GINT16_FORMAT")", retval);
+
+	retval = agh_mm_deinit(mstate);
+	if (retval)
+		agh_log_core_crit("failure when deinitializing MM interaction code (code=%" G_GINT16_FORMAT")", retval);
+
+	retval = agh_sources_teardown(mstate);
+	if (retval)
+		agh_log_core_crit("failure when deinitializing core GSources (code=%" G_GINT16_FORMAT")", retval);
+
+	agh_exit(mstate);
+
+	if (mstate->agh_handlers) {
+		agh_handlers_finalize(mstate->agh_handlers);
+		agh_handlers_teardown(mstate->agh_handlers);
+		mstate->agh_handlers = NULL;
+	}
+
+	agh_comm_teardown(mstate->comm, FALSE);
+
+	agh_state_teardown(mstate);
+
+	return retval;
 }

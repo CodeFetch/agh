@@ -66,7 +66,7 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	return 0;
 }
 
-void agh_xmpp_deinit(gpointer data) {
+gint agh_xmpp_deinit(gpointer data) {
 	struct agh_state *mstate = data;
 	struct xmpp_state *xstate = mstate->xstate;
 
@@ -120,7 +120,7 @@ void agh_xmpp_deinit(gpointer data) {
 
 	g_free(xstate);
 
-	return;
+	return 0;
 }
 
 static void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_event_t status, const int error, xmpp_stream_error_t * const stream_error, void * const userdata) {

@@ -198,10 +198,9 @@ static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 }
 
 /*
- * Sets up an AGH COMM data structure, used to communicate with an AGH thread, or by the core to exchange messages with itself.
+ * Sets up an AGH COMM data structure, historically used to communicate with an AGH thread, now by the core to exchange messages with itself.
  *
- * Returns: NULL on failure, a COMM data structure on success.
- * A failure may also arise due to a memory allocation failure.
+ * Returns: NULL on failure (e.g.: memory allocation), a COMM data structure on success.
 */
 struct agh_comm *agh_comm_setup(GQueue *handlers, GMainContext *ctx, gchar *name) {
 	struct agh_comm *comm;
