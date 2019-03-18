@@ -10,9 +10,6 @@
 #define agh_log_handlers_info(message, ...) agh_log_info(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
 #define agh_log_handlers_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_HANDLERS, message, ##__VA_ARGS__)
 
-/* Function prototypes. */
-static void agh_handlers_finalize_single(gpointer data, gpointer user_data);
-
 /*
  * Allocates handlers queue with g_queue_new.
  * At the time of this writing, g_queue_new uses g_slice_alloc, which in turn calls g_malloc internally, hence a failure to allocate memory may lead to program termination.
@@ -26,12 +23,37 @@ GQueue *agh_handlers_setup(void) {
 }
 
 /*
+ * Invoke the handler_finalize callback for an AGH handler.
+ *
+ * Returns: nothing; it's invoked via the g_queue_foreach GLib function.
+*/
+static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
+	struct agh_handler *h = data;
+
+	if (h->enabled && h->handler_finalize) {
+		agh_log_handlers_dbg("AGH handler finalize cb for %s being invoked",h->name);
+		h->handler_finalize(h);
+	}
+
+	g_queue_remove(h->handlers_queue, h);
+	h->handlers_queue = NULL;
+
+	h->handler_data = NULL;
+
+	agh_log_handlers_dbg("AGH handler %s being deallocated",h->name);
+	g_free(h->name);
+	g_free(h);
+
+	return;
+}
+
+/*
  * agh_handlers_teardown: deallocates an AGH handlers queue.
  *
  * We did not foresee a real "failure case" here. The function tries to alert you about the fact that some handlers where
  * still registered when you called it.
  *
- * Returns: an integer with value 0 on success, -1 if passed in GQueue was NULL, -1 if some handlers where still registered
+ * Returns: an integer with value 0 on success, -1 if passed in GQueue was NULL, -1 if some handlers where still registered.
 */
 gint agh_handlers_teardown(GQueue *handlers) {
 	guint num_handlers;
@@ -116,36 +138,14 @@ gint agh_handlers_init(GQueue *handlers, gpointer data) {
 }
 
 /*
- * Invoke the handler_finalize callback for an AGH handler.
- *
- * Returns: nothing; it's invoked via the g_queue_free_foreach GLib function.
-*/
-static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
-	struct agh_handler *h = data;
-
-	if (h->enabled && h->handler_finalize) {
-		agh_log_handlers_dbg("AGH handler finalize cb for %s being invoked",h->name);
-		h->handler_finalize(h);
-	}
-
-	g_queue_remove(h->handlers_queue, h);
-	h->handlers_queue = NULL;
-
-	h->handler_data = NULL;
-
-	agh_log_handlers_dbg("AGH handler %s being deallocated",h->name);
-	g_free(h->name);
-	g_free(h);
-
-	return;
-}
-
-/*
  * Given an AGH handlers queue, finalize all of the linked handlers.
 */
 void agh_handlers_finalize(GQueue *handlers) {
-	agh_log_handlers_dbg("finalizing handlers");
-	g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
+	if (handlers) {
+		agh_log_handlers_dbg("finalizing handlers");
+		g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
+	}
+
 	return;
 }
 
@@ -154,7 +154,7 @@ void agh_handlers_finalize(GQueue *handlers) {
  *
  * Returns: a new handler data structure on success, NULL on failure.
  *
- * Note: this function may terminate AGH should an allocation failure occur in g_strdup.
+ * Note: this function may terminate AGH uncleanly.
 */
 struct agh_handler *agh_new_handler(gchar *name) {
 	struct agh_handler *h;
