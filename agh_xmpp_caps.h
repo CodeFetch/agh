@@ -23,11 +23,11 @@ struct agh_xmpp_caps_entity *agh_xmpp_caps_entity_alloc(void);
 void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e);
 
 gint agh_xmpp_caps_add_entity(struct agh_xmpp_caps_entity *e);
-void agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gchar *name, gchar *type, gchar *cat, gchar *lang);
+gint agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gchar *name, gchar *type, gchar *cat, gchar *lang);
 
 gint agh_xmpp_caps_add_feature(struct agh_xmpp_caps_entity *e, gchar *ftext);
 
-void agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres);
+gint agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres);
 xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate);
 
 #endif

@@ -1,11 +1,30 @@
+/*
+ * Here is some code to support XMPP Capabilities.
+*/
+
 #include <string.h>
 #include <glib.h>
 #include <nettle/sha1.h>
 #include "agh_xmpp_caps.h"
 #include "agh_xmpp.h"
 #include "agh.h"
+#include "agh_logging.h"
 
-/* I am not convinced about the correctness of this function. */
+/* Log messages from AGH_LOG_DOMAIN_XMPP domain. */
+#define AGH_LOG_DOMAIN_XMPPCAPS	"XMPPCAPS"
+
+/* Logging macros. */
+#define agh_log_xmppcaps_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_XMPPCAPS, message, ##__VA_ARGS__)
+#define agh_log_xmppcaps_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_XMPPCAPS, message, ##__VA_ARGS__)
+
+/*
+ * Uses libnettle to calculate SHA1 within the process of "publishing" XMPP Capabilities (I call them "caps").
+ *
+ * Returns: the SHA1 on success, NULL when an allocation failure occurs and is handled.
+ * Infact, this function may still lead to an unclean program termination.
+ *
+ * Note: I am not convinced about the correctness of this function.
+*/
 static gchar *agh_xmpp_caps_sha1(gchar *text) {
 	struct sha1_ctx *ctx;
 	uint8_t *input;
@@ -13,17 +32,40 @@ static gchar *agh_xmpp_caps_sha1(gchar *text) {
 	gchar *output;
 	gint text_len;
 
-	ctx = NULL;
 	output = NULL;
-	text_len = 0;
 
-	if (!text)
-		return NULL;
+	if (!text) {
+		agh_log_xmppcaps_crit("NULL text");
+		return output;
+	}
 
 	text_len = strlen(text);
-	ctx = g_malloc0(sizeof(struct sha1_ctx));
-	input = g_malloc0(text_len+1);
-	digest = g_malloc0(SHA1_DIGEST_SIZE);
+	if (!text_len) {
+		agh_log_xmppcaps_crit("text of 0 length");
+		return output;
+	}
+
+	ctx = g_try_malloc0(sizeof(*ctx));
+	if (!ctx) {
+		agh_log_xmppcaps_crit("failure while allocating sha1_ctx");
+		return output;
+	}
+
+	input = g_try_malloc0(text_len+1);
+	if (!input) {
+		agh_log_xmppcaps_crit("failure while allocating input");
+		g_free(ctx);
+		return output;
+	}
+
+	digest = g_try_malloc0(SHA1_DIGEST_SIZE);
+	if (!digest) {
+		agh_log_xmppcaps_crit("failure while allocating digest");
+		g_free(ctx);
+		g_free(input);
+		return output;
+	}
+
 	memcpy(input, text, text_len+1);
 
 	sha1_init(ctx);
@@ -42,9 +84,11 @@ static gchar *agh_xmpp_caps_sha1(gchar *text) {
 struct agh_xmpp_caps_entity *agh_xmpp_caps_entity_alloc(void) {
 	struct agh_xmpp_caps_entity *e;
 
-	e = NULL;
-
-	e = g_malloc0(sizeof(struct agh_xmpp_caps_entity));
+	e = g_try_malloc0(sizeof(*e));
+	if (!e) {
+		agh_log_xmppcaps_crit("failure while allocating struct agh_xmpp_caps_entity");
+		return e;
+	}
 
 	e->features = g_queue_new();
 	e->base_entities = g_queue_new();
@@ -64,17 +108,22 @@ static void agh_xmpp_caps_base_entities_free(gpointer data) {
 
 void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 
-	if (!e)
+	if (!e) {
+		agh_log_xmppcaps_crit("not deallocating NULL agh_xmpp_caps_entity struct");
 		return;
+	}
 
 	if (e->base_entities)
 		g_queue_free_full(e->base_entities, agh_xmpp_caps_base_entities_free);
+
 	g_free(e->softname);
 	g_free(e->softversion);
 	g_free(e->osname);
 	g_free(e->osversion);
+
 	if (e->features)
 		g_queue_free_full(e->features, g_free);
+
 	g_free(e);
 
 	return;
@@ -83,37 +132,51 @@ void agh_xmpp_caps_entity_dealloc(struct agh_xmpp_caps_entity *e) {
 gint agh_xmpp_caps_add_entity(struct agh_xmpp_caps_entity *e) {
 	struct agh_xmpp_caps_base_entity *b;
 
-	b = NULL;
-
-	if (!e)
+	if (!e) {
+		agh_log_xmppcaps_crit("NULL agh_xmpp_caps_entity");
 		return -1;
+	}
 
-	b = g_malloc0(sizeof(struct agh_xmpp_caps_base_entity));
+	b = g_try_malloc0(sizeof(*b));
+	if (!b) {
+		agh_log_xmppcaps_crit("unable to allocate struct agh_xmpp_caps_base_entity");
+	}
+
 	g_queue_push_tail(e->base_entities, b);
 
 	return (g_queue_get_length(e->base_entities)-1);
 }
 
-void agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gchar *name, gchar *type, gchar *cat, gchar *lang) {
+gint agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gchar *name, gchar *type, gchar *cat, gchar *lang) {
 	struct agh_xmpp_caps_base_entity *b;
+	gint retval;
 
-	b = NULL;
+	retval = 0;
 
-	if (!name || !type)
-		return;
+	if (!name || !type || !cat) {
+		agh_log_xmppcaps_crit("one or more mandatory argument(s) where NULL");
+		retval = 20;
+		goto out;
+	}
 
-	if (!cat)
-		return;
+	if ((!e) || (!e->base_entities)) {
+		agh_log_xmppcaps_crit("passed agh_xmpp_caps_entity structure was NULL or had no base entities GQueue");
+		retval = 21;
+		goto out;
+	}
 
-	if ((!e) || (!e->base_entities))
-		return;
-
-	if (id < 0)
-		return;
+	if (id < 0) {
+		agh_log_xmppcaps_crit("id was less than 0");
+		retval = 22;
+		goto out;
+	}
 
 	b = g_queue_peek_nth(e->base_entities, id);
-	if (!b)
-		return;
+	if (!b) {
+		agh_log_xmppcaps_crit("seems picked base entity is NULL");
+		retval = 23;
+		goto out;
+	}
 
 	b->name = g_strdup(name);
 
@@ -124,13 +187,19 @@ void agh_xmpp_caps_set_entity_data(struct agh_xmpp_caps_entity *e, gint id, gcha
 	if (lang)
 		b->lang = g_strdup(lang);
 
-	return;
+out:
+	return retval;
 }
 
 static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_data) {
 	struct agh_xmpp_caps_base_entity *b = data;
 	GQueue *dest = user_data;
 	GString *tmp;
+
+	if (!b || !dest) {
+		agh_log_xmppcaps_crit("base entity struct or dest GQueue are NULL");
+		return;
+	}
 
 	tmp = g_string_new(NULL);
 
@@ -143,6 +212,7 @@ static void agh_xmpp_caps_base_entity_to_string(gpointer data, gpointer user_dat
 
 /*
  * Only to make GCC 8+ happy. And in any case, stay on the safe side for now, avoiding to play with function casts.
+ * I am pretty sure there is a GLib function we can use instead of this one.
 */
 static gint agh_xmpp_caps_gcmp0_wrapper(gconstpointer a, gconstpointer b, gpointer user_data) {
 	const gchar *f = a;
@@ -159,15 +229,10 @@ static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
 	guint i;
 	guint num_elems;
 
-	tmp_str = NULL;
-	o = NULL;
-	entities_str = NULL;
-	features_str = NULL;
-	i = 0;
-	num_elems = 0;
-
-	if ((!e) || (!e->base_entities))
+	if ((!e) || (!e->base_entities)) {
+		agh_log_xmppcaps_crit("agh_xmpp_caps_entity struct or base entities GQueue where missing");
 		return NULL;
+	}
 
 	features_str = g_queue_new();
 	entities_str = g_queue_new();
@@ -198,51 +263,50 @@ static gchar *agh_xmpp_caps_build_string(struct agh_xmpp_caps_entity *e) {
 	g_queue_free_full(entities_str, g_free);
 	g_queue_free_full(features_str, g_free);
 
-	entities_str = NULL;
-	features_str = NULL;
-
 	return g_string_free(o, FALSE);
 }
 
 gint agh_xmpp_caps_add_feature(struct agh_xmpp_caps_entity *e, gchar *ftext) {
-	if ((!e) || (!ftext))
+	if ((!e) || (!e->features) || (!ftext)) {
+		agh_log_xmppcaps_crit("features GQueue, agh_xmpp_caps_entity struct or ftext was NULL");
 		return -1;
+	}
 
 	g_queue_push_tail(e->features, g_strdup(ftext));
 
 	return (g_queue_get_length(e->features)-1);
 }
 
-void agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres) {
+gint agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmpp_stanza_t *pres) {
 	xmpp_stanza_t *caps = NULL;
 	gchar *hash;
 	gchar *str;
 
-	str = NULL;
-	hash = NULL;
-
-	if (!e)
-		return;
+	if (!e || !pres) {
+		agh_log_xmppcaps_crit("agh_xmpp_caps_entity or XMPP stanza where NULL");
+		return 7;
+	}
 
 	str = agh_xmpp_caps_build_string(e);
 
 	if (!str)
-		return;
+		return 8;
 
 	hash = agh_xmpp_caps_sha1(str);
 
 	if (!hash) {
-
-		if (str) {
-			g_free(str);
-			str = NULL;
-		}
-
-		g_print("%s: NULL hash\n",__FUNCTION__);
-		return;
+		g_free(str);
+		return 9;
 	}
 
 	caps = xmpp_stanza_new(ctx);
+	if (!caps) {
+		agh_log_xmppcaps_crit("XMPP stanza allocation failure");
+		g_free(str);
+		g_free(hash);
+		return 10;
+	}
+
 	xmpp_stanza_set_name(caps, AGH_XMPP_STANZA_NAME_C);
 	xmpp_stanza_set_ns(caps, AGH_XMPP_STANZA_NS_CAPS);
 	xmpp_stanza_set_attribute(caps, AGH_XMPP_STANZA_ATTR_HASH, "sha-1");
@@ -251,11 +315,8 @@ void agh_xmpp_caps_add_hash(xmpp_ctx_t *ctx, struct agh_xmpp_caps_entity *e, xmp
 	xmpp_stanza_add_child(pres, caps);
 	xmpp_stanza_release(caps);
 	g_free(hash);
-	hash = NULL;
 	g_free(str);
-	str = NULL;
-	g_print("%s: exiting\n",__FUNCTION__);
-	return;
+	return 0;
 }
 
 xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
@@ -269,16 +330,18 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 
 	capsdata = NULL;
 	identity = NULL;
-	i = 0;
-	num_elems = 0;
-	b = NULL;
 	feature = NULL;
-	ftext = NULL;
 
-	if ((!xstate->e) || (!xstate->e->base_entities))
-		return NULL;
+	if ((!xstate) || (!xstate->e) || (!xstate->e->base_entities)) {
+		agh_log_xmppcaps_crit("No AGH xMPP state, or needed pointers missing in state");
+		goto ffail;
+	}
 
 	capsdata = xmpp_stanza_new(xstate->xmpp_ctx);
+	if (!capsdata) {
+		agh_log_xmppcaps_crit("capsdata XMPP stanza allocation failure");
+		goto ffail;
+	}
 
 	xmpp_stanza_set_name(capsdata, AGH_XMPP_STANZA_NAME_QUERY);
 
@@ -288,6 +351,11 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 
 	for (i=0;i<num_elems;i++) {
 		identity = xmpp_stanza_new(xstate->xmpp_ctx);
+		if (!identity) {
+			agh_log_xmppcaps_crit("fragment XMPP stanza allocation failure");
+			goto ffail;
+		}
+
 		xmpp_stanza_set_name(identity, "identity");
 
 		b = g_queue_peek_nth(xstate->e->base_entities, i);
@@ -307,6 +375,11 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 
 	for (i=0;i<num_elems;i++) {
 		feature = xmpp_stanza_new(xstate->xmpp_ctx);
+		if (!feature) {
+			agh_log_xmppcaps_crit("fragment XMPP stanza allocation failure (features)");
+			goto ffail;
+		}
+
 		xmpp_stanza_set_name(feature, AGH_XMPP_STANZA_NAME_FEATURE);
 		ftext = g_queue_peek_nth(xstate->e->features, i);
 		xmpp_stanza_set_attribute(feature, AGH_XMPP_STANZA_ATTR_VAR, ftext);
@@ -315,4 +388,9 @@ xmpp_stanza_t *agh_xmpp_caps_get_capsdata(struct xmpp_state *xstate) {
 	}
 
 	return capsdata;
+ffail:
+	xmpp_stanza_release(capsdata);
+	xmpp_stanza_release(identity);
+	xmpp_stanza_release(feature);
+	return NULL;
 }
