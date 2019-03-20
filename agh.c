@@ -544,20 +544,30 @@ static gint agh_core_handlers_setup_ext(struct agh_state *mstate) {
 	agh_handler_enable(xmppmsg_to_text, TRUE);
 
 	/* register handlers */
-	agh_handler_register(mstate->agh_handlers, core_recvtextcommand_handler);
-	agh_handler_register(mstate->agh_handlers, core_cmd_handler);
-	agh_handler_register(mstate->agh_handlers, core_event_to_text_handler);
-	agh_handler_register(mstate->agh_handlers, core_ubus_cmd_handler);
-	agh_handler_register(mstate->agh_handlers, xmppmsg_to_text);
+	if (agh_handler_register(mstate->agh_handlers, core_recvtextcommand_handler))
+		goto out;
+
+	if (agh_handler_register(mstate->agh_handlers, core_cmd_handler))
+		goto out;
+
+	if (agh_handler_register(mstate->agh_handlers, core_event_to_text_handler))
+		goto out;
+
+	if (agh_handler_register(mstate->agh_handlers, core_ubus_cmd_handler))
+		goto out;
+
+	if (agh_handler_register(mstate->agh_handlers, xmppmsg_to_text))
+		goto out;
+
 	retval = 0;
 
 out:
 	if (retval) {
-		g_clear_pointer(&core_recvtextcommand_handler, g_free);
-		g_clear_pointer(&core_cmd_handler, g_free);
-		g_clear_pointer(&core_event_to_text_handler, g_free);
-		g_clear_pointer(&core_ubus_cmd_handler, g_free);
-		g_clear_pointer(&xmppmsg_to_text, g_free);
+		g_clear_pointer(&core_recvtextcommand_handler, agh_handler_dealloc);
+		g_clear_pointer(&core_cmd_handler, agh_handler_dealloc);
+		g_clear_pointer(&core_event_to_text_handler, agh_handler_dealloc);
+		g_clear_pointer(&core_ubus_cmd_handler, agh_handler_dealloc);
+		g_clear_pointer(&xmppmsg_to_text, agh_handler_dealloc);
 	}
 
 	return retval;
@@ -630,6 +640,7 @@ gint main(void) {
 	mstate->comm = agh_comm_setup(mstate->agh_handlers, mstate->ctx, AGH_LOG_DOMAIN_CORE);
 	if (!mstate->comm) {
 		retval = 2;
+		agh_log_core_crit("failure in agh_comm_setup");
 		goto out;
 	}
 
@@ -640,6 +651,7 @@ gint main(void) {
 	}
 
 	retval = agh_sources_setup(mstate);
+	retval = 1;
 	if (retval) {
 		agh_log_core_crit("failure while setting up core GSources");
 		goto out;
@@ -669,9 +681,11 @@ out:
 	if (retval)
 		agh_log_core_crit("failure from agh_process_signals (code=%" G_GINT16_FORMAT")", retval);
 
-	retval = agh_ubus_teardown(mstate->uctx);
-	if (retval)
-		agh_log_core_crit("failure when trying to deinit ubus (code=%" G_GINT16_FORMAT")", retval);
+	if (mstate) {
+		retval = agh_ubus_teardown(mstate->uctx);
+		if (retval)
+			agh_log_core_crit("failure when trying to deinit ubus (code=%" G_GINT16_FORMAT")", retval);
+	}
 
 	retval = agh_xmpp_deinit(mstate);
 	if (retval)
@@ -687,13 +701,14 @@ out:
 
 	agh_exit(mstate);
 
-	if (mstate->agh_handlers) {
+	if (mstate && mstate->agh_handlers) {
 		agh_handlers_finalize(mstate->agh_handlers);
 		agh_handlers_teardown(mstate->agh_handlers);
 		mstate->agh_handlers = NULL;
 	}
 
-	agh_comm_teardown(mstate->comm, FALSE);
+	if (mstate)
+		agh_comm_teardown(mstate->comm, FALSE);
 
 	agh_state_teardown(mstate);
 
