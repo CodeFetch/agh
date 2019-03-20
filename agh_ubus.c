@@ -197,7 +197,7 @@ gint agh_ubus_event_add(struct agh_ubus_ctx *uctx, ubus_event_handler_t cb, cons
 
 	retval = ubus_register_event_handler(uctx->ctx, uctx->event_handler, mask);
 	if (retval) {
-		agh_log_ubus_dbg("ubus_register_event_handler returned a failure (code=%" G_GINT16_FORMAT")");
+		agh_log_ubus_dbg("ubus_register_event_handler returned a failure (code=%" G_GINT16_FORMAT")",retval);
 		uctx->event_handler->cb = NULL;
 		goto wayout;
 	}
