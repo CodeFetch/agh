@@ -214,14 +214,18 @@ static gint xmpp_set_handlers_ext(struct agh_state *mstate) {
 	agh_handler_set_handle(xmpp_cmd_handler, xmpp_cmd_handle);
 	agh_handler_enable(xmpp_cmd_handler, TRUE);
 
-	agh_handler_register(mstate->agh_handlers, xmpp_sendmsg_handler);
-	agh_handler_register(mstate->agh_handlers, xmpp_cmd_handler);
+	if (agh_handler_register(mstate->agh_handlers, xmpp_sendmsg_handler))
+		goto out;
+
+	if (agh_handler_register(mstate->agh_handlers, xmpp_cmd_handler))
+		goto out;
+
 	retval = 0;
 
 out:
 	if (retval) {
-		g_clear_pointer(&xmpp_sendmsg_handler, g_free);
-		g_clear_pointer(&xmpp_cmd_handler, g_free);
+		g_clear_pointer(&xmpp_sendmsg_handler, agh_handler_dealloc);
+		g_clear_pointer(&xmpp_cmd_handler, agh_handler_dealloc);
 	}
 
 	return retval;;
@@ -1213,6 +1217,12 @@ static gint agh_xmpp_start_statemachine(struct agh_state *mstate) {
 gint agh_xmpp_init(struct agh_state *mstate) {
 	struct xmpp_state *xstate;
 
+	if (!mstate) {
+		agh_log_xmpp_crit("no AGH state");
+		return -ENOMEM;
+	}
+
+
 	mstate->xstate = g_try_malloc0(sizeof(struct xmpp_state));
 	if (!mstate->xstate) {
 		agh_log_xmpp_crit("failure while allocating XMPP state");
@@ -1241,7 +1251,14 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 }
 
 gint agh_xmpp_deinit(struct agh_state *mstate) {
-	struct xmpp_state *xstate = mstate->xstate;
+	struct xmpp_state *xstate;
+
+	if (!mstate || !mstate->xstate) {
+		agh_log_xmpp_crit("No AGH state or XMPP state");
+		return 1;
+	}
+
+	xstate = mstate->xstate;
 
 	agh_log_xmpp_crit("XMPP deinit");
 
