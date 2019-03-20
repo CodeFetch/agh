@@ -1120,6 +1120,7 @@ static gboolean xmpp_idle(gpointer data) {
 	gchar *eptr;
 
 	eptr = NULL;
+	altport = 0;
 
 	switch(xstate->xmpp_idle_state) {
 	case 0:
