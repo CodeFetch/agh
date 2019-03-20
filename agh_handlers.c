@@ -22,6 +22,18 @@ GQueue *agh_handlers_setup(void) {
 	return hq;
 }
 
+static void agh_handler_dealloc_internal(gpointer data) {
+	gint retval;
+	struct agh_handler *h = data;
+
+	retval = agh_handler_dealloc(h);
+	if (retval) {
+		agh_log_handlers_crit("handler deallocation failure (code=%" G_GINT16_FORMAT")",retval);
+	}
+
+	return;
+}
+
 /*
  * Invoke the handler_finalize callback for an AGH handler.
  *
@@ -35,14 +47,9 @@ static void agh_handlers_finalize_single(gpointer data, gpointer user_data) {
 		h->handler_finalize(h);
 	}
 
-	g_queue_remove(h->handlers_queue, h);
-	h->handlers_queue = NULL;
-
 	h->handler_data = NULL;
-
-	agh_log_handlers_dbg("AGH handler %s being deallocated",h->name);
-	g_free(h->name);
-	g_free(h);
+	h->enabled = FALSE;
+	h->handler_finalize = NULL;
 
 	return;
 }
@@ -70,12 +77,11 @@ gint agh_handlers_teardown(GQueue *handlers) {
 	num_handlers = g_queue_get_length(handlers);
 
 	if (num_handlers) {
-		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where still registed! Trying to continue.",num_handlers);
-		g_queue_foreach(handlers, agh_handlers_finalize_single, NULL);
+		agh_log_handlers_dbg("%" G_GUINT16_FORMAT" handlers where registed! Trying to continue.",num_handlers);
 		retval = -2;
 	}
 
-	g_queue_free(handlers);
+	g_queue_free_full(handlers, agh_handler_dealloc_internal);
 
 	return retval;
 }
@@ -122,8 +128,6 @@ gint agh_handlers_init(GQueue *handlers, gpointer data) {
 	num_handlers = g_queue_get_length(handlers);
 	for (i=0;i<num_handlers;i++) {
 		h = g_queue_peek_nth(handlers, i);
-
-		h->handlers_queue = handlers;
 
 		if (data)
 			h->handler_data = data;
@@ -250,6 +254,27 @@ gint agh_handler_set_finalize(struct agh_handler *h, agh_handler_finalize_cb *ha
 	}
 	else
 		h->handler_finalize = handler_finalize_cb;
+
+	return retval;
+}
+
+/*
+ * Deallocates an handler, assuming it's not on the handlers GQueue.
+ *
+ * Returns: an integer with vlaue 0 on success, 1 on NULL AGH handler passed.
+*/
+gint agh_handler_dealloc(struct agh_handler *h) {
+	gint retval;
+
+	if (!h) {
+		agh_log_handlers_crit("NULL AGH handler passed in");
+		retval = 1;
+	}
+	else {
+		g_free(h->name);
+		g_free(h);
+		retval = 0;
+	}
 
 	return retval;
 }

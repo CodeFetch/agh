@@ -20,9 +20,6 @@ struct agh_handler {
 	//void (*handler_finalize)(struct agh_handler *h);
 	agh_handler_finalize_cb *handler_finalize;
 
-	/* A pointer to the hanler queue. Handlers should avoid accessing their queue still if at all possible. */
-	GQueue *handlers_queue;
-
 	/* private handler data */
 	gpointer handler_data;
 };
@@ -40,5 +37,6 @@ gint agh_handler_enable(struct agh_handler *h, gboolean enabled);
 gint agh_handler_set_initialize(struct agh_handler *h, agh_handler_init_cb *handler_initialize_cb);
 gint agh_handler_set_handle(struct agh_handler *h, agh_handler_handle_cb *handler_handle_cb);
 gint agh_handler_set_finalize(struct agh_handler *h, agh_handler_finalize_cb *handler_finalize_cb);
+gint agh_handler_dealloc(struct agh_handler *h);
 
 #endif
