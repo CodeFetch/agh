@@ -861,18 +861,21 @@ static int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, 
 
 	iq_ping = NULL;
 
-	g_print("%s: nice, I was invoked.\n",__FUNCTION__);
+	agh_log_xmpp_dbg("%s entered",__FUNCTION__);
 
 	if (xstate->xmpp_idle_state != 1) {
-		g_print("%s: exiting due to xstate->xmpp_idle_state != 1\n",__FUNCTION__);
+		agh_log_xmpp_dbg("exiting due to xstate->xmpp_idle_state != 1");
 		return 1;
 	}
 
 	iq_ping = agh_xmpp_build_ping_base(mstate, xmpp_stanza_get_from(stanza), xmpp_stanza_get_id(stanza), AGH_XMPP_STANZA_TYPE_RESULT);
+	if (!iq_ping) {
+		agh_log_xmpp_crit("unable to answer");
+	}
 	xmpp_send(xstate->xmpp_conn, iq_ping);
 	xmpp_stanza_release(iq_ping);
+
 	if (xstate->ping_interval) {
-		//g_print("%s: \"resetting\" ping logic due to ping from server\n",__FUNCTION__);
 
 		xmpp_timed_handler_delete(xstate->xmpp_conn, ping_handler);
 		xmpp_timed_handler_add(xstate->xmpp_conn, ping_handler, xstate->ping_interval * 1000, mstate);
@@ -882,15 +885,14 @@ static int pong_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanza, 
 	return 1;
 }
 
-static void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout) {
+static gint agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, const gchar *domain, const gchar *resource, const gchar *pass, gint ka_interval, gint ka_timeout) {
 	struct xmpp_state *xstate = mstate->xstate;
 	gchar *jid;
-
-	jid = NULL;
 
 	if (xstate->xmpp_conn) {
 		xmpp_conn_release(xstate->xmpp_conn);
 		xstate->xmpp_conn = NULL;
+		agh_log_xmpp_dbg("connection released");
 	}
 
 	if (xstate->xmpp_ctx) {
@@ -899,26 +901,31 @@ static void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, con
 
 		xmpp_ctx_free(xstate->xmpp_ctx);
 		xstate->xmpp_ctx = NULL;
+		agh_log_xmpp_dbg("xstate->xmpp_ctx freed");
 	}
 
 	xstate->xmpp_log = xmpp_get_default_logger(XMPP_LEVEL_INFO);
 
 	/* First parameter is NULL since we don't provide our own memory allocator. */
 	xstate->xmpp_ctx = xmpp_ctx_new(NULL, xstate->xmpp_log);
-	if (!xstate->xmpp_ctx)
-		return;
+	if (!xstate->xmpp_ctx) {
+		agh_log_xmpp_crit("unable to allocate a xmpp_ctx");
+		return 1;
+	}
 
 	jid = xmpp_jid_new(xstate->xmpp_ctx, node, domain, resource);
 	if (!jid) {
 		xmpp_ctx_free(xstate->xmpp_ctx);
-		return;
+		agh_log_xmpp_crit("JID allocation failed");
+		return 2;
 	}
 
 	xstate->xmpp_conn = xmpp_conn_new(xstate->xmpp_ctx);
 	if (!xstate->xmpp_conn) {
-		xmpp_ctx_free(xstate->xmpp_ctx);
 		xmpp_free(xstate->xmpp_ctx, jid);
-		return;
+		xmpp_ctx_free(xstate->xmpp_ctx);
+		agh_log_xmpp_crit("xmpp_conn_new failure (allocation?)");
+		return 3;
 	}
 
 	xmpp_conn_set_flags(xstate->xmpp_conn, XMPP_CONN_FLAG_MANDATORY_TLS);
@@ -932,16 +939,15 @@ static void agh_xmpp_conn_setup(struct agh_state *mstate, const gchar *node, con
 	xmpp_conn_set_jid(xstate->xmpp_conn, jid);
 	xmpp_conn_set_pass(xstate->xmpp_conn, pass);
 
+	xstate->jid = jid;
+
 	if (ka_timeout && ka_interval)
 		xmpp_conn_set_keepalive(xstate->xmpp_conn, ka_timeout, ka_interval);
 
-	xstate->jid = jid;
+	if (xstate->ping_timeout && xstate->ping_interval)
+		xmpp_timed_handler_add(xstate->xmpp_conn, ping_handler, xstate->ping_interval * 1000, mstate);
 
-	if (xstate->ping_timeout && xstate->ping_interval) {
-			xmpp_timed_handler_add(xstate->xmpp_conn, ping_handler, xstate->ping_interval * 1000, mstate);
-	}
-
-	return;
+	return 0;
 }
 
 static void agh_xmpp_config_init(struct agh_state *mstate) {
@@ -973,14 +979,14 @@ static void agh_xmpp_config_init(struct agh_state *mstate) {
 
 	xstate->uci_ctx = uci_alloc_context();
 	if (!xstate->uci_ctx) {
-		g_print("%s: can not allocate UCI context\n",__FUNCTION__);
+		agh_log_xmpp_crit("can not allocate UCI context");
 		goto out_noctx;
 	}
 
 	xstate->uci_ctx->flags |= UCI_FLAG_STRICT;
 
 	if (uci_lookup_ptr(xstate->uci_ctx, &ptr, AGH_XMPP_UCI_PACKAGE, FALSE) != UCI_OK) {
-		g_print("%s: can not find "AGH_XMPP_UCI_PACKAGE" UCI package\n",__FUNCTION__);
+		agh_log_xmpp_crit("can not find "AGH_XMPP_UCI_PACKAGE" UCI package");
 		goto out;
 	}
 	package = ptr.p;
@@ -988,7 +994,7 @@ static void agh_xmpp_config_init(struct agh_state *mstate) {
 	/* Search for the section we are interested in. */
 	section = uci_lookup_section(xstate->uci_ctx, package, AGH_XMPP_UCI_SECTION_NAME);
 	if (!section) {
-		g_print("%s: can not find "AGH_XMPP_UCI_SECTION_NAME" section\n",__FUNCTION__);
+		agh_log_xmpp_crit("can not find "AGH_XMPP_UCI_SECTION_NAME" section");
 		goto out;
 	}
 
@@ -1048,8 +1054,10 @@ static void agh_xmpp_config_init(struct agh_state *mstate) {
 	if (!controllers)
 		goto out;
 
-	if (xstate->controllers)
+	if (xstate->controllers) {
 		g_queue_free(xstate->controllers);
+		xstate->controllers = NULL;
+	}
 
 	xstate->controllers = controllers;
 
@@ -1081,7 +1089,7 @@ static void agh_xmpp_config_init(struct agh_state *mstate) {
 	agh_xmpp_conn_setup(mstate, jid_node, jid_domain, jid_resource, pass, ka_interval, ka_timeout);
 
 	if (!xstate->xmpp_conn) {
-		g_print("%s: connection setup failed\n",__FUNCTION__);
+		agh_log_xmpp_crit("connection setup failure");
 		goto out;
 	}
 
@@ -1111,11 +1119,7 @@ static gboolean xmpp_idle(gpointer data) {
 	const gchar *altport_tmp;
 	gchar *eptr;
 
-	xmpp_client_connect_status = 0;
-	altdomain = NULL;
-	altport = 0;
 	eptr = NULL;
-	altport_tmp = NULL;
 
 	switch(xstate->xmpp_idle_state) {
 	case 0:
@@ -1138,7 +1142,7 @@ static gboolean xmpp_idle(gpointer data) {
 		agh_xmpp_config_init(mstate);
 
 		if (!xstate->uci_ctx) {
-			g_print("Invalid config!\n");
+			agh_log_xmpp_dbg("config parsing failure");
 			break;
 		}
 
@@ -1149,7 +1153,6 @@ static gboolean xmpp_idle(gpointer data) {
 		}
 
 		xstate->xmpp_idle_state++;
-		agh_log_xmpp_dbg("state changed");
 		/* fall through */
 	case 1:
 		/* run strophe event loop, once */
@@ -1162,7 +1165,7 @@ static gboolean xmpp_idle(gpointer data) {
 
 		break;
 	default:
-		g_print("%s: unknown state %" G_GUINT16_FORMAT"\n",__FUNCTION__, xstate->xmpp_idle_state);
+		agh_log_xmpp_crit("unknown state %" G_GUINT16_FORMAT"\n",xstate->xmpp_idle_state);
 		xstate->xmpp_idle_state = 0;
 	}
 
@@ -1178,7 +1181,7 @@ static gboolean xmpp_idle(gpointer data) {
 		}
 
 		xstate->xmpp_idle_state = 2;
-		g_print("%s: asked to exit\n",__FUNCTION__);
+		agh_log_xmpp_dbg("now I can exit");
 		mstate->mainloop_needed--;
 		xstate->xmpp_evs = NULL;
 		return FALSE;
@@ -1188,16 +1191,22 @@ static gboolean xmpp_idle(gpointer data) {
 	return TRUE;
 }
 
-static void agh_xmpp_start_statemachine(struct agh_state *mstate) {
+static gint agh_xmpp_start_statemachine(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
 	mstate->mainloop_needed++;
 	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, mstate, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, mstate->ctx);
+	if (!xstate->xmpp_evs_tag) {
+		agh_log_xmpp_crit("unable to attach our GSource to GMainContext");
+		g_source_destroy(xstate->xmpp_evs);
+		xstate->xmpp_evs = NULL;
+		return 1;
+	}
 	g_source_unref(xstate->xmpp_evs);
 
-	return;
+	return 0;
 }
 
 gint agh_xmpp_init(struct agh_state *mstate) {
@@ -1205,7 +1214,7 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 
 	mstate->xstate = g_try_malloc0(sizeof(struct xmpp_state));
 	if (!mstate->xstate) {
-		g_print("%s: failure while allocating XMPP state\n",__FUNCTION__);
+		agh_log_xmpp_crit("failure while allocating XMPP state");
 		return -ENOMEM;
 	}
 
@@ -1215,10 +1224,10 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 
 	xstate->outxmpp_messages = g_queue_new();
 
-	g_print("XMPP library init\n");
+	agh_log_xmpp_crit("XMPP library init is taking place");
 	xmpp_initialize();
 
-	/* Create XMPP library context */
+	/* Create XMPP library context amongst other things... */
 	agh_xmpp_config_init(mstate);
 
 	if (xstate->uci_ctx) {
@@ -1230,33 +1239,34 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	return 0;
 }
 
-gint agh_xmpp_deinit(gpointer data) {
-	struct agh_state *mstate = data;
+gint agh_xmpp_deinit(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
-	g_print("XMPP deinit.\n");
+	agh_log_xmpp_crit("XMPP deinit");
 
 	if (xstate->ping_interval) {
 		xmpp_timed_handler_delete(xstate->xmpp_conn, ping_timeout_handler);
 		xmpp_timed_handler_delete(xstate->xmpp_conn, ping_handler);
 	}
 
-	if (xstate->xmpp_conn)
+	if (xstate->xmpp_conn) {
 		xmpp_conn_release(xstate->xmpp_conn);
+		xstate->xmpp_conn = NULL;
+	}
 
 	if (xstate->jid) {
 		xmpp_free(xstate->xmpp_ctx, xstate->jid);
 		xstate->jid = NULL;
 	}
 
-	if (xstate->xmpp_ctx)
+	if (xstate->xmpp_ctx) {
 		xmpp_ctx_free(xstate->xmpp_ctx);
+		xstate->xmpp_ctx = NULL;
+	}
 
 	xmpp_shutdown();
 	agh_xmpp_caps_entity_dealloc(xstate->e);
 	xstate->e = NULL;
-	xstate->xmpp_conn = NULL;
-	xstate->xmpp_ctx = NULL;
 
 	xstate->xmpp_evs_tag = 0;
 
@@ -1267,7 +1277,7 @@ gint agh_xmpp_deinit(gpointer data) {
 	}
 
 	if (xstate->controllers) {
-		g_queue_free(xstate->controllers);
+		g_queue_free(xstate->controllers); /* it contains strings coming from UCI, we should not free them */
 		xstate->controllers = NULL;
 	}
 
