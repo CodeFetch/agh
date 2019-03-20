@@ -140,6 +140,7 @@ gint agh_xmpp_caps_add_entity(struct agh_xmpp_caps_entity *e) {
 	b = g_try_malloc0(sizeof(*b));
 	if (!b) {
 		agh_log_xmppcaps_crit("unable to allocate struct agh_xmpp_caps_base_entity");
+		return -1;
 	}
 
 	g_queue_push_tail(e->base_entities, b);

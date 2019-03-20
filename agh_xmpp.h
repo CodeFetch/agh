@@ -47,8 +47,6 @@
 /* Other options. */
 #define AGH_XMPP_UCI_OPTION_ALTDOMAIN "altdomain"
 #define AGH_XMPP_UCI_OPTION_ALTPORT "altport"
-#define AGH_XMPP_UCI_OPTION_STRESS_MODE "stress"
-#define AGH_XMPP_UCI_OPTION_STRESS_MODE_ACTIVATE_KEYWORD "StressMe!Please!"
 
 /* Ping states. */
 #define AGH_XMPP_PING_STATE_INACTIVE 0
@@ -75,9 +73,6 @@ struct xmpp_state {
 	gint ping_interval;
 	gint ping_timeout;
 	gboolean ping_is_timeout;
-
-	GSource *stress_source;
-	guint stress_tag;
 };
 
 struct xmpp_csp {
@@ -92,6 +87,6 @@ gint agh_xmpp_deinit(gpointer data);
 
 void discard_xmpp_messages(gpointer data, gpointer userdata);
 
-void agh_xmpp_free_csp(struct xmpp_csp *c);
+gint agh_xmpp_free_csp(struct xmpp_csp *c);
 
 #endif
