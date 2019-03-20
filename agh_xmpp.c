@@ -255,16 +255,18 @@ static gint agh_xmpp_prepare_entity(struct xmpp_state *xstate) {
 		}
 
 		retval = agh_xmpp_caps_add_feature(xstate->e, AGH_XMPP_FEATURE_RECEIPTS);
-		if (retval)
+		if (retval < 0)
 			goto out;
 
 		retval = agh_xmpp_caps_add_feature(xstate->e, AGH_XMPP_STANZA_NS_CAPS);
-		if (retval)
+		if (retval < 0)
 			goto out;
 
 		retval = agh_xmpp_caps_add_feature(xstate->e, AGH_XMPP_STANZA_NS_PING);
-		if (retval)
+		if (retval < 0)
 			goto out;
+
+		retval = 0; /* because, after all, agh_xmpp_caps_add_feature returns "IDs", have a look at it... */
 
 	}
 	else
@@ -274,6 +276,7 @@ out:
 	if (retval && xstate->e) {
 		agh_xmpp_caps_entity_dealloc(xstate->e);
 		xstate->e = NULL;
+		agh_log_xmpp_dbg("xstate->e is now NULL; have a good day!");
 	}
 out_badxstate:
 	return retval;
@@ -558,7 +561,6 @@ static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanz
 	mstate = userdata;
 	xstate = mstate->xstate;
 	ctx = xstate->xmpp_ctx;
-	agh_log_xmpp_crit("I am being invoked!");
 
 	receipt_request = NULL;
 	receipt_message = NULL;
@@ -1147,6 +1149,7 @@ static gboolean xmpp_idle(gpointer data) {
 		}
 
 		xstate->xmpp_idle_state++;
+		agh_log_xmpp_dbg("state changed");
 		/* fall through */
 	case 1:
 		/* run strophe event loop, once */
@@ -1219,7 +1222,6 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	agh_xmpp_config_init(mstate);
 
 	if (xstate->uci_ctx) {
-		agh_log_xmpp_dbg("agh_xmpp_start_statemachine being called");
 		agh_xmpp_start_statemachine(mstate);
 	}
 	else
