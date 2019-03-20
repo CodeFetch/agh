@@ -651,7 +651,6 @@ gint main(void) {
 	}
 
 	retval = agh_sources_setup(mstate);
-	retval = 1;
 	if (retval) {
 		agh_log_core_crit("failure while setting up core GSources");
 		goto out;
