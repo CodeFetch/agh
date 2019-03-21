@@ -572,6 +572,11 @@ static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanz
 	is_a_controller = FALSE;
 	receipt_response_id = NULL;
 
+	if (!mstate || !mstate->comm || mstate->comm->teardown_in_progress) {
+		agh_log_xmpp_dbg("discarding message early");
+		return 1;
+	}
+
 	if (xstate->xmpp_idle_state != 1) {
 		agh_log_xmpp_crit("exiting due to xstate->xmpp_idle_state != 1");
 		return 1;
@@ -682,7 +687,7 @@ static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanz
 
 	if ( (i = agh_msg_send(m, mstate->comm, NULL)) ) {
 		agh_log_xmpp_crit("unable to send received XMPP message to core (code=%" G_GINT16_FORMAT")", i);
-		/* note - both m and mstate->comm should not be NULL here, so agh_msg_send is expected to deallocate the message */
+		agh_msg_dealloc(m);
 	}
 
 	xmpp_free(ctx, from_barejid);
