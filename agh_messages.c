@@ -187,7 +187,10 @@ static gboolean agh_handle_message_inside_dest_thread(gpointer data) {
 			if (answer) {
 				answer->src = m->dest;
 				answer->dest = m->src;
-				agh_msg_send(answer, answer->src, answer->dest);
+
+				if (!answer->dest->teardown_in_progress)
+					agh_msg_send(answer, answer->src, answer->dest);
+
 			}
 		}
 	}
