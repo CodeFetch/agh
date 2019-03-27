@@ -716,8 +716,10 @@ gint agh_cmd_emit_event(struct agh_comm *agh_core_comm, struct agh_cmd *cmd) {
 
 	m->msg_type = MSG_EVENT;
 	m->csp = cmd;
-	if ( (retval = agh_msg_send(m, agh_core_comm, NULL)) )
+	if ( (retval = agh_msg_send(m, agh_core_comm, NULL)) ) {
 		agh_msg_dealloc(m);
+		cmd = NULL;
+	}
 
 wayout:
 	if (retval) {
