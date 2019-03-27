@@ -22,5 +22,6 @@ struct agh_mm_state {
 gint agh_mm_init(struct agh_state *mstate);
 gint agh_mm_deinit(struct agh_state *mstate);
 gint agh_modem_report_gerror_message(GError **error);
+void agh_mm_testwait(gint secs);
 
 #endif

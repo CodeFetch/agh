@@ -40,10 +40,13 @@ gint agh_mm_init(struct agh_state *mstate) {
 	}
 
 	ret = agh_modem_validate_config(mmstate, "agh_modem");
-	if (ret)
+	if (ret) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		goto out;
+	}
 
 out:
+
 	if (ret)
 		g_free(mmstate);
 	else
@@ -95,4 +98,10 @@ gint agh_modem_report_gerror_message(GError **error) {
 
 out:
 	return retval;
+}
+
+void agh_mm_testwait(gint secs) {
+	agh_log_mm_crit("plug/unplug the modem, or do what you feel like");
+	g_usleep(secs*G_USEC_PER_SEC);
+	return;
 }
