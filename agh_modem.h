@@ -6,7 +6,7 @@
 #include <libmm-glib.h>
 #include "agh.h"
 
-#define AGH_MM_MM_DBUS_NAME "org.freedesktop.ModemManager1"
+#define AGH_MM_ModemManager_DBUS_NAME "org.freedesktop.ModemManager1"
 
 struct agh_mm_state {
 	GError *current_gerror;

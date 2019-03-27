@@ -75,6 +75,10 @@ static gint agh_start_exit(struct agh_state *mstate) {
 	g_source_unref(mstate->exitsrc);
 	mstate->exiting = 1;
 
+	retval = agh_mm_deinit(mstate);
+	if (retval)
+		agh_log_core_crit("failure when deinitializing MM interaction code (code=%" G_GINT16_FORMAT")", retval);
+
 out:
 	return retval;
 }
@@ -689,10 +693,6 @@ out:
 	retval = agh_xmpp_deinit(mstate);
 	if (retval)
 		agh_log_core_crit("failure when deinitializing XMPP code (code=%" G_GINT16_FORMAT")", retval);
-
-	retval = agh_mm_deinit(mstate);
-	if (retval)
-		agh_log_core_crit("failure when deinitializing MM interaction code (code=%" G_GINT16_FORMAT")", retval);
 
 	retval = agh_sources_teardown(mstate);
 	if (retval)
