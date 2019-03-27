@@ -19,15 +19,81 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static void agh_mm_sm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	mmstate->manager = mm_manager_new_finish(res, &mmstate->current_gerror);
+	if (!mmstate->manager) {
+		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		goto out;
+	}
+
+out:
+	return;
+}
+
+static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
+	struct agh_mm_state *mmstate;
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("No AGH state or AGH MM state");
+		retval = 20;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	if (mmstate->manager) {
+		agh_log_mm_dbg("unreferencing manager object");
+		g_object_unref(mmstate->manager);
+		mmstate->manager = NULL;
+	}
+
+out:
+	return retval;
+}
+
+static gint agh_mm_mngr_init(struct agh_state *mstate) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	gint retval;
+
+	retval = 0;
+
+	if (!mmstate) {
+		agh_log_mm_crit("no AGH MM state context");
+		retval = 40;
+		goto out;
+	}
+
+	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)agh_mm_sm_bootstrap, mstate);
+
+out:
+	return retval;
+}
+
 static void agh_mm_start(GDBusConnection *connection, const gchar *name, const gchar *name_owner, gpointer user_data) {
 	struct agh_state *mstate = user_data;
-	agh_log_mm_dbg("MM (%s) is present",name);
+	gint retv;
+
+	agh_log_mm_dbg("MM (%s) is now present in the D-Bus system bus (%s)!",name,name_owner);
+
+	retv = agh_mm_mngr_init(mstate);
+	if (retv)
+		agh_log_mm_crit("manager init will not take place (error code=%" G_GINT16_FORMAT")",retv);
+
 	return;
 }
 
 static void agh_mm_stop(GDBusConnection *connection, const gchar *name, gpointer user_data) {
 	struct agh_state *mstate = user_data;
-	agh_log_mm_dbg("MM (%s) is no more present",name);
+
+	agh_log_mm_dbg("MM (%s) disappeared from the D-Bus system bus",name);
+
+	agh_mm_mngr_deinit(mstate);
+
 	return;
 }
 
@@ -44,6 +110,8 @@ static gint agh_mm_watch_deinit(struct agh_state *mstate) {
 	}
 
 	mmstate = mstate->mmstate;
+
+	agh_mm_mngr_deinit(mstate);
 
 	if (mmstate->watch_id) {
 		g_bus_unwatch_name(mmstate->watch_id);
@@ -195,4 +263,33 @@ void agh_mm_testwait(gint secs) {
 	agh_log_mm_crit("plug/unplug the modem, or do what you feel like");
 	g_usleep(secs*G_USEC_PER_SEC);
 	return;
+}
+
+gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, const gchar *evtext) {
+	gint retval;
+	struct agh_cmd *ev;
+
+	retval = 0;
+
+	if (!mstate || !evname || !evtext) {
+		agh_log_mm_crit("no AGH stare, or NULL event name / event text");
+		retval = 25;
+		goto out;
+	}
+
+	ev = agh_cmd_event_alloc(&retval);
+	if (!ev) {
+		agh_log_mm_crit("AGH event allocation failure (code=%" G_GINT16_FORMAT")",retval);
+		goto out;
+	}
+
+	agh_cmd_answer_set_status(ev, AGH_CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_addtext(ev, evname, TRUE);
+	agh_cmd_answer_addtext(ev, evtext, TRUE);
+	retval = agh_cmd_emit_event(mstate->comm, ev);
+	if (retval)
+		agh_log_mm_crit("event could not be emitted (code=%" G_GINT16_FORMAT")",retval);
+
+out:
+	return retval;
 }

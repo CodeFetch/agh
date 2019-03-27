@@ -146,7 +146,7 @@ static const struct agh_cmd_operation core_ops[] = {
 
 /* Print some messages at startup. */
 static void agh_hello(void) {
-	agh_log_core_info("\n\n******************** Hello! This is AGH %s (%s), compiled %s (%s). ********************\n\n",AGH_VERSION,AGH_RELEASE_NAME,__DATE__,__TIME__);
+	agh_log_core_info("\n\n******************** Hello! This is AGH %s (%s), compiled %s (%s). ********************",AGH_VERSION,AGH_RELEASE_NAME,__DATE__,__TIME__);
 	return;
 }
 
