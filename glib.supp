@@ -426,6 +426,14 @@
 }
 
 {
+	g-unix-signal-source-new
+	Memcheck:Leak
+	fun:calloc
+	...
+	fun:g_unix_signal_source_new
+}
+
+{
 	g-wakeup-acknowledge
 	drd:ConflictingAccess
 	fun:read
@@ -696,6 +704,14 @@
 	...
 	fun:g_dbus_error_register_error_domain
 	fun:g_dbus_error_quark
+}
+
+{
+  bus_get_sync_i686
+  Memcheck:Leak
+  fun:calloc
+  ...
+  fun:g_bus_get_sync
 }
 
 # Thread-private data allocated once per thread
