@@ -12,23 +12,13 @@
 #include "agh_mm_handlers.h"
 #include "agh_modem_config.h"
 
-/* Log messages from AGH_LOG_DOMAIN_MODEM domain. */
-#define AGH_LOG_DOMAIN_MODEM "MM"
+static void agh_mm_device_added(MMManager *manager, MMObject  *modem, gpointer user_data) {
+	agh_log_mm_dbg("modem added");
+	return;
+}
 
-/* Logging macros. */
-#define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
-#define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
-
-static void agh_mm_sm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
-	struct agh_mm_state *mmstate = mstate->mmstate;
-
-	mmstate->manager = mm_manager_new_finish(res, &mmstate->current_gerror);
-	if (!mmstate->manager) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
-		goto out;
-	}
-
-out:
+static void agh_mm_device_removed(MMManager *manager, MMObject  *modem, gpointer user_data) {
+	agh_log_mm_dbg("modem removed");
 	return;
 }
 
@@ -47,6 +37,18 @@ static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
 	mmstate = mstate->mmstate;
 
 	if (mmstate->manager) {
+		agh_log_mm_crit("disconnecting manager signals");
+
+		if (mmstate->manager_signal_modem_added_id) {
+			g_signal_handler_disconnect(mmstate->manager, mmstate->manager_signal_modem_added_id);
+			mmstate->manager_signal_modem_added_id = 0;
+		}
+
+		if (mmstate->manager_signal_modem_removed_id) {
+			g_signal_handler_disconnect(mmstate->manager, mmstate->manager_signal_modem_removed_id);
+			mmstate->manager_signal_modem_removed_id = 0;
+		}
+
 		agh_log_mm_dbg("unreferencing manager object");
 		g_object_unref(mmstate->manager);
 		mmstate->manager = NULL;
@@ -54,6 +56,40 @@ static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
 
 out:
 	return retval;
+}
+
+static void agh_mm_sm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	gint error;
+
+	error = 0;
+
+	mmstate->manager = mm_manager_new_finish(res, &mmstate->current_gerror);
+	if (!mmstate->manager) {
+		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		error++;
+		goto out;
+	}
+
+	mmstate->manager_signal_modem_added_id = g_signal_connect(mmstate->manager, "object-added", G_CALLBACK(agh_mm_device_added), mstate);
+	if (!mmstate->manager_signal_modem_added_id) {
+		agh_log_mm_crit("can not connect object-added signal");
+		error++;
+		goto out;
+	}
+
+	mmstate->manager_signal_modem_removed_id = g_signal_connect(mmstate->manager, "object-removed", G_CALLBACK(agh_mm_device_removed), mstate);
+	if (!mmstate->manager_signal_modem_removed_id) {
+		agh_log_mm_crit("can not connect object-removed signal");
+		error++;
+		goto out;
+	}
+
+out:
+	if (error)
+		agh_mm_mngr_deinit(mstate);
+
+	return;
 }
 
 static gint agh_mm_mngr_init(struct agh_state *mstate) {
