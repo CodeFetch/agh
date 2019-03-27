@@ -420,6 +420,14 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name
 		goto out_noctx;
 	}
 
+	if (mmstate->mctx) {
+		agh_log_mm_config_dbg("a config was already loaded, unloading");
+		uci_unload(mmstate->mctx, mmstate->uci_package);
+		uci_free_context(mmstate->mctx);
+		mmstate->mctx = NULL;
+		mmstate->uci_package = NULL;
+	}
+
 	uci_ctx = uci_alloc_context();
 	if (!uci_ctx) {
 		retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM;
@@ -475,7 +483,7 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name
 
 	}
 
-	/* now we check for references, so we do not work with a specific section */
+	/* now we check for references, so we do not work with a specific section - that's important when diagnosing errors */
 	current_section = NULL;
 	reference_error_element_name = NULL;
 
@@ -535,8 +543,15 @@ out_noctx:
 	if (referenced_sim_bearers)
 		g_queue_free_full(referenced_sim_bearers, g_free);
 
-	if (retval)
+	/*
+	 * NOTE: without { / } parentheses, GCC says it finds an else without a previous "if".
+	 * This sounds to me like an alarm bell. What's going on here? Has this to do with the fact we invoke macros for logging?
+	*/
+	if (retval) {
 		agh_log_mm_config_crit("failure %" G_GINT16_FORMAT" (%s)",retval,error_location_str ? error_location_str : "??");
+	}
+	else
+		agh_log_mm_config_dbg("config load was successful");
 
 	g_free(error_location_str);
 

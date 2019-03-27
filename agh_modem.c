@@ -24,6 +24,13 @@ gint agh_mm_init(struct agh_state *mstate) {
 	gint ret;
 
 	ret = 0;
+	mmstate = NULL;
+
+	if (!mstate) {
+		agh_log_mm_crit("no AGH state");
+		ret = -11;
+		goto out;
+	}
 
 	mmstate = g_try_malloc0(sizeof(*mmstate));
 	if (!mmstate) {
@@ -33,9 +40,8 @@ gint agh_mm_init(struct agh_state *mstate) {
 	}
 
 	ret = agh_modem_validate_config(mmstate, "agh_modem");
-	if (ret) {
+	if (ret)
 		agh_modem_report_gerror_message(&mmstate->current_gerror);
-	}
 
 out:
 	if (ret)
@@ -53,7 +59,7 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	ret = 0;
 
 	if (!mstate || !mstate->mmstate) {
-		agh_log_mm_crit("no AGH mm context found");
+		agh_log_mm_crit("no AGH ( / mm ) context found");
 		ret = 1;
 		goto out;
 	}
@@ -63,6 +69,8 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	if (mmstate->mctx) {
 		uci_unload(mmstate->mctx, mmstate->uci_package);
 		uci_free_context(mmstate->mctx);
+		mmstate->mctx = NULL;
+		mmstate->uci_package = NULL;
 	}
 
 out:
@@ -83,7 +91,7 @@ gint agh_modem_report_gerror_message(GError **error) {
 
 	agh_log_mm_crit("(GError report) - %s",(*error)->message ? (*error)->message : "(no error message)");
 	g_error_free(*error);
-	error = NULL;
+	*error = NULL;
 
 out:
 	return retval;

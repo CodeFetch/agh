@@ -76,7 +76,7 @@ static gint agh_start_exit(struct agh_state *mstate) {
 	mstate->exiting = 1;
 
 out:
-	return retval;;
+	return retval;
 }
 
 /*
