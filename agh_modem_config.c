@@ -150,6 +150,7 @@ static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueu
 					break;
 
 				g_queue_push_tail(*referenced_sims, g_strdup(f->name));
+				scounter++;
 			}
 		}
 
@@ -338,8 +339,8 @@ static gint agh_modem_validate_config_check_references(struct uci_context *ctx, 
 	retval = 0;
 	visited_sections = NULL;
 
-	if (!p || !ctx || !current_section || !*current_section || !names) {
-		agh_log_mm_config_crit("!p || !ctx || !current_section || !*current_section || !names");
+	if (!p || !ctx || !current_section || !names) {
+		agh_log_mm_config_crit("!p || !ctx || !current_section || !names");
 		retval = AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR;
 		goto out;
 	}
@@ -560,7 +561,7 @@ out_noctx:
 
 //--------------------------------------------
 
-static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *section) {
+static GList *agh_mm_config_build_simlist(struct agh_state *mstate, struct uci_section *section) {
 	GList *l;
 	struct uci_option *opt;
 	struct uci_element *e;
@@ -579,13 +580,12 @@ static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_secti
 				l = g_list_append(l, sim_section);
 			}
 		}
-	}
-	else {
-		agh_log_mm_config_dbg("searching with no modem section, all SIM cards are considered");
-		uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
-			sim_section = uci_to_section(e);
-			if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
-				l = g_list_append(l, sim_section);
+		else {
+			uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+				sim_section = uci_to_section(e);
+				if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
+					l = g_list_append(l, sim_section);
+				}
 			}
 		}
 	}
@@ -613,7 +613,7 @@ struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMMo
 	if (!modem_section)
 		agh_log_mm_config_crit("no section for this modem, or we where not able to retrieve Equipment ID");
 
-	simlist = agh_mm_sm_build_simlist(mstate, modem_section);
+	simlist = agh_mm_config_build_simlist(mstate, modem_section);
 
 	if (!simlist) {
 		agh_log_mm_config_crit("no SIM cards data found");
