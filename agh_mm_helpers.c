@@ -154,15 +154,14 @@ gchar *agh_mm_modem_to_index(const gchar *modem_path) {
 	gsize modem_path_size;
 	gint i;
 
-	modem_index = NULL;
-	modem_path_size = 0;
-
 	if (!modem_path)
 		return NULL;
 
-	modem_index = g_string_new(NULL);
-
 	modem_path_size = strlen(modem_path);
+	if (!modem_path_size)
+		return NULL;
+
+	modem_index = g_string_new(NULL);
 
 	for (i=modem_path_size-1;i>=0;i--) {
 		if (modem_path[i] == '/')
