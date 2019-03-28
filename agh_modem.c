@@ -23,8 +23,52 @@
 static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
-	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(mm_modem_get_state(modem)));
+	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(oldstate));
+	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
+	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), agh_mm_get_statechange_reason_string(reason));
 
+	switch(newstate) {
+		case MM_MODEM_STATE_FAILED:
+			agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
+			agh_log_mm_crit("modem %s failed (%s)",mm_modem_get_path(modem),mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
+			break;
+		case MM_MODEM_STATE_UNKNOWN:
+			agh_log_mm_crit("modem %s is in an unknown state, no action is being taken",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_INITIALIZING:
+			agh_log_mm_dbg("modem %s is initializing, please wait...",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_LOCKED:
+			agh_log_mm_crit("modem %s is currently locked, will try to unlock it",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_DISABLED:
+			agh_log_mm_crit("trying to enable modem at %s",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_DISABLING:
+			agh_log_mm_crit("modem %s is being disabled",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_ENABLING:
+			agh_log_mm_crit("modem %s is being enabled",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_ENABLED:
+			agh_log_mm_crit("modem %s is enabled, waiting for network registration to happen",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_REGISTERED:
+			agh_log_mm_crit("modem %s is registered to network!",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_SEARCHING:
+			agh_log_mm_crit("modem %s is searching...",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_DISCONNECTING:
+			agh_log_mm_crit("modem %s is disconnecting from network",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_CONNECTING:
+			agh_log_mm_crit("modem %s is connecting to data network",mm_modem_get_path(modem));
+			break;
+		case MM_MODEM_STATE_CONNECTED:
+			agh_log_mm_crit("modem %s is connected!",mm_modem_get_path(modem));
+			break;
+	}
 	return;
 }
 
