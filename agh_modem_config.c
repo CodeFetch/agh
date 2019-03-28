@@ -557,3 +557,126 @@ out_noctx:
 
 	return retval;
 }
+
+//--------------------------------------------
+
+static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_section *section) {
+	GList *l;
+	struct uci_option *opt;
+	struct uci_element *e;
+	struct uci_section *sim_section;
+
+	l = NULL;
+
+	/* Validation guarantees that, if a SIM has been "referenced" in a modem section, then it should exist in the config. */
+	if ((section) && (!g_strcmp0(section->type, AGH_MM_SECTION_MODEM_NAME))) {
+		opt = uci_lookup_option(mstate->mmstate->mctx, section, AGH_MM_SECTION_MODEM_OPTION_SIMLIST_NAME);
+		if ((opt) && (opt->type == UCI_TYPE_LIST)) {
+			uci_foreach_element(&opt->v.list, e) {
+				sim_section = uci_lookup_section(mstate->mmstate->mctx, mstate->mmstate->uci_package, e->name);
+
+				g_assert(sim_section);
+				l = g_list_append(l, sim_section);
+			}
+		}
+		else {
+			uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+				sim_section = uci_to_section(e);
+				if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
+					l = g_list_append(l, sim_section);
+				}
+			}
+		}
+	}
+
+	return l;
+}
+
+struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMModem *modem, MMSim *sim) {
+	struct uci_section *modem_section;
+	struct uci_section *sim_section;
+	GList *simlist;
+	GList *process_simlist;
+	const gchar *sim_id;
+	struct uci_option *opt;
+	struct uci_section *res_section;
+
+	res_section = NULL;
+
+	if (!mstate || !mstate->mmstate || mstate->mmstate->mctx || !modem || !sim) {
+		agh_log_mm_config_crit("missing context");
+		return res_section;
+	}
+
+	modem_section = agh_mm_config_get_modem_section(mstate, modem);
+	if (!modem_section)
+		agh_log_mm_config_crit("no section for this modem, or we where not able to retrieve Equipment ID");
+
+	simlist = agh_mm_sm_build_simlist(mstate, modem_section);
+
+	if (!simlist) {
+		agh_log_mm_config_crit("no SIM cards data found");
+		return res_section;
+	}
+
+	sim_id = mm_sim_get_identifier(sim);
+	if (!sim_id) {
+		g_list_free(simlist);
+		agh_log_mm_config_crit("can not get SIM ID");
+		return res_section;
+	}
+
+	agh_log_mm_config_dbg("got SIM id %s",sim_id);
+
+	for (process_simlist = simlist; process_simlist; process_simlist = g_list_next(simlist)) {
+		sim_section = process_simlist->data;
+		opt = uci_lookup_option(mstate->mmstate->mctx, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_SIM_ID);
+
+		/* should exist and be a string */
+		if (!g_strcmp0(opt->v.string, sim_id)) {
+			res_section = sim_section;
+			break;
+		}
+	}
+
+	g_list_free(simlist);
+	return res_section;
+}
+
+struct uci_section *agh_mm_config_get_modem_section(struct agh_state *mstate, MMModem *modem) {
+	struct uci_section *section;
+	const gchar *equipment_id;
+	struct uci_element *e;
+	struct uci_option *opt;
+
+	section = NULL;
+
+	if (!mstate || !mstate->mmstate || mstate->mmstate->mctx || !modem) {
+		agh_log_mm_config_crit("missing context");
+		return section;
+	}
+
+	equipment_id = mm_modem_get_equipment_identifier(modem);
+	if (!equipment_id) {
+		agh_log_mm_config_crit("unable to get Equipment ID for this modem");
+		return section;
+	}
+
+	uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+		section = uci_to_section(e);
+
+		if (!g_strcmp0(section->type, AGH_MM_SECTION_MODEM_NAME)) {
+			opt = uci_lookup_option(mstate->mmstate->mctx, section, AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID);
+
+			/* validation should guarantee this option is present, and is a string */
+			if (!g_strcmp0(opt->v.string, equipment_id))
+				return section;
+
+		}
+
+	}
+
+	section = NULL;
+
+	return section;
+}
