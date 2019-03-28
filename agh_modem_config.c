@@ -551,7 +551,7 @@ out_noctx:
 		agh_log_mm_config_crit("failure %" G_GINT16_FORMAT" (%s)",retval,error_location_str ? error_location_str : "??");
 	}
 	else
-		agh_log_mm_config_dbg("config load was successful");
+		agh_log_mm_config_dbg("%s: config load was successful",package_name);
 
 	g_free(error_location_str);
 
@@ -579,12 +579,13 @@ static GList *agh_mm_sm_build_simlist(struct agh_state *mstate, struct uci_secti
 				l = g_list_append(l, sim_section);
 			}
 		}
-		else {
-			uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
-				sim_section = uci_to_section(e);
-				if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
-					l = g_list_append(l, sim_section);
-				}
+	}
+	else {
+		agh_log_mm_config_dbg("searching with no modem section, all SIM cards are considered");
+		uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+			sim_section = uci_to_section(e);
+			if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME)) {
+				l = g_list_append(l, sim_section);
 			}
 		}
 	}
@@ -603,7 +604,7 @@ struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMMo
 
 	res_section = NULL;
 
-	if (!mstate || !mstate->mmstate || mstate->mmstate->mctx || !modem || !sim) {
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !modem || !sim) {
 		agh_log_mm_config_crit("missing context");
 		return res_section;
 	}
@@ -651,7 +652,7 @@ struct uci_section *agh_mm_config_get_modem_section(struct agh_state *mstate, MM
 
 	section = NULL;
 
-	if (!mstate || !mstate->mmstate || mstate->mmstate->mctx || !modem) {
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !modem) {
 		agh_log_mm_config_crit("missing context");
 		return section;
 	}
