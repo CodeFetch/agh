@@ -20,8 +20,119 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static void agh_mm_sim_pin_unlock_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+	MMSim *sim;
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	struct uci_section *sim_section;
+	struct uci_option *pin_option;
+	guint left_pin_retries;
+	MMUnlockRetries *retries;
+
+	retries = NULL;
+
+	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
+	if (!sim) {
+		agh_log_mm_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
+		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		goto out;
+	}
+
+	sim_section = agh_mm_config_get_sim_section(mstate, modem, sim);
+	if (!sim_section) {
+		agh_log_mm_crit("no configuration data found for this SIM card, can not unlock");
+		goto out;
+	}
+
+	retries = mm_modem_get_unlock_retries(modem);
+	if (!retries) {
+		agh_log_mm_crit("unable to get unlock retries for this modem");
+		goto out;
+	}
+
+	left_pin_retries = mm_unlock_retries_get(retries, MM_MODEM_LOCK_SIM_PIN);
+	if (left_pin_retries == MM_UNLOCK_RETRIES_UNKNOWN) {
+		agh_log_mm_crit("unable to retrieve retries left (we got MM_UNLOCK_RETRIES_UNKNOWN from mm_unlock_retries_get), %" G_GUINT16_FORMAT"", left_pin_retries);
+		goto out;
+	}
+
+	if (left_pin_retries <= 4) {
+		agh_log_mm_crit("insufficient number of retries left (%" G_GUINT16_FORMAT"); consider manual intervention",left_pin_retries);
+		goto out;
+	}
+
+out:
+	if (sim)
+		g_object_unref(sim);
+
+	if (retries)
+		g_object_unref(retries);
+
+	return;
+}
+
+static gint agh_mm_sim_pin_unlock(struct agh_state *mstate, MMModem *modem) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !modem) {
+		agh_log_mm_crit("missing needed context");
+		retval = 22;
+		goto out;
+	}
+
+	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_finish, mstate);
+
+out:
+	return retval;
+}
+
+static gint agh_mm_modem_unlock(struct agh_state *mstate, MMModem *modem) {
+	gint retval;
+	MMModemLock lock;
+
+	retval = 0;
+	lock = mm_modem_get_unlock_required(modem);
+
+	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_lock_get_string(lock));
+	agh_log_mm_crit("modem %s is locked (%s)",mm_modem_get_path(modem), mm_modem_lock_get_string(lock));
+
+	switch(lock) {
+		case MM_MODEM_LOCK_NONE:
+			agh_log_mm_crit("oops, we where called on an unlocked modem");
+			retval = 19;
+			break;
+		case MM_MODEM_LOCK_UNKNOWN:
+		case MM_MODEM_LOCK_SIM_PIN2:
+		case MM_MODEM_LOCK_SIM_PUK:
+		case MM_MODEM_LOCK_SIM_PUK2:
+		case MM_MODEM_LOCK_PH_SP_PIN:
+		case MM_MODEM_LOCK_PH_SP_PUK:
+		case MM_MODEM_LOCK_PH_NET_PIN:
+		case MM_MODEM_LOCK_PH_NET_PUK:
+		case MM_MODEM_LOCK_PH_SIM_PIN:
+		case MM_MODEM_LOCK_PH_CORP_PIN:
+		case MM_MODEM_LOCK_PH_CORP_PUK:
+		case MM_MODEM_LOCK_PH_FSIM_PIN:
+		case MM_MODEM_LOCK_PH_FSIM_PUK:
+		case MM_MODEM_LOCK_PH_NETSUB_PIN:
+		case MM_MODEM_LOCK_PH_NETSUB_PUK:
+			agh_log_mm_crit("do not know how to handle this lock");
+			retval = 20;
+			break;
+		case MM_MODEM_LOCK_SIM_PIN:
+			retval = agh_mm_sim_pin_unlock(mstate, modem);
+			break;
+	}
+
+	return retval;
+}
+
 static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
 	struct agh_state *mstate = user_data;
+	gint retval;
+
+	retval = 0;
 
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(oldstate));
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
@@ -40,6 +151,11 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 			break;
 		case MM_MODEM_STATE_LOCKED:
 			agh_log_mm_crit("modem %s is currently locked, will try to unlock it",mm_modem_get_path(modem));
+			retval = agh_mm_modem_unlock(mstate, modem);
+
+			if (retval)
+				agh_log_mm_crit("failure from agh_mm_modem_unlock (code=%" G_GINT16_FORMAT")",retval);
+
 			break;
 		case MM_MODEM_STATE_DISABLED:
 			agh_log_mm_crit("trying to enable modem at %s",mm_modem_get_path(modem));
