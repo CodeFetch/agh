@@ -24,6 +24,7 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 	struct agh_state *mstate = user_data;
 
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(mm_modem_get_state(modem)));
+
 	return;
 }
 
@@ -140,7 +141,45 @@ out:
 	return retval;
 }
 
-static void agh_mm_sm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
+static gint agh_mm_handle_present_modems(struct agh_state *mstate) {
+	GList *l;
+	GList *modems;
+	gint retval;
+	struct agh_mm_state *mmstate;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager) {
+		agh_log_mm_crit("AGH state, AGH MM state or manager object where not present");
+		retval = 20;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mmstate->manager));
+
+	if (!modems) {
+		agh_log_mm_dbg("seems no modems have been found (yet?)");
+		goto out;
+	}
+
+	for (l = modems; l; l = g_list_next(l)) {
+		retval = agh_mm_handle_modem(mstate, (MMObject *)(l->data));
+		if (retval) {
+			agh_log_mm_crit("got failure from agh_mm_handle_modem (code=%" G_GINT16_FORMAT")",retval);
+		}
+	}
+
+	retval = 0;
+
+	g_list_free_full(modems, g_object_unref);
+
+out:
+	return retval;
+}
+
+static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	gint error;
 
@@ -167,6 +206,12 @@ static void agh_mm_sm_bootstrap(GDBusConnection *connection, GAsyncResult *res, 
 		goto out;
 	}
 
+	error = agh_mm_handle_present_modems(mstate);
+	if (error) {
+		agh_log_mm_crit("got failure from agh_mm_handle_present_modems (code=%" G_GINT16_FORMAT")",error);
+		goto out;
+	}
+
 out:
 	if (error)
 		agh_mm_mngr_deinit(mstate);
@@ -186,7 +231,7 @@ static gint agh_mm_mngr_init(struct agh_state *mstate) {
 		goto out;
 	}
 
-	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)agh_mm_sm_bootstrap, mstate);
+	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)agh_mm_bootstrap, mstate);
 
 out:
 	return retval;
