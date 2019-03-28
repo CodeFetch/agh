@@ -11,6 +11,7 @@
 #include "agh_handlers.h"
 #include "agh_mm_handlers.h"
 #include "agh_modem_config.h"
+#include "agh_mm_helpers.h"
 
 /* Log messages from AGH_LOG_DOMAIN_MODEM domain. */
 #define AGH_LOG_DOMAIN_MODEM "MM"
@@ -19,12 +20,68 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
-static void agh_mm_handle_modem(struct agh_state *mstate, MMObject *modem) {
+static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemState newstate, MMModemStateChangeReason reason, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+
+	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(mm_modem_get_state(modem)));
 	return;
 }
 
-static void agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
-	return;
+static gint agh_mm_handle_modem(struct agh_state *mstate, MMObject *modem) {
+	MMModem *m;
+	gint retval;
+	gulong signal_id;
+
+	retval = 0;
+
+	m = mm_object_get_modem(modem);
+	if (!m) {
+		agh_log_mm_crit("MMObject not implementing MMModem interface");
+		retval = 1;
+		goto out;
+	}
+
+	signal_id = g_signal_connect(m, "state-changed", G_CALLBACK(agh_mm_statechange), mstate);
+	if (!signal_id) {
+		agh_log_mm_crit("unable to connect state-changed signal");
+		retval = 2;
+		goto out;
+	}
+
+	agh_mm_statechange(m, MM_MODEM_STATE_UNKNOWN, mm_modem_get_state(m), MM_MODEM_STATE_CHANGE_REASON_UNKNOWN, mstate);
+
+out:
+	if (m)
+		g_object_unref(m);
+
+	return retval;
+}
+
+static gint agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
+	gint retval;
+	gint num_handlers;
+	MMModem *m;
+
+	retval = 0;
+
+	m = mm_object_get_modem(modem);
+	if (!m) {
+		agh_log_mm_crit("can not get modem object durning unhandling");
+		retval = 14;
+		goto out;
+	}
+
+	num_handlers = g_signal_handlers_disconnect_by_func(m, agh_mm_statechange, mstate);
+	if (!num_handlers) {
+		agh_log_mm_crit("no handlers matched during signal disconnect");
+	}
+	else
+		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during signal disconnect",num_handlers);
+
+out:
+	if (m)
+		g_object_unref(m);
+	return retval;
 }
 
 static void agh_mm_device_added(MMManager *manager, MMObject *modem, gpointer user_data) {
@@ -326,7 +383,7 @@ void agh_mm_testwait(gint secs) {
 	return;
 }
 
-gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, const gchar *evtext) {
+gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, gchar *evpath, const gchar *evtext) {
 	gint retval;
 	struct agh_cmd *ev;
 
@@ -341,16 +398,24 @@ gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, const gc
 	ev = agh_cmd_event_alloc(&retval);
 	if (!ev) {
 		agh_log_mm_crit("AGH event allocation failure (code=%" G_GINT16_FORMAT")",retval);
+		retval = 26;
 		goto out;
 	}
 
 	agh_cmd_answer_set_status(ev, AGH_CMD_ANSWER_STATUS_OK);
 	agh_cmd_answer_addtext(ev, evname, TRUE);
+
+	if (evpath)
+		agh_cmd_answer_addtext(ev, evpath, FALSE);
+
 	agh_cmd_answer_addtext(ev, evtext, TRUE);
+
 	retval = agh_cmd_emit_event(mstate->comm, ev);
-	if (retval)
-		agh_log_mm_crit("event could not be emitted (code=%" G_GINT16_FORMAT")",retval);
 
 out:
+	if (retval) {
+		agh_log_mm_crit("event could not be emitted (code=%" G_GINT16_FORMAT")",retval);
+		g_free(evpath);
+	}
 	return retval;
 }
