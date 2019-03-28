@@ -12,13 +12,38 @@
 #include "agh_mm_handlers.h"
 #include "agh_modem_config.h"
 
-static void agh_mm_device_added(MMManager *manager, MMObject  *modem, gpointer user_data) {
-	agh_log_mm_dbg("modem added");
+/* Log messages from AGH_LOG_DOMAIN_MODEM domain. */
+#define AGH_LOG_DOMAIN_MODEM "MM"
+
+/* Logging macros. */
+#define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
+#define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
+
+static void agh_mm_handle_modem(struct agh_state *mstate, MMObject *modem) {
 	return;
 }
 
-static void agh_mm_device_removed(MMManager *manager, MMObject  *modem, gpointer user_data) {
+static void agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
+	return;
+}
+
+static void agh_mm_device_added(MMManager *manager, MMObject *modem, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+
+	agh_log_mm_dbg("modem added");
+
+	agh_mm_handle_modem(mstate, modem);
+
+	return;
+}
+
+static void agh_mm_device_removed(MMManager *manager, MMObject *modem, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+
 	agh_log_mm_dbg("modem removed");
+
+	agh_mm_unhandle_modem(mstate, modem);
+
 	return;
 }
 

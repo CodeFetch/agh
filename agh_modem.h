@@ -9,13 +9,6 @@
 /* ModemManager D-Bus name. */
 #define AGH_MM_ModemManager_DBUS_NAME "org.freedesktop.ModemManager1"
 
-/* Log messages from AGH_LOG_DOMAIN_MODEM domain. */
-#define AGH_LOG_DOMAIN_MODEM "MM"
-
-/* Logging macros. */
-#define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
-#define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
-
 struct agh_mm_state {
 	GError *current_gerror;
 	GDBusConnection *dbus_connection;

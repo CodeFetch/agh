@@ -777,3 +777,11 @@
 	...
 	fun:g_file_*
 }
+
+{
+	g-async-initable-new-async
+	Memcheck:Leak
+	fun:calloc
+	...
+	fun:g_async_initable_new_async
+}

@@ -24,7 +24,7 @@ SET(SOURCES
 	# AGH core: infrastructure (e.g.: commands, handlers, messages...)
 	agh.c agh_commands.c agh_handlers.c agh_messages.c agh_logging.c
 
-	# Cellular modem
+	# Modem: core->ModemManager interaction
 	agh_modem.c
 
 	# Modem: ModemManager general helpers
