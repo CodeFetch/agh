@@ -20,6 +20,15 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState state) {
+	if (state < MM_MODEM_STATE_REGISTERED)
+		agh_log_mm_dbg("may disconnect signals from %s",mm_modem_get_path(modem));
+	if (state == MM_MODEM_STATE_REGISTERED)
+		agh_log_mm_dbg("may connect signals to %s",mm_modem_get_path(modem));
+
+	return 0;
+}
+
 static void agh_mm_modem_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	switch(mm_modem_enable_finish(modem, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
@@ -217,6 +226,10 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), agh_mm_get_statechange_reason_string(reason));
 
+	retval = agh_mm_modem_signals(mstate, modem, newstate);
+	if (retval)
+		agh_log_mm_crit("failure from agh_mm_modem_signals (code=%" G_GINT16_FORMAT")",retval);
+
 	switch(newstate) {
 		case MM_MODEM_STATE_FAILED:
 			agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
@@ -266,6 +279,7 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 			agh_log_mm_crit("modem %s is connected!",mm_modem_get_path(modem));
 			break;
 	}
+
 	return;
 }
 
