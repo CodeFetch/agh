@@ -477,8 +477,6 @@ out_noctx:
 	return retval;
 }
 
-//--------------------------------------------
-
 static GList *agh_mm_config_build_simlist(struct agh_state *mstate, struct uci_section *section) {
 	GList *l;
 	struct uci_option *opt;
@@ -633,4 +631,252 @@ gint agh_mm_config_get_boolean(struct uci_option *o) {
 
 out:
 	return retval;
+}
+
+GList *agh_mm_config_get_referenced_sections(struct agh_state *mstate, struct uci_section *section, gchar *section_name) {
+	GList *slist;
+	struct uci_section *current_section;
+	struct uci_option *current_list_option;
+	struct uci_element *e;
+
+	slist = NULL;
+
+	if ((!section) || (!section_name)) {
+		agh_log_mm_config_crit("can not search on a NULL section or with a NULL section name");
+		return slist;
+	}
+
+	current_list_option = uci_lookup_option(mstate->mmstate->mctx, section, section_name);
+	if ((current_list_option) && (current_list_option->type == UCI_TYPE_LIST)) {
+		uci_foreach_element(&current_list_option->v.list, e) {
+			current_section = uci_lookup_section(mstate->mmstate->mctx, mstate->mmstate->uci_package, e->name);
+			g_assert(current_section);
+			slist = g_list_append(slist, current_section);
+		}
+	}
+
+	return slist;
+}
+
+//-----------------------------------------------
+
+static gint agh_mm_config_build_bearer_set_iptype(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	MMBearerIpFamily ipf;
+
+	if (!g_strcmp0(o->v.string, "IPV4"))
+		ipf = MM_BEARER_IP_FAMILY_IPV4;
+	else if (!g_strcmp0(o->v.string, "IPV6"))
+		ipf = MM_BEARER_IP_FAMILY_IPV6;
+	else if (!g_strcmp0(o->v.string, "IPV4V6"))
+		ipf = MM_BEARER_IP_FAMILY_IPV4V6;
+	else if (!g_strcmp0(o->v.string, "none"))
+		ipf = MM_BEARER_IP_FAMILY_NONE;
+	else if (!g_strcmp0(o->v.string, "any"))
+		ipf = MM_BEARER_IP_FAMILY_ANY;
+	else
+		return 1;
+
+	mm_bearer_properties_set_ip_type(props, ipf);
+
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_apn(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	mm_bearer_properties_set_apn(props, o->v.string);
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_auth_method(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	gint status;
+	MMBearerAllowedAuth ah;
+
+	if (!g_strcmp0(o->v.string, "none"))
+		ah = MM_BEARER_ALLOWED_AUTH_NONE;
+	else if (!g_strcmp0(o->v.string, "PAP"))
+		ah = MM_BEARER_ALLOWED_AUTH_PAP;
+	else if (!g_strcmp0(o->v.string, "CHAP"))
+		ah = MM_BEARER_ALLOWED_AUTH_CHAP;
+	else if (!g_strcmp0(o->v.string, "MSCHAP"))
+		ah = MM_BEARER_ALLOWED_AUTH_MSCHAP;
+	else if (!g_strcmp0(o->v.string, "MSCHAPV2"))
+		ah = MM_BEARER_ALLOWED_AUTH_MSCHAPV2;
+	else if (!g_strcmp0(o->v.string, "EAP"))
+		ah = MM_BEARER_ALLOWED_AUTH_EAP;
+	else
+		return 1;
+
+	mm_bearer_properties_set_allowed_auth(props, ah);
+
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_user(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	mm_bearer_properties_set_user(props, o->v.string);
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_pass(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	mm_bearer_properties_set_password(props, o->v.string);
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_roaming_allowed(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	gint status;
+
+	status = agh_mm_config_get_boolean(o);
+	if (status < 0)
+		return 1;
+
+	if (status)
+		mm_bearer_properties_set_allow_roaming(props, TRUE);
+	else
+		mm_bearer_properties_set_allow_roaming(props, FALSE);
+
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_number(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	mm_bearer_properties_set_password(props, o->v.string);
+	return 0;
+}
+
+static gint agh_mm_config_build_bearer_set_rm_protocol(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
+	MMModemCdmaRmProtocol rm_protocol;
+
+	if (!g_strcmp0(o->v.string, "rm_protocol_async"))
+		rm_protocol = MM_MODEM_CDMA_RM_PROTOCOL_ASYNC;
+	else if (!g_strcmp0(o->v.string, "rm_protocol_packet_relay"))
+		rm_protocol = MM_MODEM_CDMA_RM_PROTOCOL_PACKET_RELAY;
+	else if (!g_strcmp0(o->v.string, "rm_protocol_packet_network_ppp"))
+		rm_protocol = MM_MODEM_CDMA_RM_PROTOCOL_PACKET_NETWORK_PPP;
+	else if (!g_strcmp0(o->v.string, "rm_protocol_packet_network_slip"))
+		rm_protocol = MM_MODEM_CDMA_RM_PROTOCOL_PACKET_NETWORK_SLIP;
+	else if (!g_strcmp0(o->v.string,"rm_protocol_stu_iii"))
+		rm_protocol = MM_MODEM_CDMA_RM_PROTOCOL_STU_III;
+	else
+		return 1;
+
+	mm_bearer_properties_set_rm_protocol(props, rm_protocol);
+
+	return 0;
+}
+
+gint agh_mm_config_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci_section *s, GAsyncReadyCallback cb) {
+	struct agh_mm_state *mmstate;
+	struct uci_option *o;
+	MMBearerProperties *props;
+	gint status;
+
+	status = 0;
+	props = NULL;
+
+	if (!mstate || !mstate->mmstate || !modem || !s) {
+		agh_log_mm_config_crit("missing required data");
+		status = 10;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	props = mm_bearer_properties_new();
+	if (!props) {
+		agh_log_mm_config_crit("unable to obtain a MMBearerProperties object");
+		status = 11;
+		goto out;
+	}
+
+	/* IP family */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_IP_TYPE);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_iptype(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting IP type");
+			goto out;
+		}
+
+	}
+
+	/* APN */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_APN);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_apn(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting APN");
+			goto out;
+		}
+
+	}
+
+	/* auth type */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_AUTH_METHOD);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_auth_method(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting AUTH method");
+			goto out;
+		}
+
+	}
+
+	/* user */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_USERNAME);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_user(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting username");
+			goto out;
+		}
+
+	}
+
+	/* password */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_PASSWORD);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_pass(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting password");
+			goto out;
+		}
+
+	}
+
+	/* allow roaming? */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_ALLOW_ROAMING);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_roaming_allowed(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting roaming on/off");
+			goto out;
+		}
+
+	}
+
+	/* number */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_NUMBER);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_number(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting number");
+			goto out;
+		}
+
+	}
+
+	/* rm protocol */
+	o = uci_lookup_option(mmstate->mctx, s, AGH_MM_SECTION_BEARER_OPTION_RM_PROTOCOL);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		status = agh_mm_config_build_bearer_set_rm_protocol(mstate, o, props);
+		if (status) {
+			agh_log_mm_config_crit("failure setting RM protocol");
+			goto out;
+		}
+
+	}
+
+	mm_modem_create_bearer(modem, props, NULL, (GAsyncReadyCallback)cb, mstate);
+
+out:
+	if (props)
+		g_object_unref(props);
+	return status;
 }

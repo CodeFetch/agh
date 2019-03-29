@@ -20,6 +20,134 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
+	MMModem *modem = MM_MODEM(user_data);
+	GError *current_gerror;
+
+	current_gerror = NULL;
+
+	switch(mm_bearer_connect_finish(b, res, &current_gerror)) {
+		case TRUE:
+			agh_log_mm_dbg("bearer successfully connected");
+			break;
+		case FALSE:
+			agh_log_mm_crit("failed to connect bearer");
+			agh_modem_report_gerror_message(&current_gerror);
+			break;
+	}
+
+	return;
+}
+
+static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_data) {
+	MMModem *modem = MM_MODEM(o);
+	struct agh_state *mstate = user_data;
+	MMBearer *b;
+
+	b = mm_modem_create_bearer_finish(modem, res, &mstate->mmstate->current_gerror);
+	if (!b) {
+		agh_log_mm_crit("bearer creation failed for modem %s",mm_modem_get_path(modem));
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		goto out;
+	}
+
+	agh_log_mm_crit("trying to connect bearer at %s",mm_bearer_get_path(b));
+
+	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, modem);
+
+out:
+	return;
+}
+
+static gint agh_mm_create_bearers_from_list(struct agh_state *mstate, MMModem *modem, GList *bearers) {
+	GList *l;
+	struct uci_section *bsec;
+	gint retval;
+	gint status;
+
+	retval = 0;
+
+	if (!bearers) {
+		agh_log_mm_crit("bearers list was empty");
+		retval = 20;
+		goto out;
+	}
+
+	l = bearers;
+
+	for (l = bearers; l; l = g_list_next(l)) {
+		bsec = l->data;
+		status = agh_mm_config_build_bearer(mstate, modem, bsec, agh_mm_connect_bearer);
+		if (status)
+			agh_log_mm_crit("failure while building bearer (code=%" G_GINT16_FORMAT")",status);
+
+	}
+
+out:
+	return retval;
+}
+
+static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+	MMSim *sim;
+	struct uci_section *sim_section;
+	struct uci_section *modem_section;
+	GList *bearers_to_build;
+
+	bearers_to_build = NULL;
+
+	sim = mm_modem_get_sim_finish(modem, res, &mstate->mmstate->current_gerror);
+	if (!sim) {
+		agh_log_mm_crit("unable to get SIM for modem %s while checking for defined bearers",mm_modem_get_path(modem));
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		goto out;
+	}
+
+	/* do we have a config section for this SIM? */
+	sim_section = agh_mm_config_get_sim_section(mstate, modem, sim);
+
+	/* and for this modem? */
+	modem_section = agh_mm_config_get_modem_section(mstate, modem);
+
+	bearers_to_build = agh_mm_config_get_referenced_sections(mstate, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_BEARERSLIST);
+	if (!bearers_to_build) {
+		agh_log_mm_dbg("no defined bearers found for current SIM card, trying with modem");
+
+		bearers_to_build = agh_mm_config_get_referenced_sections(mstate, modem_section, AGH_MM_SECTION_MODEM_OPTION_BEARERSLIST);
+	}
+
+	if (bearers_to_build) {
+		agh_log_mm_crit("got %" G_GUINT16_FORMAT" bearers to build",g_list_length(bearers_to_build));
+		agh_mm_create_bearers_from_list(mstate, modem, bearers_to_build);
+	}
+	else {
+		agh_log_mm_crit("no connection settings found, trying with default bearer");
+	}
+
+out:
+	if (bearers_to_build)
+		g_list_free(bearers_to_build);
+	return;
+}
+
+static gint agh_mm_add_and_connect_bearers_from_config(struct agh_state *mstate, MMModem *modem) {
+	gint retval;
+
+	retval = 0;
+
+	if (!modem) {
+		agh_log_mm_crit("NULL modem");
+		retval = 61;
+		goto out;
+	}
+
+	agh_log_mm_dbg("obtaining SIM object to check for bearers");
+
+	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_add_and_connect_bearers_from_config_check_sim, mstate);
+
+out:
+	return retval;
+}
+
 static void agh_mm_modem_delete_bearer_finish(MMModem *modem, GAsyncResult *res, gpointer user_data) {
 	GError *current_gerror;
 
@@ -344,6 +472,9 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 			break;
 		case MM_MODEM_STATE_REGISTERED:
 			agh_log_mm_crit("modem %s is registered to network!",mm_modem_get_path(modem));
+			retval = agh_mm_add_and_connect_bearers_from_config(mstate, modem);
+			if (retval)
+				agh_log_mm_crit("failure while adding new bearers from configuration data (code=%" G_GINT16_FORMAT")",retval);
 			break;
 		case MM_MODEM_STATE_SEARCHING:
 			agh_log_mm_crit("modem %s is searching...",mm_modem_get_path(modem));
