@@ -20,7 +20,21 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
-static void agh_mm_sim_pin_unlock_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+static void agh_mm_sim_pin_unlock_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_send_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_log_mm_dbg("unlock was successful! See you!");
+			break;
+		case FALSE:
+			agh_log_mm_crit("unlock failed!");
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			break;
+	}
+
+	return;
+}
+
+static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	MMSim *sim;
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	struct uci_section *sim_section;
@@ -55,10 +69,24 @@ static void agh_mm_sim_pin_unlock_finish(MMModem *modem, GAsyncResult *res, stru
 		goto out;
 	}
 
-	if (left_pin_retries <= 4) {
+	if (left_pin_retries <= 2) {
 		agh_log_mm_crit("insufficient number of retries left (%" G_GUINT16_FORMAT"); consider manual intervention",left_pin_retries);
 		goto out;
 	}
+
+	pin_option = uci_lookup_option(mstate->mmstate->mctx, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_PIN_CODE);
+	if (!pin_option) {
+		agh_log_mm_crit("this can not happen, but... we could not get the PIN-related UCI option");
+		goto out;
+	}
+
+	if (pin_option->type != UCI_TYPE_STRING) {
+		agh_log_mm_crit("the PIN code should be an UCI string");
+		goto out;
+	}
+
+	agh_log_mm_crit("attempting to unlock modem via SIM PIN");
+	mm_sim_send_pin(sim, pin_option->v.string, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_finish, mstate);
 
 out:
 	if (sim)
@@ -81,7 +109,7 @@ static gint agh_mm_sim_pin_unlock(struct agh_state *mstate, MMModem *modem) {
 		goto out;
 	}
 
-	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_finish, mstate);
+	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_stage1, mstate);
 
 out:
 	return retval;
