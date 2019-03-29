@@ -589,6 +589,13 @@ static GList *agh_mm_config_build_simlist(struct agh_state *mstate, struct uci_s
 			}
 		}
 	}
+	else {
+		uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+			sim_section = uci_to_section(e);
+			if (!g_strcmp0(sim_section->type, AGH_MM_SECTION_SIMCARD_NAME))
+				l = g_list_append(l, sim_section);
+		}
+	}
 
 	return l;
 }
