@@ -20,6 +20,81 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static void agh_mm_modem_delete_bearer_finish(MMModem *modem, GAsyncResult *res, gpointer user_data) {
+	GError *current_gerror;
+
+	current_gerror = NULL;
+
+	switch(mm_modem_delete_bearer_finish(modem, res, &current_gerror)) {
+		case TRUE:
+			agh_log_mm_crit("bearer deleted successfully");
+			break;
+		case FALSE:
+			agh_log_mm_crit("can not delete bearer");
+			agh_modem_report_gerror_message(&current_gerror);
+			break;
+	}
+
+	return;
+}
+
+static void agh_mm_modem_delete_bearer(gpointer data, gpointer user_data) {
+	MMBearer *b = MM_BEARER(data);
+	MMModem *modem = MM_MODEM(user_data);
+	const gchar *bpath;
+
+	if (!b) {
+		agh_log_mm_crit("found a NULL bearer in list!");
+		return;
+	}
+
+	bpath = mm_bearer_get_path(b);
+	agh_log_mm_dbg("requesting for bearer %s to be deleted", bpath);
+	mm_modem_delete_bearer(modem, bpath, NULL, (GAsyncReadyCallback)agh_mm_modem_delete_bearer_finish, b);
+
+	return;
+}
+
+static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+	GList *current_bearers;
+	GList *l;
+	MMModem *modem = MM_MODEM(o);
+
+	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
+	if (!current_bearers) {
+		agh_log_mm_crit("problem when deleting bearers");
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		goto out;
+	}
+
+	g_list_foreach(current_bearers, agh_mm_modem_delete_bearer, modem);
+
+	g_list_free_full(current_bearers, g_object_unref);
+
+out:
+	return;
+}
+
+static gint agh_mm_modem_bearers(struct agh_state *mstate, MMModem *modem, GAsyncReadyCallback cb) {
+	gint retval;
+
+	retval = 0;
+
+	if (!modem || !cb) {
+		agh_log_mm_crit("NULL modem object, or callback");
+		retval = 41;
+		goto out;
+	}
+
+	agh_log_mm_crit("requesting bearers list");
+
+	mm_modem_list_bearers(modem, NULL, (GAsyncReadyCallback)cb, mstate);
+
+out:
+	return retval;
+}
+
 static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState state) {
 	if (state < MM_MODEM_STATE_REGISTERED)
 		agh_log_mm_dbg("may disconnect signals from %s",mm_modem_get_path(modem));
@@ -250,6 +325,10 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 
 			break;
 		case MM_MODEM_STATE_DISABLED:
+			retval = agh_mm_modem_bearers(mstate, modem, agh_mm_modem_delete_bearers);
+			if (retval)
+				agh_log_mm_crit("failure while deleting bearers (code=%" G_GINT16_FORMAT")",retval);
+
 			retval = agh_mm_modem_enable(mstate, modem);
 			if (retval)
 				agh_log_mm_crit("failure from agh_mm_modem_enable (code=%" G_GINT16_FORMAT")",retval);
