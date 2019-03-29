@@ -636,7 +636,7 @@ struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMMo
 
 	agh_log_mm_config_dbg("got SIM id %s",sim_id);
 
-	for (process_simlist = simlist; process_simlist; process_simlist = g_list_next(simlist)) {
+	for (process_simlist = simlist; process_simlist; process_simlist = g_list_next(process_simlist)) {
 		sim_section = process_simlist->data;
 		opt = uci_lookup_option(mstate->mmstate->mctx, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_SIM_ID);
 
