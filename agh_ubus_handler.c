@@ -463,6 +463,7 @@ struct agh_message *agh_core_ubus_cmd_handle(struct agh_handler *h, struct agh_m
 	agh_cmd_op_match(mstate, agh_ubus_handler_ops, cmd, 0);
 
 wayout:
-	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
+	if (cmd)
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
 	return answer;
 }
