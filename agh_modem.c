@@ -20,6 +20,57 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static void agh_mm_modem_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_modem_enable_finish(modem, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_log_mm_dbg("OK");
+			break;
+		case FALSE:
+			agh_log_mm_crit("can not enable modem");
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			break;
+	}
+
+	return;
+}
+
+static gint agh_mm_modem_enable(struct agh_state *mstate, MMModem *modem) {
+	gint retval;
+	struct uci_section *modem_section;
+	struct uci_option *enable_opt;
+	gboolean should_enable;
+
+	retval = 0;
+	should_enable = TRUE;
+
+	modem_section = agh_mm_config_get_modem_section(mstate, modem);
+	if (!modem_section) {
+		agh_log_mm_crit("unable to to find a valid configuration section for this modem");
+	}
+	else {
+
+		enable_opt = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_ENABLE);
+
+		switch(agh_mm_config_get_boolean(enable_opt)) {
+			case 0:
+				agh_log_mm_dbg("modem %s will not be enabled because of configuration",mm_modem_get_path(modem));
+				should_enable = FALSE;
+				break;
+			case 1:
+				agh_log_mm_crit("will try to enable modem");
+				break;
+			default:
+				agh_log_mm_crit("invalid option");
+				retval = -40;
+		}
+	}
+
+	if (should_enable)
+		mm_modem_enable(modem, NULL, (GAsyncReadyCallback)agh_mm_modem_enable_finish, mstate);
+
+	return retval;
+}
+
 static void agh_mm_sim_pin_unlock_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
 	switch(mm_sim_send_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
@@ -186,7 +237,9 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 
 			break;
 		case MM_MODEM_STATE_DISABLED:
-			agh_log_mm_crit("trying to enable modem at %s",mm_modem_get_path(modem));
+			retval = agh_mm_modem_enable(mstate, modem);
+			if (retval)
+				agh_log_mm_crit("failure from agh_mm_modem_enable (code=%" G_GINT16_FORMAT")",retval);
 			break;
 		case MM_MODEM_STATE_DISABLING:
 			agh_log_mm_crit("modem %s is being disabled",mm_modem_get_path(modem));

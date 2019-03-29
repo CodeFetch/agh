@@ -606,3 +606,31 @@ struct uci_section *agh_mm_config_get_modem_section(struct agh_state *mstate, MM
 
 	return section;
 }
+
+gint agh_mm_config_get_boolean(struct uci_option *o) {
+	gint retval;
+
+	retval = -1;
+
+	if (!o || (o->type != UCI_TYPE_STRING)) {
+		agh_log_mm_config_dbg("invalid UCI option passed");
+		goto out;
+	}
+
+	if (!g_strcmp0(o->v.string, "1"))
+		retval = 1;
+	if (!g_strcmp0(o->v.string, "yes"))
+		retval = 1;
+	if (!g_strcmp0(o->v.string, "on"))
+		retval = 1;
+
+	if (!g_strcmp0(o->v.string, "0"))
+		retval = 0;
+	if (!g_strcmp0(o->v.string, "no"))
+		retval = 0;
+	if (!g_strcmp0(o->v.string, "off"))
+		retval = 0;
+
+out:
+	return retval;
+}
