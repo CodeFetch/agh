@@ -39,10 +39,50 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 	return;
 }
 
+static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
+	MMModem *modem = MM_MODEM(user_data);
+
+	switch(mm_bearer_get_connected(b)) {
+		case TRUE:
+			agh_log_mm_crit("hello here, we are connected!");
+			break;
+		case FALSE:
+			agh_log_mm_crit("hello here, we are disconnected!");
+			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, modem);
+			break;
+	}
+
+	return ;
+}
+
+static gint agh_mm_bearer_signals(struct agh_state *mstate, MMModem *modem, MMBearer *b) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !modem || !b) {
+		agh_log_mm_crit("NULL AGH state, modem or bearer objects");
+		retval = 11;
+		goto out;
+	}
+
+	if (!g_signal_connect(b, "notify::connected", G_CALLBACK(agh_mm_bearer_connected_cb), modem)) {
+		agh_log_mm_crit("got failure from g_signal_connect");
+		retval = 12;
+		goto out;
+	}
+
+out:
+	return retval;
+}
+
 static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_data) {
 	MMModem *modem = MM_MODEM(o);
 	struct agh_state *mstate = user_data;
 	MMBearer *b;
+	gint retval;
+
+	retval = 0;
 
 	b = mm_modem_create_bearer_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!b) {
@@ -52,6 +92,11 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	}
 
 	agh_log_mm_crit("trying to connect bearer at %s",mm_bearer_get_path(b));
+
+	retval = agh_mm_bearer_signals(mstate, modem, b);
+	if (retval) {
+		agh_log_mm_crit("unable to connect signals to bearer (code=%" G_GINT16_FORMAT")",retval);
+	}
 
 	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, modem);
 
@@ -472,9 +517,12 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 			break;
 		case MM_MODEM_STATE_REGISTERED:
 			agh_log_mm_crit("modem %s is registered to network!",mm_modem_get_path(modem));
-			retval = agh_mm_add_and_connect_bearers_from_config(mstate, modem);
-			if (retval)
-				agh_log_mm_crit("failure while adding new bearers from configuration data (code=%" G_GINT16_FORMAT")",retval);
+			if (oldstate < newstate) {
+				retval = agh_mm_add_and_connect_bearers_from_config(mstate, modem);
+				if (retval) {
+					agh_log_mm_crit("failure while adding new bearers from configuration data (code=%" G_GINT16_FORMAT")",retval);
+				}
+			}
 			break;
 		case MM_MODEM_STATE_SEARCHING:
 			agh_log_mm_crit("modem %s is searching...",mm_modem_get_path(modem));
