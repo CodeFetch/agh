@@ -309,6 +309,7 @@ out:
 static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
+	mstate->mmstate->global_bearer_connecting_lock = FALSE;
 	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("bearer successfully connected");
@@ -320,6 +321,171 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 	}
 
 	return;
+}
+
+static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
+	MMBearer *b = MM_BEARER(data);
+	struct agh_state *mstate = user_data;
+	const gchar *bpath;
+
+	if (!b) {
+		agh_log_mm_crit("can not connect a NULL bearer");
+		return;
+	}
+
+	if (mm_bearer_get_connected(b))
+		return;
+
+	bpath = mm_bearer_get_path(b);
+
+	agh_log_mm_dbg("requesting for bearer %s to be connected", bpath);
+	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
+	mstate->mmstate->global_bearer_connecting_lock = TRUE;
+	return;
+}
+
+static gint agh_mm_modem_bearers(struct agh_state *mstate, MMModem *modem, GAsyncReadyCallback cb) {
+	gint retval;
+
+	retval = 0;
+
+	if (!modem || !cb) {
+		agh_log_mm_crit("NULL modem object, or callback");
+		retval = 41;
+		goto out;
+	}
+
+	mm_modem_list_bearers(modem, NULL, (GAsyncReadyCallback)cb, mstate);
+
+out:
+	return retval;
+}
+
+static void agh_mm_modem_connect_bearers(GObject *o, GAsyncResult *res, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+	GList *current_bearers;
+	GList *l;
+	MMModem *modem = MM_MODEM(o);
+
+	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
+	if (!current_bearers) {
+		agh_log_mm_crit("problem when checking bearers");
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		goto out;
+	}
+
+	g_list_foreach(current_bearers, agh_mm_modem_connect_bearer, mstate);
+
+	g_list_free_full(current_bearers, g_object_unref);
+
+out:
+	return;
+}
+
+static gint agh_mm_checker_get_modem(struct agh_state *mstate, MMObject *modem) {
+	gint retval;
+	MMModem *m;
+	MMModemState state;
+
+	retval = 0;
+
+	m = mm_object_get_modem(modem);
+	if (!m) {
+		agh_log_mm_crit("failure obtaining modem object");
+		retval = 74;
+		goto out;
+	}
+
+	state = mm_modem_get_state(m);
+
+	if (state == MM_MODEM_STATE_REGISTERED || state == MM_MODEM_STATE_CONNECTED) {
+		retval = agh_mm_modem_bearers(mstate, m, agh_mm_modem_connect_bearers);
+		if (retval) {
+			agh_log_mm_crit("failure from agh_mm_modem_bearers (code=%" G_GINT16_FORMAT")",retval);
+			goto out;
+		}
+	}
+
+out:
+	return retval;
+}
+
+static gboolean agh_mm_checker(gpointer data) {
+	struct agh_state *mstate = data;
+	GList *modems;
+	GList *l;
+	gint retval;
+
+	/* agh_log_mm_dbg("tick"); */
+
+	if (!mstate->mmstate || !mstate->mmstate->manager) {
+		agh_log_mm_crit("the checker is not supposed to run now; please take a look at this");
+		mstate->mmstate->bearers_check = NULL;
+		mstate->mmstate->bearers_check_tag = 0;
+		return FALSE;
+	}
+
+	if (mstate->mmstate->global_bearer_connecting_lock) {
+		agh_log_mm_crit("skipping check due to connecting lock");
+		return TRUE;
+	}
+
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mstate->mmstate->manager));
+	if (!modems) {
+		agh_log_mm_dbg("no more modems; see you next time!");
+		mstate->mmstate->bearers_check = NULL;
+		mstate->mmstate->bearers_check_tag = 0;
+		return FALSE;
+	}
+
+	for (l = modems; l; l = g_list_next(l)) {
+		retval = agh_mm_checker_get_modem(mstate, (MMObject *)(l->data));
+		if (retval) {
+			agh_log_mm_crit("got failure from agh_mm_checker_get_modem (code=%" G_GINT16_FORMAT")",retval);
+		}
+	}
+
+	g_list_free_full(modems, g_object_unref);
+
+	return TRUE;
+}
+
+static gint agh_mm_start_bearer_checker(struct agh_state *mstate) {
+	gint retval;
+	struct agh_mm_state *mmstate;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("no AGH or AGH MM state");
+		retval = 70;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	if (!mmstate->bearers_check) {
+		agh_log_mm_dbg("activating bearers checker");
+		mmstate->bearers_check = g_timeout_source_new(45000);
+		g_source_set_callback(mmstate->bearers_check, agh_mm_checker, mstate, NULL);
+		mmstate->bearers_check_tag = g_source_attach(mmstate->bearers_check, mstate->ctx);
+		if (!mmstate->bearers_check_tag) {
+			agh_log_mm_crit("failed to attach checker to GMainContext");
+			g_source_destroy(mmstate->bearers_check);
+			mmstate->bearers_check = NULL;
+			retval = 71;
+			goto out;
+		}
+
+		g_source_unref(mmstate->bearers_check);
+
+	}
+	else {
+		agh_log_mm_dbg("bearers checker already active");
+	}
+
+out:
+	return retval;
 }
 
 static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
@@ -335,6 +501,7 @@ static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer 
 		case FALSE:
 			agh_log_mm_dbg("we are now disconnected...");
 			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
+			mstate->mmstate->global_bearer_connecting_lock = TRUE;
 			break;
 	}
 
@@ -382,6 +549,8 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 		goto out;
 	}
 
+	agh_mm_start_bearer_checker(mstate);
+
 	agh_log_mm_crit("trying to connect bearer at %s",mm_bearer_get_path(b));
 
 	retval = agh_mm_bearer_signals(mstate, modem, b);
@@ -390,6 +559,7 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	}
 
 	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
+	mstate->mmstate->global_bearer_connecting_lock = TRUE;
 
 out:
 	return;
@@ -538,25 +708,6 @@ static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer 
 
 out:
 	return;
-}
-
-static gint agh_mm_modem_bearers(struct agh_state *mstate, MMModem *modem, GAsyncReadyCallback cb) {
-	gint retval;
-
-	retval = 0;
-
-	if (!modem || !cb) {
-		agh_log_mm_crit("NULL modem object, or callback");
-		retval = 41;
-		goto out;
-	}
-
-	agh_log_mm_crit("requesting bearers list");
-
-	mm_modem_list_bearers(modem, NULL, (GAsyncReadyCallback)cb, mstate);
-
-out:
-	return retval;
 }
 
 static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState currentstate) {
@@ -1148,6 +1299,13 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	}
 
 	mmstate = mstate->mmstate;
+	mmstate->global_bearer_connecting_lock = FALSE;
+
+	if (mmstate->bearers_check) {
+		g_source_destroy(mmstate->bearers_check);
+		mmstate->bearers_check = NULL;
+		mmstate->bearers_check_tag = 0;
+	}
 
 	if (mmstate->mctx) {
 		uci_unload(mmstate->mctx, mmstate->uci_package);

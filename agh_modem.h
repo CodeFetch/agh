@@ -18,6 +18,9 @@ struct agh_mm_state {
 	gulong manager_signal_modem_removed_id;
 	struct uci_context *mctx;
 	struct uci_package *uci_package;
+	GSource *bearers_check;
+	guint bearers_check_tag;
+	gboolean global_bearer_connecting_lock;
 };
 
 gint agh_mm_init(struct agh_state *mstate);
