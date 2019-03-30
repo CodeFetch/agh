@@ -223,10 +223,10 @@ out:
 	return retval;
 }
 
-static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState state) {
-	if (state < MM_MODEM_STATE_REGISTERED)
+static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState currentstate) {
+	if (currentstate < MM_MODEM_STATE_REGISTERED)
 		agh_log_mm_dbg("may disconnect signals from %s",mm_modem_get_path(modem));
-	if (state == MM_MODEM_STATE_REGISTERED)
+	if ((currentstate == MM_MODEM_STATE_REGISTERED) && (oldstate < currentstate))
 		agh_log_mm_dbg("may connect signals to %s",mm_modem_get_path(modem));
 
 	return 0;
@@ -429,7 +429,7 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
 	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), agh_mm_get_statechange_reason_string(reason));
 
-	retval = agh_mm_modem_signals(mstate, modem, newstate);
+	retval = agh_mm_modem_signals(mstate, modem, oldstate, newstate);
 	if (retval)
 		agh_log_mm_crit("failure from agh_mm_modem_signals (code=%" G_GINT16_FORMAT")",retval);
 
