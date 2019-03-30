@@ -8,6 +8,7 @@
 #include "agh_modem.h"
 #include "agh.h"
 #include "agh_logging.h"
+#include "agh_ubus.h"
 #include "agh_handlers.h"
 #include "agh_mm_handlers.h"
 #include "agh_modem_config.h"
@@ -20,19 +21,301 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static struct agh_mm_iptypes_family_table {
+	char *name;
+	gint type;
+} agh_mm_iptypes_family_static_table[] = {
+	{"none", MM_BEARER_IP_FAMILY_NONE},
+	{"IPV4", MM_BEARER_IP_FAMILY_IPV4},
+	{"IPV6", MM_BEARER_IP_FAMILY_IPV6},
+	{"IPV4V6", MM_BEARER_IP_FAMILY_IPV4V6},
+	{"any", MM_BEARER_IP_FAMILY_ANY},
+	{NULL,}
+};
+
+static gchar *agh_mm_call_outside_build_message_add_json_fragment(const gchar *name, const gchar *value, gboolean last) {
+	gchar *res;
+
+	res = NULL;
+
+	if (!name || !strlen(name))
+		return res;
+
+	if (!value || !strlen(value))
+		value = "unknown";
+
+	if (!last)
+		res = g_strdup_printf("\"%s\":\"%s\",",name,value);
+	else
+		res = g_strdup_printf("\"%s\":\"%s\"",name,value);
+
+	return res;
+}
+
+static gchar *agh_mm_call_outside_build_message(MMBearer *b) {
+	GString *s;
+	gchar *numeric_quantity_string_tmp;
+	MMBearerIpConfig *ipv4_config;
+	MMBearerIpConfig *ipv6_config;
+	MMBearerIpMethod method;
+	MMBearerProperties *props;
+	const gchar **dns_tmp;
+	guint dns_counter;
+	gchar *str_tmp;
+	gchar *dns_str_tmp;
+	struct agh_mm_iptypes_family_table *family;
+	int type;
+
+	s = g_string_new("{");
+	numeric_quantity_string_tmp = NULL;
+	ipv4_config = NULL;
+	ipv6_config = NULL;
+	props = NULL;
+	dns_tmp = NULL;
+	dns_counter = 1;
+	str_tmp = NULL;
+	dns_str_tmp = NULL;
+
+	/* bearer path */
+	str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_PATH", mm_bearer_get_path(b), FALSE);
+	g_string_append(s, str_tmp);
+	g_free(str_tmp);
+
+	/* interface */
+	str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_INTERFACE", mm_bearer_get_interface(b), FALSE);
+	g_string_append(s, str_tmp);
+	g_free(str_tmp);
+
+	numeric_quantity_string_tmp = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_bearer_get_ip_timeout(b));
+	str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_TIMEOUT", numeric_quantity_string_tmp, FALSE);
+	g_string_append(s, str_tmp);
+	g_free(numeric_quantity_string_tmp);
+	g_free(str_tmp);
+
+	props = mm_bearer_get_properties(b);
+	type = mm_bearer_properties_get_ip_type(props);
+	for (family = agh_mm_iptypes_family_static_table; family->name; family++)
+		if (family->type == type)
+			break;
+	str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_FAMILY", family->name, FALSE);
+	g_string_append(s, str_tmp);
+	g_free(str_tmp);
+
+	ipv4_config = mm_bearer_get_ipv4_config(b);
+	ipv6_config = mm_bearer_get_ipv6_config(b);
+
+	g_object_unref(props);
+	props = NULL;
+
+	if (ipv4_config) {
+		method = mm_bearer_ip_config_get_method(ipv4_config);
+		switch(method) {
+			case MM_BEARER_IP_METHOD_UNKNOWN:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_METHOD", "unknown", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_PPP:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_METHOD", "ppp", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_STATIC:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_METHOD", "static", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_DHCP:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_METHOD", "DHCP", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+		}
+
+		/* IP address */
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_ADDRESS", mm_bearer_ip_config_get_address(ipv4_config), FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+
+		/* prefix */
+		numeric_quantity_string_tmp = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_bearer_ip_config_get_prefix(ipv4_config));
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_PREFIX", numeric_quantity_string_tmp, FALSE);
+		g_string_append(s, str_tmp);
+		g_free(numeric_quantity_string_tmp);
+		g_free(str_tmp);
+
+		/* playground */
+		dns_tmp = mm_bearer_ip_config_get_dns(ipv4_config);
+		if (dns_tmp) {
+			while (*dns_tmp) {
+				dns_str_tmp = g_strdup_printf("BEARER_IP_DNS_%" G_GUINT16_FORMAT"",dns_counter);
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment(dns_str_tmp, *dns_tmp, FALSE);
+				g_string_append(s, str_tmp);
+				dns_counter++;
+				dns_tmp++;
+				g_free(str_tmp);
+				g_free(dns_str_tmp);
+			}
+			dns_tmp = NULL;
+			dns_counter = 1;
+		}
+		/* end of playground */
+
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_GATEWAY", mm_bearer_ip_config_get_gateway(ipv4_config), FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+
+		numeric_quantity_string_tmp = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_bearer_ip_config_get_mtu(ipv4_config));
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IP_MTU", numeric_quantity_string_tmp, FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+		g_free(numeric_quantity_string_tmp);
+
+		g_object_unref(ipv4_config);
+		ipv4_config = NULL;
+	}
+
+	if (ipv6_config) {
+		method = mm_bearer_ip_config_get_method(ipv6_config);
+		switch(method) {
+			case MM_BEARER_IP_METHOD_UNKNOWN:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_METHOD", "unknown", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_PPP:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_METHOD", "ppp", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_STATIC:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_METHOD", "static", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+			case MM_BEARER_IP_METHOD_DHCP:
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_METHOD", "DHCP", FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				break;
+		}
+
+		/* IP address */
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_ADDRESS", mm_bearer_ip_config_get_address(ipv6_config), FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+
+		/* prefix */
+		numeric_quantity_string_tmp = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_bearer_ip_config_get_prefix(ipv6_config));
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_PREFIX", numeric_quantity_string_tmp, FALSE);
+		g_string_append(s, str_tmp);
+		g_free(numeric_quantity_string_tmp);
+		g_free(str_tmp);
+
+		/* playground */
+		dns_tmp = mm_bearer_ip_config_get_dns(ipv6_config);
+		if (dns_tmp) {
+			while (*dns_tmp) {
+				dns_str_tmp = g_strdup_printf("BEARER_IP_DNSV6_%" G_GUINT16_FORMAT"",dns_counter);
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment(dns_str_tmp, *dns_tmp, FALSE);
+				g_string_append(s, str_tmp);
+				dns_counter++;
+				dns_tmp++;
+				g_free(str_tmp);
+				g_free(dns_str_tmp);
+			}
+			dns_tmp = NULL;
+			dns_counter = 1;
+		}
+		/* end of playground */
+
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_GATEWAY", mm_bearer_ip_config_get_gateway(ipv6_config), FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+
+		numeric_quantity_string_tmp = g_strdup_printf("%" G_GUINT16_FORMAT"",mm_bearer_ip_config_get_mtu(ipv6_config));
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("BEARER_IPV6_MTU", numeric_quantity_string_tmp, FALSE);
+		g_string_append(s, str_tmp);
+		g_free(numeric_quantity_string_tmp);
+		g_free(str_tmp);
+
+		g_object_unref(ipv6_config);
+		ipv6_config = NULL;
+	}
+
+	g_string_append(s, "}");
+
+	return g_string_free(s, FALSE);
+}
+
+static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
+	gchar *ubus_call_bearers_info_message;
+	gchar *ubus_message;
+	gint status;
+	gchar *callee_output;
+
+	ubus_message = NULL;
+	status = 0;
+	ubus_call_bearers_info_message = NULL;
+
+	if (!mstate || !b) {
+		agh_log_mm_crit("missing AGH state or bearer is NULL");
+		status = 39;
+		goto out;
+	}
+
+	if (!mstate->uctx) {
+		agh_log_mm_crit("no ubus context");
+		status = 40;
+		goto out;
+	}
+
+	if (agh_ubus_connection_state != AGH_UBUS_STATE_CONNECTED) {
+		agh_log_mm_crit("we are not connected to ubus");
+		status = 41;
+		goto out;
+	}
+
+	ubus_call_bearers_info_message = agh_mm_call_outside_build_message(b);
+	if (!ubus_call_bearers_info_message) {
+		agh_log_mm_crit("no info message to pass");
+		status = 42;
+		goto out;
+	}
+
+	ubus_message = g_strdup_printf("{\"command\":\"/opt/bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
+
+	status = agh_ubus_call(mstate->uctx, "file", "exec", ubus_message);
+	if (status) {
+		agh_log_mm_crit("ubus call failure (code=%" G_GINT16_FORMAT") - %s",status,ubus_strerror(status));
+	}
+	else {
+		callee_output = agh_ubus_get_call_result(TRUE);
+
+		if (callee_output) {
+			agh_mm_report_event(mstate, "agh_mm_sm_call_outside_helper", agh_mm_modem_to_index(mm_bearer_get_path(b)), callee_output);
+			agh_log_mm_dbg("from call: %s",callee_output);
+			g_free(callee_output);
+		}
+	}
+
+out:
+	g_free(ubus_message);
+	g_free(ubus_call_bearers_info_message);
+	ubus_call_bearers_info_message = NULL;
+	return status;
+}
+
 static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
-	MMModem *modem = MM_MODEM(user_data);
-	GError *current_gerror;
+	struct agh_state *mstate = user_data;
 
-	current_gerror = NULL;
-
-	switch(mm_bearer_connect_finish(b, res, &current_gerror)) {
+	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("bearer successfully connected");
 			break;
 		case FALSE:
 			agh_log_mm_crit("failed to connect bearer");
-			agh_modem_report_gerror_message(&current_gerror);
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
 			break;
 	}
 
@@ -40,16 +323,24 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 }
 
 static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
-	MMModem *modem = MM_MODEM(user_data);
+	struct agh_state *mstate = user_data;
+	gint retval;
+
+	retval = 0;
 
 	switch(mm_bearer_get_connected(b)) {
 		case TRUE:
-			agh_log_mm_crit("hello here, we are connected!");
+			agh_log_mm_dbg("hey! We are connected!");
 			break;
 		case FALSE:
-			agh_log_mm_crit("hello here, we are disconnected!");
-			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, modem);
+			agh_log_mm_dbg("we are now disconnected...");
+			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
 			break;
+	}
+
+	retval = agh_mm_call_outside_helper(mstate, b);
+	if (retval) {
+		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",retval);
 	}
 
 	return ;
@@ -66,7 +357,7 @@ static gint agh_mm_bearer_signals(struct agh_state *mstate, MMModem *modem, MMBe
 		goto out;
 	}
 
-	if (!g_signal_connect(b, "notify::connected", G_CALLBACK(agh_mm_bearer_connected_cb), modem)) {
+	if (!g_signal_connect(b, "notify::connected", G_CALLBACK(agh_mm_bearer_connected_cb), mstate)) {
 		agh_log_mm_crit("got failure from g_signal_connect");
 		retval = 12;
 		goto out;
@@ -98,7 +389,7 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 		agh_log_mm_crit("unable to connect signals to bearer (code=%" G_GINT16_FORMAT")",retval);
 	}
 
-	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, modem);
+	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
 
 out:
 	return;
