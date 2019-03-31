@@ -407,6 +407,9 @@ static gint agh_mm_checker_get_modem(struct agh_state *mstate, MMObject *modem) 
 	}
 
 out:
+	if (m)
+		g_object_unref(m);
+
 	return retval;
 }
 
@@ -560,6 +563,8 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	mstate->mmstate->global_bearer_connecting_lock = TRUE;
 
 out:
+	if (b)
+		g_object_unref(b);
 	return;
 }
 
@@ -596,6 +601,8 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	struct uci_section *sim_section;
 	struct uci_section *modem_section;
 	GList *bearers_to_build;
+	struct uci_section *default_bearer;
+	gint retval;
 
 	bearers_to_build = NULL;
 
@@ -625,11 +632,24 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	}
 	else {
 		agh_log_mm_crit("no connection settings found, trying with default bearer");
+		default_bearer = agh_mm_get_default_bearer(mstate);
+		if (default_bearer) {
+			retval = agh_mm_config_build_bearer(mstate, modem, default_bearer, agh_mm_connect_bearer);
+			if (retval)
+				agh_log_mm_crit("failure while building default bearer (code=%" G_GINT16_FORMAT")",retval);
+		}
+		else {
+			agh_log_mm_dbg("system profiles");
+		}
 	}
 
 out:
 	if (bearers_to_build)
 		g_list_free(bearers_to_build);
+
+	if (sim)
+		g_object_unref(sim);
+
 	return;
 }
 
@@ -1035,6 +1055,7 @@ static gint agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
 out:
 	if (m)
 		g_object_unref(m);
+
 	return retval;
 }
 

@@ -880,3 +880,28 @@ out:
 		g_object_unref(props);
 	return status;
 }
+
+struct uci_section *agh_mm_get_default_bearer(struct agh_state *mstate) {
+	struct uci_section *default_bearer_section;
+	struct uci_element *e;
+	struct uci_section *current_section;
+
+	default_bearer_section = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx) {
+		agh_log_mm_config_crit("missing context");
+		return default_bearer_section;
+	}
+
+	uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+		current_section = uci_to_section(e);
+
+		if (!g_strcmp0(current_section->e.name, "default"))
+			if (!g_strcmp0(current_section->type, AGH_MM_SECTION_BEARER_NAME)) {
+				default_bearer_section = current_section;
+				break;
+			}
+	}
+
+	return default_bearer_section;
+}

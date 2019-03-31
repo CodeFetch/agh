@@ -92,5 +92,6 @@ struct uci_section *agh_mm_config_get_modem_section(struct agh_state *mstate, MM
 gint agh_mm_config_get_boolean(struct uci_option *o);
 GList *agh_mm_config_get_referenced_sections(struct agh_state *mstate, struct uci_section *section, gchar *section_name);
 gint agh_mm_config_build_bearer(struct agh_state *mstate, MMModem *modem, struct uci_section *s, GAsyncReadyCallback cb);
+struct uci_section *agh_mm_get_default_bearer(struct agh_state *mstate);
 
 #endif
