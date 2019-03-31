@@ -309,7 +309,7 @@ out:
 	return retval;
 }
 
-gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name) {
+gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name) {
 	gint retval;
 	struct uci_context *uci_ctx;
 	struct uci_ptr ptr;
@@ -355,6 +355,15 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name
 	}
 
 	uci_ctx->flags |= UCI_FLAG_STRICT;
+
+	if (path) {
+		agh_log_mm_config_dbg("setting search path to %s",path);
+		if ( (retval = uci_set_confdir(uci_ctx, path)) ) {
+			agh_log_mm_config_crit("got failure from uci_set_confdir (code=%" G_GINT16_FORMAT")",retval);
+			retval = AGH_MODEM_VALIDATE_CONFIG_SET_CONFDIR_FAILURE;
+			goto out;
+		}
+	}
 
 	/*
 	 * Search for our package. We are not testing for UCI_LOOKUP_COMPLETE because no other parts are supposed to be specified in the tuple.
@@ -470,7 +479,7 @@ out_noctx:
 		agh_log_mm_config_crit("failure %" G_GINT16_FORMAT" (%s)",retval,error_location_str ? error_location_str : "??");
 	}
 	else
-		agh_log_mm_config_dbg("%s: config load was successful",package_name);
+		agh_log_mm_config_dbg("(%s) config load was successful",package_name);
 
 	g_free(error_location_str);
 
@@ -641,7 +650,7 @@ GList *agh_mm_config_get_referenced_sections(struct agh_state *mstate, struct uc
 
 	slist = NULL;
 
-	if ((!section) || (!section_name)) {
+	if ((!section) || (!section_name) || !mstate || !mstate->mmstate || !mstate->mmstate->mctx) {
 		agh_log_mm_config_crit("can not search on a NULL section or with a NULL section name");
 		return slist;
 	}

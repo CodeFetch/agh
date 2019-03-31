@@ -51,40 +51,29 @@
 
 /* General failures / issues */
 #define AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM 1
-#define AGH_MODEM_VALIDATE_CONFIG_ERROR_OOM_DESC "Out of memory while allocating UCI context"
 #define AGH_MODEM_VALIDATE_CONFIG_ERROR_NOPKG 2
-#define AGH_MODEM_VALIDATE_CONFIG_ERROR_NOPKG_DESC "Can not find config package"
 #define AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION 3
-#define AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION_DESC "Invalid section type"
 #define AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR 23
-#define AGH_MODEM_VALIDATE_CONFIG_PROGRAMMING_ERROR_DESC "Programming error"
 #define AGH_MODEM_VALIDATE_CONFIG_ERROR_REFERENCED_SECTION_NOT_FOUND 24
-#define AGH_MODEM_VALIDATE_CONFIG_ERROR_REFERENCED_SECTION_NOT_FOUND_DESC "Referenced element was not found in config"
 #define AGH_MODEM_VALIDATE_CONFIG_UNIQUENESS_VIOLATION 25
-#define AGH_MODEM_VALIDATE_CONFIG_UNIQUENESS_VIOLATION_DESC "This element has been referenced more than once"
 #define AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED 26
-#define AGH_MODEM_VALIDATE_CONFIG_MAXBEARERS_EXCEEDED_DESC "Maximum number of bearers exceeded"
+#define AGH_MODEM_VALIDATE_CONFIG_SET_CONFDIR_FAILURE 27
 
 /* AGH_MM_SECTION_MODEM section related issues */
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED 10
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_EQUIPMENT_ID_NOT_SPECIFIED_DESC "Equipment ID not specified, modem can not be identified"
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY 20
 #define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_SIMLIST_GQUEUE_PRESENT_BUT_EMPTY 21
 #define AGH_MODEM_VALIDATE_CONFIG_MAXSIMS_EXCEEDED 22
-#define AGH_MODEM_VALIDATE_CONFIG_MODEM_SECTION_ERROR_MODEM_BEARERS_GQUEUE_PRESENT_BUT_EMPTY_DESC "modem bearers GQueue was created, but is empty; this should not happen, but it did"
 
 /* AGH_MM_SECTION_SIMCARD issues */
 #define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED 11
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_SIM_ID_NOT_SPECIFIED_DESC "SIM ID not found"
 #define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY 12
-#define AGH_MODEM_VALIDATE_CONFIG_SIMCARD_SECTION_ERROR_BEARERS_GQUEUE_DEFINED_BUT_EMPTY_DESC "SIM bearers GQueue was created, but is empty; this should not happen, but it did"
 
 /* AGH_MM_SECTION_BEARER issues */
 #define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTH_METHOD_NOT_FOUND 15
-#define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTHMETHOD_NOT_FOUND_DESC "APN or authentication method not specified for this bearer"
 /* End of config validation errors. */
 
-gint agh_modem_validate_config(struct agh_mm_state *mmstate, gchar *package_name);
+gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name);
 
 /* Functions useful to search for a config section related to a given MM object. */
 struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMModem *modem, MMSim *sim);

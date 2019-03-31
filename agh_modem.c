@@ -596,21 +596,93 @@ out:
 	return retval;
 }
 
+static struct uci_section *agh_mm_select_system_profile(struct agh_state *mstate, MMSim *sim) {
+	struct uci_section *section;
+	const gchar *operator_id;
+	struct uci_element *e;
+	struct uci_section *current_section;
+	struct uci_option *opt;
+
+	section = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !sim) {
+		agh_log_mm_crit("missing context / data");
+		return section;
+	}
+
+	operator_id = mm_sim_get_operator_identifier(sim);
+	if (!operator_id) {
+		agh_log_mm_crit("can not obtain operator id");
+		return section;
+	}
+
+	uci_foreach_element(&mstate->mmstate->uci_package->sections, e) {
+		current_section = uci_to_section(e);
+		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_BEARER_NAME)) {
+			opt = uci_lookup_option(mstate->mmstate->mctx, current_section, AGH_MM_SECTION_BEARER_OPTION_OPERATOR_ID);
+			if (opt && opt->type == UCI_TYPE_STRING) {
+				if (!g_strcmp0(opt->v.string, operator_id)) {
+					section = current_section;
+					break;
+				}
+			}
+		}
+	}
+
+	return section;
+}
+
+static struct uci_section *agh_mm_config_search_system_profiles(struct agh_state *mstate, const gchar *path, MMSim *sim) {
+	struct agh_mm_state *mmstate;
+	struct uci_section *profile;
+	gint retval;
+
+	profile = NULL;
+
+	if (!path || !sim || !mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	retval = agh_modem_validate_config(mmstate, path, "sys_connection_settings");
+	if (retval) {
+		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		goto out;
+	}
+
+	profile = agh_mm_select_system_profile(mstate, sim);
+
+out:
+	return profile;
+}
+
 static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	MMSim *sim;
 	struct uci_section *sim_section;
 	struct uci_section *modem_section;
 	GList *bearers_to_build;
 	struct uci_section *default_bearer;
+	struct uci_section *system_profile_bearer;
 	gint retval;
 
 	bearers_to_build = NULL;
+	sim = NULL;
 
 	sim = mm_modem_get_sim_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_crit("unable to get SIM for modem %s while checking for defined bearers",mm_modem_get_path(modem));
 		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
 		goto out;
+	}
+
+	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
+		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		if (retval) {
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			goto out;
+		}
 	}
 
 	/* do we have a config section for this SIM? */
@@ -639,7 +711,13 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 				agh_log_mm_crit("failure while building default bearer (code=%" G_GINT16_FORMAT")",retval);
 		}
 		else {
-			agh_log_mm_dbg("system profiles");
+			agh_log_mm_dbg("no default bearer, searching in system profiles");
+			system_profile_bearer = agh_mm_config_search_system_profiles(mstate, "/tmp", sim);
+			if (system_profile_bearer) {
+				retval = agh_mm_config_build_bearer(mstate, modem, system_profile_bearer, agh_mm_connect_bearer);
+				if (retval)
+					agh_log_mm_crit("failure while building bearer from a system profile (code=%" G_GINT16_FORMAT")",retval);
+			}
 		}
 	}
 
@@ -1364,7 +1442,7 @@ gint agh_mm_init(struct agh_state *mstate) {
 
 	mstate->mmstate = mmstate;
 
-	ret = agh_modem_validate_config(mmstate, "agh_modem");
+	ret = agh_modem_validate_config(mmstate, NULL, "agh_modem");
 	if (ret) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror);
 		goto out;
