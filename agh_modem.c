@@ -712,7 +712,7 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 		}
 		else {
 			agh_log_mm_dbg("no default bearer, searching in system profiles");
-			system_profile_bearer = agh_mm_config_search_system_profiles(mstate, "/tmp", sim);
+			system_profile_bearer = agh_mm_config_search_system_profiles(mstate, "/usr/share", sim);
 			if (system_profile_bearer) {
 				retval = agh_mm_config_build_bearer(mstate, modem, system_profile_bearer, agh_mm_connect_bearer);
 				if (retval)
