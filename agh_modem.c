@@ -500,8 +500,6 @@ static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer 
 			break;
 		case FALSE:
 			agh_log_mm_dbg("we are now disconnected...");
-			mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
-			mstate->mmstate->global_bearer_connecting_lock = TRUE;
 			break;
 	}
 
