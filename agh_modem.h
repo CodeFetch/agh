@@ -9,6 +9,9 @@
 /* ModemManager D-Bus name. */
 #define AGH_MM_ModemManager_DBUS_NAME "org.freedesktop.ModemManager1"
 
+/* modem event name */
+#define AGH_MM_MODEM_EVENT_NAME "modem"
+
 struct agh_mm_state {
 	GError *current_gerror;
 	GDBusConnection *dbus_connection;

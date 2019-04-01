@@ -45,87 +45,6 @@ static void agh_modem_get_supported_IP_families(MMObject *modem, struct agh_cmd 
 static void agh_modem_get_signal_quality(MMObject *modem, struct agh_cmd *cmd);
 static void agh_modem_get_access_technologies(MMObject *modem, struct agh_cmd *cmd);
 
-gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
-	struct agh_handler *h = data;
-	struct agh_message *m = hmessage;
-	struct agh_state *mstate = h->handler_data;
-	struct agh_mm_state *mmstate = mstate->mmstate;
-	struct agh_cmd *cmd;
-	const gchar __attribute__((unused)) *string_arg;
-	gint current_modem;
-	config_setting_t *arg;
-	struct agh_message *answer;
-	MMObject *modem;
-	void (*general_subcommand_cb)(struct agh_mm_state *mmstate, struct agh_cmd *cmd);
-
-	cmd = NULL;
-	string_arg = NULL;
-	current_modem = 0;
-	arg = NULL;
-	answer = NULL;
-	modem = NULL;
-	general_subcommand_cb = NULL;
-
-	if (m->msg_type != MSG_SENDCMD)
-		return cmd;
-
-	cmd = m->csp;
-
-	/* If this is not the AGH_CMD_MODEM command, then stop here. */
-	if (g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_MODEM))
-		return NULL;
-
-	if (mstate->exiting || !mmstate->manager)
-		return NULL;
-
-	agh_cmd_answer_alloc(cmd);
-
-	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
-	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
-	if (arg) {
-		/* A modem was specified. */
-		current_modem = config_setting_get_int(arg);
-		modem = agh_mm_index_to_modem(mmstate, current_modem);
-
-		if (modem) {
-			//g_print("Modem %" G_GINT16_FORMAT" has been specified.\n",current_modem);
-			agh_modem_do(modem, cmd);
-			g_object_unref(modem);
-			modem = NULL;
-		} else {
-			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			agh_cmd_answer_addtext(cmd, AGH_MM_INVALID_MODEM, TRUE);
-		}
-
-		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-		return answer;
-	}
-
-	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
-
-	if (arg) {
-		string_arg = config_setting_get_string(arg);
-
-		/* Implement general subcommands here. */
-
-		if (!general_subcommand_cb) {
-			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
-			agh_cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND, TRUE);
-		}
-		else
-			general_subcommand_cb(mmstate, cmd);
-
-		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-		return answer;
-	}
-
-	agh_mm_list_modems(mmstate, cmd);
-
-	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-
-	return answer;
-}
-
 /* Get and report a list of modems known by ModemManager. */
 static void agh_mm_list_modems(struct agh_mm_state *mmstate, struct agh_cmd *cmd) {
 	GList *modems;
@@ -1099,4 +1018,85 @@ static void agh_modem_get_access_technologies(MMObject *modem, struct agh_cmd *c
 
 	g_object_unref(object);
 	return;
+}
+
+gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage) {
+	struct agh_handler *h = data;
+	struct agh_message *m = hmessage;
+	struct agh_state *mstate = h->handler_data;
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	struct agh_cmd *cmd;
+	const gchar __attribute__((unused)) *string_arg;
+	gint current_modem;
+	config_setting_t *arg;
+	struct agh_message *answer;
+	MMObject *modem;
+	void (*general_subcommand_cb)(struct agh_mm_state *mmstate, struct agh_cmd *cmd);
+
+	cmd = NULL;
+	string_arg = NULL;
+	current_modem = 0;
+	arg = NULL;
+	answer = NULL;
+	modem = NULL;
+	general_subcommand_cb = NULL;
+
+	if (m->msg_type != MSG_SENDCMD)
+		return cmd;
+
+	cmd = m->csp;
+
+	/* If this is not the AGH_CMD_MODEM command, then stop here. */
+	if (g_strcmp0(agh_cmd_get_operation(cmd), AGH_CMD_MODEM))
+		return NULL;
+
+	if (mstate->exiting || !mmstate->manager)
+		return NULL;
+
+	agh_cmd_answer_alloc(cmd);
+
+	/* If an integer was specified, then this is the modem on which we're supposed to operate. Otherwise it's a subcommand. */
+	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_INT);
+	if (arg) {
+		/* A modem was specified. */
+		current_modem = config_setting_get_int(arg);
+		modem = agh_mm_index_to_modem(mmstate, current_modem);
+
+		if (modem) {
+			//g_print("Modem %" G_GINT16_FORMAT" has been specified.\n",current_modem);
+			agh_modem_do(modem, cmd);
+			g_object_unref(modem);
+			modem = NULL;
+		} else {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
+			agh_cmd_answer_addtext(cmd, AGH_MM_INVALID_MODEM, TRUE);
+		}
+
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
+		return answer;
+	}
+
+	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
+
+	if (arg) {
+		string_arg = config_setting_get_string(arg);
+
+		/* Implement general subcommands here. */
+
+		if (!general_subcommand_cb) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_FAIL);
+			agh_cmd_answer_addtext(cmd, AGH_MM_INVALID_SUBCOMMAND, TRUE);
+		}
+		else
+			general_subcommand_cb(mmstate, cmd);
+
+		answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
+		return answer;
+	}
+
+	agh_mm_list_modems(mmstate, cmd);
+
+	answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
+
+	return answer;
 }

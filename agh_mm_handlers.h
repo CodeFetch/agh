@@ -54,28 +54,6 @@
 #define AGH_MM_FLAG_SIGNAL_QUALITY_IS_RECENT "is_recent"
 /* End of flags. */
 
-/* modem event name */
-#define AGH_MM_MODEM_EVENT_NAME "modem"
-
-/* bearer related events */
-#define AGH_MM_BEARER_EVENT_NAME "bearer"
-
-/* SIM event name */
-#define AGH_MM_SIM_EVENT_NAME "modem_sim"
-
-/* modem properties changed */
-#define AGH_MM_SM_MODEM_PROPSCHANGES_EVENT_NAME "modem_changes"
-
-/* other defines, used in agh_mm_sm.c */
-#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE "initfailure"
-#define AGH_MM_SM_MODEM_DEINIITSTATE_FAILURE "deinitfailure"
-#define AGH_MM_SM_GENERIC_FAILURE "agh_mm_failure"
-#define AGH_MM_SM_BEARER_SETUP_FAILURE "bearer_setup_failure"
-#define AGH_MM_SM_BEARER_CONNECT_FAILURE "bearer_connect_failure"
-#define AGH_MM_SM_BEARER_CONNECT_FAILURE_NO_SETTINGS "bearer_connect_failure_no_settings"
-#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_OPERATOR_ID "no_operator_id_available"
-#define AGH_MM_SM_MODEM_INIITSTATE_FAILURE_NO_SIM_ID "no_sim_id_available"
-
 gpointer agh_mm_cmd_handle(gpointer data, gpointer hmessage);
 
 #endif
