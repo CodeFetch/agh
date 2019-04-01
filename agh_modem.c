@@ -308,11 +308,16 @@ out:
 
 static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
+	gint call_outside_error;
 
 	mstate->mmstate->global_bearer_connecting_lock = FALSE;
 	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("bearer successfully connected");
+			call_outside_error = agh_mm_call_outside_helper(mstate, b);
+			if (call_outside_error) {
+				agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
+			}
 			break;
 		case FALSE:
 			agh_log_mm_crit("failed to connect bearer");
@@ -327,6 +332,7 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 	MMBearer *b = MM_BEARER(data);
 	struct agh_state *mstate = user_data;
 	const gchar *bpath;
+	gint call_outside_error;
 
 	if (!b) {
 		agh_log_mm_crit("can not connect a NULL bearer");
@@ -335,6 +341,11 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 
 	if (mm_bearer_get_connected(b))
 		return;
+
+	call_outside_error = agh_mm_call_outside_helper(mstate, b);
+	if (call_outside_error) {
+		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
+	}
 
 	bpath = mm_bearer_get_path(b);
 
@@ -491,57 +502,10 @@ out:
 	return retval;
 }
 
-static void agh_mm_bearer_connected_cb(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
-	struct agh_state *mstate = user_data;
-	gint retval;
-
-	retval = 0;
-
-	switch(mm_bearer_get_connected(b)) {
-		case TRUE:
-			agh_log_mm_dbg("hey! We are connected!");
-			break;
-		case FALSE:
-			agh_log_mm_dbg("we are now disconnected...");
-			break;
-	}
-
-	retval = agh_mm_call_outside_helper(mstate, b);
-	if (retval) {
-		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",retval);
-	}
-
-	return ;
-}
-
-static gint agh_mm_bearer_signals(struct agh_state *mstate, MMModem *modem, MMBearer *b) {
-	gint retval;
-
-	retval = 0;
-
-	if (!mstate || !modem || !b) {
-		agh_log_mm_crit("NULL AGH state, modem or bearer objects");
-		retval = 11;
-		goto out;
-	}
-
-	if (!g_signal_connect(b, "notify::connected", G_CALLBACK(agh_mm_bearer_connected_cb), mstate)) {
-		agh_log_mm_crit("got failure from g_signal_connect");
-		retval = 12;
-		goto out;
-	}
-
-out:
-	return retval;
-}
-
 static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_data) {
 	MMModem *modem = MM_MODEM(o);
 	struct agh_state *mstate = user_data;
 	MMBearer *b;
-	gint retval;
-
-	retval = 0;
 
 	b = mm_modem_create_bearer_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!b) {
@@ -553,11 +517,6 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	agh_mm_start_bearer_checker(mstate);
 
 	agh_log_mm_crit("trying to connect bearer at %s",mm_bearer_get_path(b));
-
-	retval = agh_mm_bearer_signals(mstate, modem, b);
-	if (retval) {
-		agh_log_mm_crit("unable to connect signals to bearer (code=%" G_GINT16_FORMAT")",retval);
-	}
 
 	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
 	mstate->mmstate->global_bearer_connecting_lock = TRUE;
@@ -1189,6 +1148,13 @@ static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
 		mmstate->manager = NULL;
 	}
 
+	if (mmstate->bearers_check) {
+		agh_log_mm_crit("deactivating checker");
+		g_source_destroy(mmstate->bearers_check);
+		mmstate->bearers_check = NULL;
+		mmstate->bearers_check_tag = 0;
+	}
+
 out:
 	return retval;
 }
@@ -1263,6 +1229,8 @@ static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, str
 		agh_log_mm_crit("got failure from agh_mm_handle_present_modems (code=%" G_GINT16_FORMAT")",error);
 		goto out;
 	}
+
+	/* register handler here */
 
 out:
 	if (error)
