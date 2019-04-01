@@ -28,8 +28,16 @@ struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_messag
 		}
 
 		omsg = agh_msg_alloc();
+		if (!omsg)
+			return NULL;
+
 		omsg->msg_type = MSG_SENDTEXT;
-		textcopy_csp = g_malloc0(sizeof(struct agh_text_payload));
+		textcopy_csp = g_try_malloc0(sizeof(*textcopy_csp));
+		if (!textcopy_csp) {
+			agh_msg_dealloc(omsg);
+			return NULL;
+		}
+
 		textcopy_csp->text = g_strdup(csp->text);
 
 		if (csp->source_id)
@@ -37,7 +45,6 @@ struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_messag
 
 		omsg->csp = textcopy_csp;
 		g_queue_push_tail(xstate->outxmpp_messages, omsg);
-		//g_print("++ %s\n",textcopy_csp->text);
 	}
 
 	return NULL;
