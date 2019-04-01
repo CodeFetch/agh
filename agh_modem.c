@@ -293,7 +293,7 @@ static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 		callee_output = agh_ubus_get_call_result(TRUE);
 
 		if (callee_output) {
-			agh_mm_report_event(mstate, "agh_mm_sm_call_outside_helper", agh_mm_modem_to_index(mm_bearer_get_path(b)), callee_output);
+			agh_mm_report_event(mstate, "agh_mm_call_outside_helper", agh_mm_modem_to_index(mm_bearer_get_path(b)), callee_output);
 			agh_log_mm_dbg("from call: %s",callee_output);
 			g_free(callee_output);
 		}
