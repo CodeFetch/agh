@@ -419,7 +419,7 @@ static const struct agh_cmd_operation agh_ubus_handler_subcommands[] = {
 	{ }
 };
 
-gint agh_ubus_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+static gint agh_ubus_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	gint retval;
 
 	retval = 0;
