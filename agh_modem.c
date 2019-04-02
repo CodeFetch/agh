@@ -10,7 +10,7 @@
 #include "agh_logging.h"
 #include "agh_ubus.h"
 #include "agh_handlers.h"
-#include "agh_mm_handlers.h"
+#include "agh_mm_handler.h"
 #include "agh_modem_config.h"
 #include "agh_mm_helpers.h"
 

@@ -34,7 +34,7 @@ SET(SOURCES
 	agh_modem_config.c
 
 	# Modem: AGH handler (e.g.: responds to the "modem" command)
-	agh_mm_handlers.c
+	agh_mm_handler.c
 
 	# ubus: connection maintenance...
 	agh_ubus.c
