@@ -293,7 +293,7 @@ static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 		callee_output = agh_ubus_get_call_result(TRUE);
 
 		if (callee_output) {
-			agh_mm_report_event(mstate, "agh_mm_call_outside_helper", agh_mm_modem_to_index(mm_bearer_get_path(b)), callee_output);
+			agh_mm_report_event(mstate->comm, "agh_mm_call_outside_helper", agh_mm_modem_to_index(mm_bearer_get_path(b)), callee_output);
 			agh_log_mm_dbg("from call: %s",callee_output);
 			g_free(callee_output);
 		}
@@ -321,7 +321,7 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 			break;
 		case FALSE:
 			agh_log_mm_crit("failed to connect bearer");
-			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			break;
 	}
 
@@ -381,7 +381,7 @@ static void agh_mm_modem_connect_bearers(GObject *o, GAsyncResult *res, gpointer
 	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!current_bearers) {
 		agh_log_mm_crit("problem when checking bearers");
-		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -510,7 +510,7 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	b = mm_modem_create_bearer_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!b) {
 		agh_log_mm_crit("bearer creation failed for modem %s",mm_modem_get_path(modem));
-		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -607,7 +607,7 @@ static struct uci_section *agh_mm_config_search_system_profiles(struct agh_state
 
 	retval = agh_modem_validate_config(mmstate, path, "sys_connection_settings");
 	if (retval) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -632,14 +632,14 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	sim = mm_modem_get_sim_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_crit("unable to get SIM for modem %s while checking for defined bearers",mm_modem_get_path(modem));
-		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 		goto out;
 	}
 
 	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
 		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
 		if (retval) {
-			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			goto out;
 		}
 	}
@@ -720,7 +720,7 @@ static void agh_mm_modem_delete_bearer_finish(MMModem *modem, GAsyncResult *res,
 			break;
 		case FALSE:
 			agh_log_mm_crit("can not delete bearer");
-			agh_modem_report_gerror_message(&current_gerror);
+			agh_modem_report_gerror_message(&current_gerror, NULL);
 			break;
 	}
 
@@ -753,7 +753,7 @@ static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer 
 	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!current_bearers) {
 		agh_log_mm_crit("problem when deleting bearers");
-		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -781,7 +781,7 @@ static void agh_mm_modem_enable_finish(MMModem *modem, GAsyncResult *res, struct
 			break;
 		case FALSE:
 			agh_log_mm_crit("can not enable modem");
-			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			break;
 	}
 
@@ -832,7 +832,7 @@ static void agh_mm_sim_pin_unlock_finish(MMSim *sim, GAsyncResult *res, struct a
 			break;
 		case FALSE:
 			agh_log_mm_crit("unlock failed!");
-			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror);
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			break;
 	}
 
@@ -852,7 +852,7 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -927,7 +927,7 @@ static gint agh_mm_modem_unlock(struct agh_state *mstate, MMModem *modem) {
 	retval = 0;
 	lock = mm_modem_get_unlock_required(modem);
 
-	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_lock_get_string(lock));
+	agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_lock_get_string(lock));
 	agh_log_mm_crit("modem %s is locked (%s)",mm_modem_get_path(modem), mm_modem_lock_get_string(lock));
 
 	switch(lock) {
@@ -967,9 +967,9 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 
 	retval = 0;
 
-	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(oldstate));
-	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
-	agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), agh_mm_get_statechange_reason_string(reason));
+	agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(oldstate));
+	agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_get_string(newstate));
+	agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), agh_mm_get_statechange_reason_string(reason));
 
 	retval = agh_mm_modem_signals(mstate, modem, oldstate, newstate);
 	if (retval)
@@ -977,7 +977,7 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 
 	switch(newstate) {
 		case MM_MODEM_STATE_FAILED:
-			agh_mm_report_event(mstate, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_modem_get_path(modem)), mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
 			agh_log_mm_crit("modem %s failed (%s)",mm_modem_get_path(modem),mm_modem_state_failed_reason_get_string(mm_modem_get_state_failed_reason(modem)));
 			break;
 		case MM_MODEM_STATE_UNKNOWN:
@@ -1205,7 +1205,7 @@ static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, str
 
 	mmstate->manager = mm_manager_new_finish(res, &mmstate->current_gerror);
 	if (!mmstate->manager) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		error++;
 		goto out;
 	}
@@ -1330,7 +1330,7 @@ static gint agh_mm_watch_init(struct agh_state *mstate) {
 
 	mmstate->dbus_connection = g_bus_get_sync(G_BUS_TYPE_SYSTEM, NULL, &mmstate->current_gerror);
 	if (!mmstate->dbus_connection) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		retval = 13;
 		goto out;
 	}
@@ -1412,13 +1412,13 @@ gint agh_mm_init(struct agh_state *mstate) {
 
 	ret = agh_modem_validate_config(mmstate, NULL, "agh_modem");
 	if (ret) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
 	}
 
 	ret = agh_mm_watch_init(mstate);
 	if (ret) {
-		agh_modem_report_gerror_message(&mmstate->current_gerror);
+		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
 	}
 
@@ -1430,7 +1430,7 @@ out:
 	return ret;
 }
 
-gint agh_modem_report_gerror_message(GError **error) {
+gint agh_modem_report_gerror_message(GError **error, struct agh_comm *comm) {
 	gint retval;
 
 	retval = 0;
@@ -1442,6 +1442,10 @@ gint agh_modem_report_gerror_message(GError **error) {
 	}
 
 	agh_log_mm_crit("(GError report) - %s",(*error)->message ? (*error)->message : "(no error message)");
+
+	if (comm)
+		agh_mm_report_event(comm, "GError", NULL, (*error)->message);
+
 	g_error_free(*error);
 	*error = NULL;
 
@@ -1455,14 +1459,14 @@ void agh_mm_testwait(gint secs) {
 	return;
 }
 
-gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, gchar *evpath, const gchar *evtext) {
+gint agh_mm_report_event(struct agh_comm *comm, const gchar *evname, gchar *evpath, const gchar *evtext) {
 	gint retval;
 	struct agh_cmd *ev;
 
 	retval = 0;
 
-	if (!mstate || !evname || !evtext) {
-		agh_log_mm_crit("no AGH stare, or NULL event name / event text");
+	if (!comm || !evname || !evtext) {
+		agh_log_mm_crit("no AGH COMM, or NULL event name / event text");
 		retval = 25;
 		goto out;
 	}
@@ -1482,7 +1486,7 @@ gint agh_mm_report_event(struct agh_state *mstate, const gchar *evname, gchar *e
 
 	agh_cmd_answer_addtext(ev, evtext, TRUE);
 
-	retval = agh_cmd_emit_event(mstate->comm, ev);
+	retval = agh_cmd_emit_event(comm, ev);
 
 out:
 	if (retval) {
