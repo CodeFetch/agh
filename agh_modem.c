@@ -21,6 +21,31 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static gint agh_modem_set_handler_ext(struct agh_state *mstate) {
+	struct agh_handler *agh_mm_handler;
+	gint retval;
+
+	retval = 1;
+
+	if ( !(agh_mm_handler = agh_new_handler("agh_mm_handler")) )
+		goto out;
+
+	agh_handler_set_handle(agh_mm_handler, agh_mm_cmd_handle);
+	agh_handler_enable(agh_mm_handler, TRUE);
+
+	if (agh_handler_register(mstate->agh_handlers, agh_mm_handler))
+		goto out;
+
+	retval = 0;
+
+out:
+	if (retval) {
+		g_clear_pointer(&agh_mm_handler, agh_handler_dealloc);
+	}
+
+	return retval;;
+}
+
 static struct agh_mm_iptypes_family_table {
 	char *name;
 	gint type;
@@ -1230,7 +1255,11 @@ static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, str
 		goto out;
 	}
 
-	/* register handler here */
+	error = agh_modem_set_handler_ext(mstate);
+	if (error) {
+		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",error);
+		goto out;
+	}
 
 out:
 	if (error)
