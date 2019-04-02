@@ -1255,12 +1255,6 @@ static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, str
 		goto out;
 	}
 
-	error = agh_modem_set_handler_ext(mstate);
-	if (error) {
-		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",error);
-		goto out;
-	}
-
 out:
 	if (error)
 		agh_mm_mngr_deinit(mstate);
@@ -1448,6 +1442,12 @@ gint agh_mm_init(struct agh_state *mstate) {
 	ret = agh_mm_watch_init(mstate);
 	if (ret) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
+		goto out;
+	}
+
+	ret = agh_modem_set_handler_ext(mstate);
+	if (ret) {
+		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",ret);
 		goto out;
 	}
 
