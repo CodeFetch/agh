@@ -24,6 +24,19 @@ struct agh_mm_state {
 	GSource *bearers_check;
 	guint bearers_check_tag;
 	gboolean global_bearer_connecting_lock;
+
+	/* MM Objects, used in agh_mm_handler */
+	MMObject *mmobject;
+	MMModem *modem;
+	MMModem3gpp *modem3gpp;
+	MMModem3gppUssd *modem3gppussd;
+	MMModemLocation *modemlocation;
+	MMModemMessaging *messaging;
+	MMModemTime *time;
+	MMModemFirmware *firmware;
+	MMModemOma *oma;
+	MMModemSignal *signal;
+	MMModemVoice *voice;
 };
 
 gint agh_mm_init(struct agh_state *mstate);
