@@ -13,10 +13,99 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
-static gint agh_mm_handler_modem_sim_gate_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+static const struct agh_cmd_operation agh_modem_sim_ops[] = {
+	{
+		.op_name = "id",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = NULL
+	},
+
+	{ }
+};
+
+static gint agh_mm_handler_cmd_unstore(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->current_cmd) {
+		agh_log_mm_handler_crit("missing context or command");
+		retval = 153;
+		goto out;
+	}
+
+	retval = agh_cmd_free(mstate->mmstate->current_cmd);
+	mstate->mmstate->current_cmd = NULL;
+
+out:
+	return retval;
+}
+
+static gint agh_mm_handler_cmd_store(struct agh_state *mstate, struct agh_cmd *cmd) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || mstate->mmstate->current_cmd || !cmd) {
+		agh_log_mm_handler_crit("missing context, an agh_cmd struct is already present when it is not supposed to, or the passed one is NULL");
+		retval = 151;
+		goto out;
+	}
+
+	mstate->mmstate->current_cmd = agh_cmd_copy(cmd);
+	if (!mstate->mmstate->current_cmd) {
+		agh_log_mm_handler_crit("command copy failed");
+		retval = 152;
+		goto out;
+	}
+
+out:
+	return retval;
+}
+
+static void agh_mm_handler_modem_sim_gate_exit_cb(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+	MMSim *sim;
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	struct agh_message *gate_msg;
+
+	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
+	if (!sim) {
+		agh_log_mm_handler_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
+		goto out;
+	}
+
+	agh_log_mm_handler_dbg("time to search for sim commands");
+	mmstate->sim = sim;
+	agh_cmd_op_match(mstate, agh_modem_sim_ops, mmstate->current_cmd, 3);
+
+out:
+	if (sim) {
+		g_object_unref(sim);
+		mmstate->sim = NULL;
+	}
+
+	if (!mstate->comm->teardown_in_progress) {
+		gate_msg = agh_cmd_answer_msg(mmstate->current_cmd, mstate->comm, NULL);
+		if (agh_msg_send(gate_msg, mstate->comm, NULL)) {
+			agh_msg_dealloc(gate_msg);
+		}
+	}
+
+	agh_mm_handler_cmd_unstore(mstate);
+
+	return;
+}
+
+static gint agh_mm_handler_modem_sim_gate_enter_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
 	if (mmstate->modem) {
+		if (!agh_mm_handler_cmd_store(mstate, cmd)) {
+			mm_modem_get_sim(mmstate->modem, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_sim_gate_exit_cb, mstate);
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, "async_SIM_gate_traversal", TRUE);
+		}
 	}
 
 	return 100;
@@ -513,9 +602,9 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 	},
 	{
 		.op_name = "sim",
-		.min_args = 0,
-		.max_args = 0,
-		.cmd_cb = agh_mm_handler_modem_sim_gate_cb
+		.min_args = 1,
+		.max_args = 1,
+		.cmd_cb = agh_mm_handler_modem_sim_gate_enter_cb
 	},
 
 	{ }
@@ -704,7 +793,7 @@ static const struct agh_cmd_operation agh_mm_handler_ops[] = {
 	{
 		.op_name = "modem",
 		.min_args = 0,
-		.max_args = 2,
+		.max_args = 4,
 		.cmd_cb = agh_mm_handler_cmd_cb
 	},
 

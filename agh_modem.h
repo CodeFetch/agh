@@ -37,6 +37,10 @@ struct agh_mm_state {
 	MMModemOma *oma;
 	MMModemSignal *signal;
 	MMModemVoice *voice;
+
+	/* current command, used in agh_mm_handler (async calls) */
+	struct agh_cmd *current_cmd;
+	MMSim *sim;
 };
 
 gint agh_mm_init(struct agh_state *mstate);

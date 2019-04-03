@@ -1197,6 +1197,12 @@ static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
 		mmstate->bearers_check_tag = 0;
 	}
 
+	if (mmstate->current_cmd) {
+		agh_log_mm_crit("current_cmd ptr was still present");
+		agh_cmd_free(mmstate->current_cmd);
+		mmstate->current_cmd = NULL;
+	}
+
 out:
 	return retval;
 }
@@ -1417,6 +1423,12 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 		uci_free_context(mmstate->mctx);
 		mmstate->mctx = NULL;
 		mmstate->uci_package = NULL;
+	}
+
+	if (mmstate->current_cmd) {
+		agh_log_mm_crit("current_cmd ptr was still present");
+		agh_cmd_free(mmstate->current_cmd);
+		mmstate->current_cmd = NULL;
 	}
 
 	if (mmstate->watch_id)
