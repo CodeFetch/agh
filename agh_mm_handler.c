@@ -13,6 +13,169 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
+static void agh_mm_handler_sim_change_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_change_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "CHANGE_PIN_OK");
+			break;
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "CHANGE_PIN_FAIL");
+	}
+
+	return;
+}
+
+static gint agh_mm_handler_sim_change_pin_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	config_setting_t *old_pin_code;
+	config_setting_t *new_pin_code;
+	const gchar *old_pin_code_str;
+	const gchar *new_pin_code_str;
+
+	old_pin_code_str = NULL;
+	new_pin_code_str = NULL;
+
+	if (mmstate->sim) {
+		old_pin_code = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING);
+		new_pin_code = agh_cmd_get_arg(cmd, 5, CONFIG_TYPE_STRING);
+
+		if (old_pin_code)
+			old_pin_code_str = config_setting_get_string(old_pin_code);
+
+		if (new_pin_code)
+			new_pin_code_str = config_setting_get_string(new_pin_code);
+
+		if (old_pin_code_str && new_pin_code_str) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			mm_sim_change_pin(mmstate->sim, old_pin_code_str, new_pin_code_str, NULL, (GAsyncReadyCallback)agh_mm_handler_sim_change_pin_cb_finish, mstate);
+		}
+	}
+
+	return 100;
+}
+
+static void agh_mm_handler_sim_enable_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_enable_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "ENABLE_PIN_OK");
+			break;
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "ENABLE_PIN_FAIL");
+	}
+	return;
+}
+
+static gint agh_mm_handler_sim_enable_pin_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	config_setting_t *arg;
+
+	if (mmstate->sim) {
+		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			mm_sim_enable_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_enable_pin_cb_finish, mstate);
+		}
+	}
+
+	return 100;
+}
+
+static void agh_mm_handler_sim_disable_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_disable_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "DISABLEPIN_OK");
+			break;
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "DISABLE_PIN_FAIL");
+	}
+
+	return;
+}
+
+static gint agh_mm_handler_sim_disable_pin_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	config_setting_t *arg;
+
+	if (mmstate->sim) {
+		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			mm_sim_disable_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_disable_pin_cb_finish, mstate);
+		}
+	}
+
+	return 100;
+}
+
+static void agh_mm_handler_sim_send_puk_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_send_puk_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PUK_OK");
+			break;
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PUK_FAIL");
+	}
+
+	return;
+}
+
+static gint agh_mm_handler_sim_send_puk_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	config_setting_t *puk_code;
+	config_setting_t *pin_code;
+	const gchar *puk_code_str;
+	const gchar *pin_code_str;
+
+	puk_code_str = NULL;
+	pin_code_str = NULL;
+
+	if (mmstate->sim) {
+		puk_code = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING);
+		pin_code = agh_cmd_get_arg(cmd, 5, CONFIG_TYPE_STRING);
+
+		if (puk_code)
+			puk_code_str = config_setting_get_string(puk_code);
+
+		if (pin_code)
+			pin_code_str = config_setting_get_string(pin_code);
+
+		if (puk_code_str && pin_code_str) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			mm_sim_send_puk(mmstate->sim, puk_code_str, pin_code_str, NULL, (GAsyncReadyCallback)agh_mm_handler_sim_send_puk_cb_finish, mstate);
+		}
+	}
+
+	return 100;
+}
+
+static void agh_mm_handler_sim_send_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_sim_send_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
+		case TRUE:
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PIN_OK");
+			break;
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PIN_FAIL");
+	}
+	return;
+}
+
+static gint agh_mm_handler_sim_send_pin_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	config_setting_t *arg;
+
+	if (mmstate->sim) {
+		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			mm_sim_send_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_send_pin_cb_finish, mstate);
+		}
+	}
+
+	return 100;
+}
+
 static gint agh_mm_handler_sim_operator_name_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
@@ -81,6 +244,36 @@ static const struct agh_cmd_operation agh_modem_sim_ops[] = {
 		.min_args = 0,
 		.max_args = 0,
 		.cmd_cb = agh_mm_handler_sim_operator_name_cb
+	},
+	{
+		.op_name = "send_pin",
+		.min_args = 1,
+		.max_args = 1,
+		.cmd_cb = agh_mm_handler_sim_send_pin_cb
+	},
+	{
+		.op_name = "send_puk",
+		.min_args = 2,
+		.max_args = 2,
+		.cmd_cb = agh_mm_handler_sim_send_puk_cb
+	},
+	{
+		.op_name = "disable_pin",
+		.min_args = 1,
+		.max_args = 1,
+		.cmd_cb = agh_mm_handler_sim_disable_pin_cb
+	},
+	{
+		.op_name = "enable_pin",
+		.min_args = 1,
+		.max_args = 1,
+		.cmd_cb = agh_mm_handler_sim_enable_pin_cb
+	},
+	{
+		.op_name = "change_pin",
+		.min_args = 2,
+		.max_args = 2,
+		.cmd_cb = agh_mm_handler_sim_change_pin_cb
 	},
 
 	{ }
@@ -671,7 +864,7 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 	{
 		.op_name = "sim",
 		.min_args = 1,
-		.max_args = 1,
+		.max_args = 3,
 		.cmd_cb = agh_mm_handler_modem_sim_gate_enter_cb
 	},
 
@@ -861,7 +1054,7 @@ static const struct agh_cmd_operation agh_mm_handler_ops[] = {
 	{
 		.op_name = "modem",
 		.min_args = 0,
-		.max_args = 4,
+		.max_args = 5,
 		.cmd_cb = agh_mm_handler_cmd_cb
 	},
 
