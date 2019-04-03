@@ -822,6 +822,13 @@ static gint agh_mm_modem_enable(struct agh_state *mstate, MMModem *modem) {
 	retval = 0;
 	should_enable = TRUE;
 
+	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
+		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		if (retval) {
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+		}
+	}
+
 	modem_section = agh_mm_config_get_modem_section(mstate, modem);
 	if (!modem_section) {
 		agh_log_mm_crit("unable to to find a valid configuration section for this modem");
@@ -871,6 +878,7 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 	struct uci_option *pin_option;
 	guint left_pin_retries;
 	MMUnlockRetries *retries;
+	gint error_code;
 
 	retries = NULL;
 
@@ -879,6 +887,15 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 		agh_log_mm_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
+	}
+
+	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
+		error_code = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		if (error_code) {
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+			agh_log_mm_crit("failure when trying to reload config for SIM unlock via PIN (code=%" G_GINT16_FORMAT")",error_code);
+			goto out;
+		}
 	}
 
 	sim_section = agh_mm_config_get_sim_section(mstate, modem, sim);
