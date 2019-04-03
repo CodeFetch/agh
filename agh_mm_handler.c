@@ -13,7 +13,139 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
-static gint agh_mm_handler_modem_unlock_required_identifier_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+static gint agh_mm_handler_modem_signal_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	gboolean recent;
+	guint signal_quality;
+
+	if (mmstate->modem) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		signal_quality = mm_modem_get_signal_quality(mmstate->modem, &recent);
+		agh_cmd_answer_addtext(cmd, g_strdup_printf("%" G_GUINT16_FORMAT"",signal_quality), FALSE);
+		if (recent)
+			agh_cmd_answer_addtext(cmd, "is_recent", TRUE);
+		else
+			agh_cmd_answer_addtext(cmd, "is_not_recent", TRUE);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_ip_families_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	MMBearerIpFamily family;
+
+	if (mmstate->modem) {
+		agh_cmd_answer_addtext(cmd, mm_bearer_ip_family_build_string_from_mask(mm_modem_get_supported_ip_families(mmstate->modem)), FALSE);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_bands_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	MMModemBand *bands;
+	guint n_bands;
+
+	if (mmstate->modem) {
+		if (mm_modem_get_supported_bands(mmstate->modem, &bands, &n_bands)) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, agh_mm_common_build_bands_string(bands, n_bands), FALSE);
+			g_free(bands);
+		}
+		if (mm_modem_get_current_bands(mmstate->modem, &bands, &n_bands)) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, agh_mm_common_build_bands_string(bands, n_bands), FALSE);
+			g_free(bands);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_modes_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	MMModemModeCombination *modes;
+	guint n_modes;
+	MMModemMode allowed_modes;
+	MMModemMode preferred_mode;
+
+	if (mmstate->modem) {
+		if (mm_modem_get_supported_modes(mmstate->modem, &modes, &n_modes)) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, agh_mm_common_build_mode_combinations_string(modes, n_modes), FALSE);
+			g_free(modes);
+		}
+		if (mm_modem_get_current_modes(mmstate->modem, &allowed_modes, &preferred_mode)) {
+			agh_cmd_answer_addtext(cmd, mm_modem_mode_build_string_from_mask(allowed_modes), FALSE);
+			agh_cmd_answer_addtext(cmd, mm_modem_mode_build_string_from_mask(preferred_mode), FALSE);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_own_numbers_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	gchar *mm_own_numbers;
+
+	if (mmstate->modem) {
+		mm_own_numbers = g_strjoinv (", ", (gchar **)mm_modem_get_own_numbers(mmstate->modem));
+		if (mm_own_numbers) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, mm_own_numbers, FALSE);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_bearer_paths_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	gchar *mm_bpaths;
+
+	if (mmstate->modem) {
+		mm_bpaths = g_strjoinv (", ", (gchar **)mm_modem_get_bearer_paths(mmstate->modem));
+		if (mm_bpaths) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, mm_bpaths, FALSE);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_max_bearers_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_addtext(cmd, g_strdup_printf("maxdefined=%" G_GUINT16_FORMAT", maxactive=%" G_GUINT16_FORMAT"",mm_modem_get_max_bearers(mmstate->modem), mm_modem_get_max_active_bearers(mmstate->modem)), FALSE);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_unlock_retries_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	MMUnlockRetries *retries;
+	gchar *retries_str;
+
+	if (mmstate->modem) {
+		retries = mm_modem_get_unlock_retries(mmstate->modem);
+		if (retries) {
+			retries_str = agh_mm_unlock_retries_build_string(retries);
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(cmd, retries_str, FALSE);
+			g_object_unref(retries);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_unlock_required_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
 	if (mmstate->modem) {
@@ -303,7 +435,55 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.op_name = "unlock_required",
 		.min_args = 0,
 		.max_args = 0,
-		.cmd_cb = agh_mm_handler_modem_unlock_required_identifier_cb
+		.cmd_cb = agh_mm_handler_modem_unlock_required_cb
+	},
+	{
+		.op_name = "unlock_retries",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_unlock_retries_cb
+	},
+	{
+		.op_name = "max_bearers",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_max_bearers_cb
+	},
+	{
+		.op_name = "bearers",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_bearer_paths_cb
+	},
+	{
+		.op_name = "numbers",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_own_numbers_cb
+	},
+	{
+		.op_name = "modes",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_modes_cb
+	},
+	{
+		.op_name = "bands",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_bands_cb
+	},
+	{
+		.op_name = "ip_families",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_ip_families_cb
+	},
+	{
+		.op_name = "signal",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_signal_cb
 	},
 
 	{ }

@@ -105,7 +105,7 @@ gchar *agh_mm_common_build_mode_combinations_string(const MMModemModeCombination
 	for (i = 0; i < n_modes; i++) {
 		allowed = mm_modem_mode_build_string_from_mask(modes[i].allowed);
 		preferred = mm_modem_mode_build_string_from_mask(modes[i].preferred);
-		g_string_append_printf (str, "allowed: %s; preferred: %s",allowed, preferred);
+		g_string_append_printf (str, "(allowed: %s; preferred: %s)",allowed, preferred);
 		g_free(allowed);
 		g_free(preferred);
 		allowed = NULL;
