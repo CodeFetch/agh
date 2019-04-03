@@ -13,12 +13,74 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
+static gint agh_mm_handler_sim_operator_name_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->sim) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_addtext(cmd, mm_sim_get_operator_name(mmstate->sim), TRUE);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_sim_operator_id_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->sim) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_addtext(cmd, mm_sim_get_operator_identifier(mmstate->sim), TRUE);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_sim_imsi_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->sim) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_addtext(cmd, mm_sim_get_imsi(mmstate->sim), TRUE);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_sim_id_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->sim) {
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+		agh_cmd_answer_addtext(cmd, mm_sim_get_identifier(mmstate->sim), TRUE);
+	}
+
+	return 100;
+}
+
 static const struct agh_cmd_operation agh_modem_sim_ops[] = {
 	{
 		.op_name = "id",
 		.min_args = 0,
 		.max_args = 0,
-		.cmd_cb = NULL
+		.cmd_cb = agh_mm_handler_sim_id_cb
+	},
+	{
+		.op_name = "imsi",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_sim_imsi_cb
+	},
+	{
+		.op_name = "operator_id",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_sim_operator_id_cb
+	},
+	{
+		.op_name = "operator_name",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_sim_operator_name_cb
 	},
 
 	{ }
@@ -69,13 +131,19 @@ static void agh_mm_handler_modem_sim_gate_exit_cb(MMModem *modem, GAsyncResult *
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	struct agh_message *gate_msg;
 
+	sim = NULL;
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("no AGH ( / MM state)");
+		return;
+	}
+
 	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_handler_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
 		goto out;
 	}
 
-	agh_log_mm_handler_dbg("time to search for sim commands");
 	mmstate->sim = sim;
 	agh_cmd_op_match(mstate, agh_modem_sim_ops, mmstate->current_cmd, 3);
 
