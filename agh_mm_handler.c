@@ -13,6 +13,26 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
+static gint agh_mm_handler_modem_sim_gate_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem) {
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_access_technology_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem) {
+		agh_cmd_answer_addtext(cmd, mm_modem_access_technology_build_string_from_mask(mm_modem_get_access_technologies(mmstate->modem)), FALSE);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
 static gint agh_mm_handler_modem_signal_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	gboolean recent;
@@ -484,6 +504,18 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.min_args = 0,
 		.max_args = 0,
 		.cmd_cb = agh_mm_handler_modem_signal_cb
+	},
+	{
+		.op_name = "access",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_access_technology_cb
+	},
+	{
+		.op_name = "sim",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_sim_gate_cb
 	},
 
 	{ }
