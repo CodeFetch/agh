@@ -950,7 +950,7 @@ static gint agh_mm_sim_pin_unlock(struct agh_state *mstate, MMModem *modem) {
 
 	retval = 0;
 
-	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !modem) {
+	if (!mstate || !mstate->mmstate || !modem) {
 		agh_log_mm_crit("missing needed context");
 		retval = 22;
 		goto out;
