@@ -21,6 +21,8 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+struct agh_comm *agh_mm_aghcomm;
+
 static MMObject *agh_mm_get_mmobject(struct agh_state *mstate, MMModem *modem) {
 	GList *l;
 	GList *modems;
@@ -57,13 +59,134 @@ out:
 	return found;
 }
 
-static void agh_mm_modem_sms_deleted(MMSms *sms) {
-	agh_log_mm_dbg("SMS deleted");
+static gchar *agh_mm_sms_info_string(MMSms *sms) {
+	MMSmsPduType pdu_type;
+	gchar *data = NULL;
+	const guint8 *databin = NULL;
+	gsize databin_size;
+	gchar *validity = NULL;
+	gchar *class = NULL;
+	const gchar *delivery_report = NULL;
+	gchar *message_reference = NULL;
+	const gchar *delivery_state = NULL;
+	GString *output = NULL;
+
+	databin = mm_sms_get_data(sms, &databin_size);
+
+	if (databin)
+		data = mm_utils_bin2hexstr(databin, databin_size);
+
+	if (mm_sms_get_validity_type(sms) == MM_SMS_VALIDITY_TYPE_RELATIVE)
+		validity = g_strdup_printf("relative_validity=%u", mm_sms_get_validity_relative(sms));
+
+	if (mm_sms_get_class(sms) >= 0)
+		class = g_strdup_printf ("class=%d", mm_sms_get_class (sms));
+
+	pdu_type = mm_sms_get_pdu_type(sms);
+	if (pdu_type == MM_SMS_PDU_TYPE_SUBMIT)
+		delivery_report = mm_sms_get_delivery_report_request(sms) ? "requested" : "not requested";
+
+	if (mm_sms_get_message_reference(sms) != 0)
+		message_reference = g_strdup_printf("message_reference=%u", mm_sms_get_message_reference(sms));
+
+	if (mm_sms_get_delivery_state(sms) != MM_SMS_DELIVERY_STATE_UNKNOWN)
+		delivery_state = mm_sms_delivery_state_get_string_extended(mm_sms_get_delivery_state(sms));
+
+	output = g_string_new("SMS_DATA: ");
+	if (data)
+		g_string_append_printf(output, "hexdata=%s; ",data);
+
+	if (validity)
+		g_string_append_printf(output, "%s; ",validity);
+
+	if (class)
+		g_string_append_printf(output, "%s; ",class);
+
+	if (delivery_report)
+		g_string_append_printf(output, "delivery_report=%s; ",delivery_report);
+
+	if (message_reference)
+		g_string_append_printf(output, "%s; ",message_reference);
+
+	if (delivery_state)
+		g_string_append_printf(output, "delivery_state=%s; ",delivery_state);
+
+	g_free(data);
+	g_free(validity);
+	g_free(class);
+	g_free(message_reference);
+
+	return g_string_free(output, FALSE);
+}
+
+static gint agh_mm_report_sms(struct agh_comm *comm, MMSms *sms) {
+	gint retval;
+	struct agh_cmd *ev;
+	gchar *atext;
+	const gchar *smstext;
+	const gchar *number;
+
+	retval = 0;
+
+	if (!comm || !sms) {
+		agh_log_mm_crit("no AGH COMM, or NULL MMSms object");
+		retval = 25;
+		goto out;
+	}
+
+	ev = agh_cmd_event_alloc(&retval);
+	if (!ev) {
+		agh_log_mm_crit("AGH event allocation failure while reporting SMS (code=%" G_GINT16_FORMAT")",retval);
+		retval = 26;
+		goto out;
+	}
+
+	agh_cmd_answer_set_status(ev, AGH_CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_addtext(ev, "SMS", TRUE);
+
+	number = mm_sms_get_number(sms);
+	if (number) {
+		atext = g_str_to_ascii(number, "C");
+		agh_cmd_answer_addtext(ev, atext, FALSE);
+	}
+
+	agh_cmd_answer_addtext(ev, mm_sms_state_get_string(mm_sms_get_state(sms)), TRUE);
+
+	smstext = mm_sms_get_text(sms);
+	if (smstext) {
+		atext = g_str_to_ascii(smstext, "C");
+		agh_cmd_answer_addtext(ev, atext, FALSE);
+	}
+
+	agh_cmd_answer_addtext(ev, mm_sms_storage_get_string(mm_sms_get_storage(sms)), TRUE);
+
+	agh_cmd_answer_addtext(ev, mm_sms_get_smsc(sms), TRUE);
+
+	agh_cmd_answer_addtext(ev, mm_sms_get_timestamp(sms), TRUE);
+
+	agh_cmd_answer_addtext(ev, mm_sms_get_discharge_timestamp(sms), TRUE);
+
+	agh_cmd_answer_addtext(ev, agh_mm_sms_info_string(sms), FALSE);
+
+	retval = agh_cmd_emit_event(comm, ev);
+
+out:
+	if (retval) {
+		agh_log_mm_crit("event for SMS could not be emitted (code=%" G_GINT16_FORMAT")",retval);
+	}
+
+	return retval;
+}
+
+static void agh_mm_modem_sms_deleted(MMModemMessaging *messaging, const gchar *sms_path) {
+	agh_log_mm_dbg("SMS deleted at %s",sms_path);
+	agh_mm_report_event(agh_mm_aghcomm, "SMS_DELETED", agh_mm_modem_to_index(sms_path), "--");
 	return;
 }
 
-static void agh_mm_modem_sms_added(MMSms *sms, gboolean received) {
-	agh_log_mm_dbg("SMS added");
+static void agh_mm_modem_sms_added(MMModemMessaging *messaging, const gchar *sms_path) {
+	agh_log_mm_dbg("SMS added at %s",sms_path);
+	agh_mm_report_event(agh_mm_aghcomm, "SMS_ADDED", agh_mm_modem_to_index(sms_path), "++");
 	return;
 }
 
@@ -1585,8 +1708,10 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 
 	if (mmstate->watch_id)
 		agh_mm_watch_deinit(mstate);
+
 	g_free(mmstate);
 	mstate->mmstate = NULL;
+	agh_mm_aghcomm = NULL;
 
 out:
 	return ret;
@@ -1631,6 +1756,8 @@ gint agh_mm_init(struct agh_state *mstate) {
 		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",ret);
 		goto out;
 	}
+
+	agh_mm_aghcomm = mstate->comm;
 
 out:
 
@@ -1703,5 +1830,6 @@ out:
 		agh_log_mm_crit("event could not be emitted (code=%" G_GINT16_FORMAT")",retval);
 		g_free(evpath);
 	}
+
 	return retval;
 }
