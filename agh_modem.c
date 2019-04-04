@@ -21,6 +21,52 @@
 #define agh_log_mm_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
+static MMObject *agh_mm_get_mmobject(struct agh_state *mstate, MMModem *modem) {
+	GList *l;
+	GList *modems;
+	struct agh_mm_state *mmstate;
+	MMObject *found;
+
+	found = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !modem) {
+		agh_log_mm_crit("AGH state, AGH MM state or manager object where not present");
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mmstate->manager));
+
+	if (!modems) {
+		agh_log_mm_dbg("no modems list");
+		goto out;
+	}
+
+	for (l = modems; l; l = g_list_next(l)) {
+		if (!g_strcmp0(mm_modem_get_path(modem), mm_object_get_path(MM_OBJECT(l->data)))) {
+			found = MM_OBJECT(l->data);
+			modems = g_list_remove(modems, l->data);
+			break;
+		}
+	}
+
+	g_list_free_full(modems, g_object_unref);
+
+out:
+	return found;
+}
+
+static void agh_mm_modem_sms_deleted(MMSms *sms) {
+	agh_log_mm_dbg("SMS deleted");
+	return;
+}
+
+static void agh_mm_modem_sms_added(MMSms *sms, gboolean received) {
+	agh_log_mm_dbg("SMS added");
+	return;
+}
+
 static gint agh_modem_set_handler_ext(struct agh_state *mstate) {
 	struct agh_handler *agh_mm_handler;
 	gint retval;
@@ -790,11 +836,117 @@ out:
 	return;
 }
 
+static gint agh_mm_modem_messaging_deinit(struct agh_state *mstate, MMModem *modem) {
+	gint retval;
+	guint num_handlers;
+	MMObject *mmobject;
+	MMModemMessaging *messaging;
+
+	retval = 0;
+	mmobject = NULL;
+	messaging = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !modem) {
+		agh_log_mm_crit("messaging deinit can not take place due to missing context or NULL MMModem object passed");
+		retval = 20;
+		goto out;
+	}
+
+	mmobject = agh_mm_get_mmobject(mstate, modem);
+	if (!mmobject) {
+		agh_log_mm_dbg("unable to get an MMObject for this modem during deinit (%s)",mm_modem_get_path(modem));
+		retval = 27;
+		goto out;
+	}
+
+	messaging = mm_object_get_modem_messaging(mmobject);
+	if (!messaging) {
+		agh_log_mm_crit("can not get MMModemMessaging object durning deinit");
+		retval = 29;
+		goto out;
+	}
+
+	num_handlers = g_signal_handlers_disconnect_by_func(messaging, agh_mm_modem_sms_added, mstate);
+	num_handlers = num_handlers + g_signal_handlers_disconnect_by_func(messaging, agh_mm_modem_sms_deleted, mstate);
+	if (!num_handlers) {
+		agh_log_mm_crit("no handlers matched during messaging signal disconnect (MMModemMessaging)");
+	}
+	else
+		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during messaging signal disconnect (MMModemMessaging)",num_handlers);
+
+out:
+	if (messaging)
+		g_object_unref(messaging);
+
+	if (mmobject)
+		g_object_unref(mmobject);
+
+	return retval;
+}
+
+static gint agh_mm_modem_messaging_init(struct agh_state *mstate, MMModem *modem) {
+	MMModemMessaging *messaging;
+	gulong signal_id;
+	gint retval;
+	MMObject *mmobject;
+
+	retval = 0;
+	messaging = NULL;
+	mmobject = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !modem) {
+		agh_log_mm_crit("messagin init can not take place due to missing context or NULL MMModem object passed");
+		retval = 10;
+		goto out;
+	}
+
+	mmobject = agh_mm_get_mmobject(mstate, modem);
+	if (!mmobject) {
+		agh_log_mm_dbg("unable to get an MMObject for this modem (%s)",mm_modem_get_path(modem));
+		retval = 17;
+		goto out;
+	}
+
+	messaging = mm_object_get_modem_messaging(mmobject);
+	if (!messaging) {
+		agh_log_mm_dbg("no messaging object for %s",mm_modem_get_path(modem));
+		retval = 18;
+		goto out;
+	}
+
+	signal_id = g_signal_connect(messaging, "added", G_CALLBACK(agh_mm_modem_sms_added), mstate);
+	if (!signal_id) {
+		agh_log_mm_crit("unable to connect added message signal to %s",mm_modem_get_path(modem));
+		retval = 19;
+		goto out;
+	}
+
+	signal_id = g_signal_connect(messaging, "deleted", G_CALLBACK(agh_mm_modem_sms_deleted), mstate);
+	if (!signal_id) {
+		agh_log_mm_crit("unable to connect deleted message signal to %s",mm_modem_get_path(modem));
+		retval = 20;
+		goto out;
+	}
+
+	agh_log_mm_dbg("messaging OK for %s",mm_modem_get_path(modem));
+
+out:
+	if (messaging)
+		g_object_unref(messaging);
+
+	if (mmobject)
+		g_object_unref(mmobject);
+
+	return retval;
+}
+
 static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMModemState oldstate, MMModemState currentstate) {
-	if (currentstate < MM_MODEM_STATE_REGISTERED)
-		agh_log_mm_dbg("may disconnect signals from %s",mm_modem_get_path(modem));
-	if ((currentstate == MM_MODEM_STATE_REGISTERED) && (oldstate < currentstate))
-		agh_log_mm_dbg("may connect signals to %s",mm_modem_get_path(modem));
+	if (currentstate < MM_MODEM_STATE_REGISTERED) {
+		agh_mm_modem_messaging_deinit(mstate, modem);
+	}
+	if ((currentstate == MM_MODEM_STATE_REGISTERED) && (oldstate < currentstate)) {
+		agh_mm_modem_messaging_init(mstate, modem);
+	}
 
 	return 0;
 }
@@ -1126,10 +1278,10 @@ static gint agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
 
 	num_handlers = g_signal_handlers_disconnect_by_func(m, agh_mm_statechange, mstate);
 	if (!num_handlers) {
-		agh_log_mm_crit("no handlers matched during signal disconnect");
+		agh_log_mm_crit("no handlers matched during modem signal disconnect (MMModem)");
 	}
 	else
-		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during signal disconnect",num_handlers);
+		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during modem signal disconnect (MMModem)",num_handlers);
 
 out:
 	if (m)
