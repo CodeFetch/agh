@@ -13,6 +13,49 @@
 #define agh_log_mm_handler_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 #define agh_log_mm_handler_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MM_HANDLER, message, ##__VA_ARGS__)
 
+static gint agh_mm_handler_list_modems(struct agh_state *mstate, struct agh_cmd *cmd) {
+	guint modem_list_length;
+	GList *modems;
+	GList *l;
+	gint retval;
+
+	retval = 100;
+	modems = NULL;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !cmd) {
+		agh_log_mm_handler_dbg("missing context");
+		retval = 170;
+		goto out;
+	}
+
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mstate->mmstate->manager));
+
+	if (!modems) {
+		agh_log_mm_handler_dbg("no modems");
+		retval = 175;
+		agh_cmd_answer_addtext(cmd, "NO_MODEMS", TRUE);
+		goto out;
+	}
+
+	/* a NULL list is valid, hence this is pointless as of now */
+	modem_list_length = g_list_length(modems);
+	if (!modem_list_length) {
+		agh_log_mm_handler_crit("non-NULL GList with 0 length?");
+		retval = 176;
+		goto out;
+	}
+
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+
+	for (l = modems; l; l = g_list_next (l)) {
+		agh_cmd_answer_addtext(cmd, agh_mm_modem_to_index(mm_object_get_path(MM_OBJECT(l->data))), FALSE);
+	}
+
+out:
+	g_list_free_full(modems, g_object_unref);
+	return retval;
+}
+
 static void agh_mm_handler_sim_change_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
 	switch(mm_sim_change_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
@@ -1030,7 +1073,6 @@ static gint agh_mm_handler_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd)
 
 	retval = 0;
 
-	arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING);
 	if ( (arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_STRING)) ) {
 		agh_log_mm_handler_dbg("global commands not yet implemented");
 	}
@@ -1045,6 +1087,9 @@ static gint agh_mm_handler_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd)
 			agh_cmd_op_match(mstate, agh_modem_ops, cmd, 2);
 
 			agh_mm_handler_release_objects(mstate);
+		}
+		else {
+			agh_mm_handler_list_modems(mstate, cmd);
 		}
 
 	return 100+retval;
