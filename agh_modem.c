@@ -1693,6 +1693,8 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 		mmstate->bearers_check_tag = 0;
 	}
 
+	agh_mm_aghcomm = NULL;
+
 	if (mmstate->mctx) {
 		uci_unload(mmstate->mctx, mmstate->uci_package);
 		uci_free_context(mmstate->mctx);
@@ -1711,7 +1713,6 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 
 	g_free(mmstate);
 	mstate->mmstate = NULL;
-	agh_mm_aghcomm = NULL;
 
 out:
 	return ret;
