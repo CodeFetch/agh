@@ -119,7 +119,7 @@ static gchar *agh_mm_sms_info_string(MMSms *sms) {
 	return g_string_free(output, FALSE);
 }
 
-static gint agh_mm_report_sms(struct agh_comm *comm, MMSms *sms) {
+gint agh_mm_report_sms(struct agh_comm *comm, MMSms *sms) {
 	gint retval;
 	struct agh_cmd *ev;
 	gchar *atext;
@@ -184,9 +184,12 @@ static void agh_mm_modem_sms_deleted(MMModemMessaging *messaging, const gchar *s
 	return;
 }
 
-static void agh_mm_modem_sms_added(MMModemMessaging *messaging, const gchar *sms_path) {
+static void agh_mm_modem_sms_added(MMModemMessaging *messaging, const gchar *sms_path, gboolean received) {
 	agh_log_mm_dbg("SMS added at %s",sms_path);
-	agh_mm_report_event(agh_mm_aghcomm, "SMS_ADDED", agh_mm_modem_to_index(sms_path), "++");
+
+	if (received)
+		agh_mm_report_event(agh_mm_aghcomm, "SMS_ADDED", agh_mm_modem_to_index(sms_path), "++");
+
 	return;
 }
 

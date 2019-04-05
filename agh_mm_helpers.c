@@ -1,5 +1,5 @@
 /*
- * This file contains some helpers functions to build strings out of various MM data structures.
+ * This file contains some helpers function. Some of them are used to build strings out of various MM data structures.
  * Much of the code in this file comes from libmm-glib/mm-common-helpers.c; it may be present here in a modified form, or in a completely different one.
  * Or it may not come from that file. So any bugs in this code should be reported to me, not the original author, Aleksander Morgado!
  * I am very very thankful to him, as without his work AGH would not exist!
@@ -131,7 +131,65 @@ gchar *agh_mm_common_build_bands_string(const MMModemBand *bands, guint n_bands)
 	return g_string_free(str, FALSE);
 }
 
+gchar *
+mm_utils_bin2hexstr (const guint8 *bin, gsize len)
+{
+    GString *ret;
+    gsize i;
+
+    g_return_val_if_fail (bin != NULL, NULL);
+
+    ret = g_string_sized_new (len * 2 + 1);
+    for (i = 0; i < len; i++)
+        g_string_append_printf (ret, "%.2X", bin[i]);
+    return g_string_free (ret, FALSE);
+}
+
+/* copied verbatim, including comments */
+const gchar *
+mm_sms_delivery_state_get_string_extended (guint delivery_state)
+{
+    if (delivery_state > 0x02 && delivery_state < 0x20) {
+        if (delivery_state < 0x10)
+            return "completed-reason-reserved";
+        else
+            return "completed-sc-specific-reason";
+    }
+
+    if (delivery_state > 0x25 && delivery_state < 0x40) {
+        if (delivery_state < 0x30)
+            return "temporary-error-reason-reserved";
+        else
+            return "temporary-error-sc-specific-reason";
+    }
+
+    if (delivery_state > 0x49 && delivery_state < 0x60) {
+        if (delivery_state < 0x50)
+            return "error-reason-reserved";
+        else
+            return "error-sc-specific-reason";
+    }
+
+    if (delivery_state > 0x65 && delivery_state < 0x80) {
+        if (delivery_state < 0x70)
+            return "temporary-fatal-error-reason-reserved";
+        else
+            return "temporary-fatal-error-sc-specific-reason";
+    }
+
+    if (delivery_state >= 0x80 && delivery_state < 0x100)
+        return "unknown-reason-reserved";
+
+    if (delivery_state >= 0x100)
+        return "unknown";
+
+    /* Otherwise, use the MMSmsDeliveryState enum as we can match the known
+     * value */
+    return mm_sms_delivery_state_get_string ((MMSmsDeliveryState)delivery_state);
+}
+
 /* from mmcli */
+
 const gchar *agh_mm_get_statechange_reason_string(MMModemStateChangeReason reason) {
 	switch (reason) {
 		case MM_MODEM_STATE_CHANGE_REASON_UNKNOWN:
@@ -149,6 +207,7 @@ const gchar *agh_mm_get_statechange_reason_string(MMModemStateChangeReason reaso
 	return NULL;
 }
 
+/* local */
 gchar *agh_mm_modem_to_index(const gchar *modem_path) {
 	GString *modem_index;
 	gsize modem_path_size;
