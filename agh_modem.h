@@ -41,6 +41,7 @@ struct agh_mm_state {
 	/* current command, used in agh_mm_handler (async calls) */
 	struct agh_cmd *current_cmd;
 	MMSim *sim;
+	GList *smslist;
 };
 
 gint agh_mm_init(struct agh_state *mstate);

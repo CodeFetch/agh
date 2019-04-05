@@ -362,6 +362,122 @@ out:
 	return retval;
 }
 
+static void agh_mm_handler_messaging_list_delete_finish(MMModemMessaging *messaging, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_modem_messaging_delete_finish(messaging, res, &mstate->mmstate->current_gerror)) {
+		case FALSE:
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+	}
+
+	return;
+}
+
+static gint agh_mm_handler_messaging_list_delete_all_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	GList *l;
+
+	if (mmstate->smslist) {
+		for (l = mmstate->smslist; l; l = g_list_next (l)) {
+			mm_modem_messaging_delete(mmstate->messaging, mm_sms_get_path(MM_SMS(l->data)), NULL, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
+		}
+	}
+	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_addtext(cmd, "delete_all_started", TRUE);
+	return 100;
+}
+
+static const struct agh_cmd_operation agh_modem_messaging_list_ops[] = {
+	{
+		.op_name = "da",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_messaging_list_delete_all_cb
+	},
+
+	{ }
+};
+
+static void agh_mm_handler_modem_sms_message_gate_exit_cb(MMModemMessaging *messaging, GAsyncResult *res, struct agh_state *mstate) {
+	GList *smslist;
+	GList *l;
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	struct agh_message *gate_msg;
+	config_setting_t *arg;
+
+	smslist = NULL;
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("no AGH ( / MM state)");
+		return;
+	}
+
+	smslist = mm_modem_messaging_list_finish(messaging, res, &mmstate->current_gerror);
+	if (!smslist) {
+		agh_log_mm_handler_crit("unable to get SMS list for %s",mm_modem_messaging_get_path(messaging));
+		agh_modem_report_gerror_message(&mmstate->current_gerror, mstate->comm);
+		goto out;
+	}
+	mmstate->smslist = smslist;
+
+	if ( (arg = agh_cmd_get_arg(mmstate->current_cmd, 3, CONFIG_TYPE_STRING)) ) {
+		agh_log_mm_handler_dbg("SMS global commands");
+		agh_cmd_op_match(mstate, agh_modem_messaging_list_ops, mmstate->current_cmd, 3);
+	}
+	else
+		if ( (arg = agh_cmd_get_arg(mmstate->current_cmd, 3, CONFIG_TYPE_INT)) ) {
+			agh_log_mm_handler_dbg("should search for message");
+		}
+		else {
+			agh_cmd_answer_set_status(mmstate->current_cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_cmd_answer_addtext(mmstate->current_cmd, "LIST_OK", TRUE);
+
+			for (l = smslist; l; l = g_list_next (l)) {
+				agh_mm_report_sms(mstate->comm, MM_SMS(l->data));
+			}
+
+		}
+
+out:
+	mmstate->smslist = NULL;
+	agh_log_mm_handler_dbg("unreferencing messages list");
+	g_list_free_full(smslist, g_object_unref);
+
+	if (mmstate->messaging) {
+		agh_log_mm_handler_dbg("unreferencing messaging object");
+		g_object_unref(mmstate->messaging);
+		mmstate->messaging = NULL;
+	}
+	else
+		agh_log_mm_handler_crit("messaging object not found?");
+
+	if (!mstate->comm->teardown_in_progress) {
+		gate_msg = agh_cmd_answer_msg(mmstate->current_cmd, mstate->comm, NULL);
+		if (agh_msg_send(gate_msg, mstate->comm, NULL)) {
+			agh_msg_dealloc(gate_msg);
+		}
+	}
+
+	agh_mm_handler_cmd_unstore(mstate);
+
+	return;
+}
+
+static gint agh_mm_handler_modem_sms_message_gate_enter_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem) {
+		if (!agh_mm_handler_cmd_store(mstate, cmd)) {
+			mmstate->messaging = mm_object_get_modem_messaging(mmstate->mmobject);
+			if (mmstate->messaging) {
+				mm_modem_messaging_list(mmstate->messaging, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_sms_message_gate_exit_cb, mstate);
+				agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+				agh_cmd_answer_addtext(cmd, "async_SMS_message_gate_traversal", TRUE);
+			}
+		}
+	}
+
+	return 100;
+}
+
 static void agh_mm_handler_modem_sim_gate_exit_cb(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	MMSim *sim;
 	struct agh_mm_state *mmstate = mstate->mmstate;
@@ -377,6 +493,7 @@ static void agh_mm_handler_modem_sim_gate_exit_cb(MMModem *modem, GAsyncResult *
 	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_handler_crit("unable to get SIM for modem %s",mm_modem_get_path(modem));
+		agh_modem_report_gerror_message(&mmstate->current_gerror, mstate->comm);
 		goto out;
 	}
 
@@ -910,6 +1027,12 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.max_args = 3,
 		.cmd_cb = agh_mm_handler_modem_sim_gate_enter_cb
 	},
+	{
+		.op_name = "sms",
+		.min_args = 0,
+		.max_args = 3,
+		.cmd_cb = agh_mm_handler_modem_sms_message_gate_enter_cb
+	},
 
 	{ }
 };
@@ -989,9 +1112,6 @@ static gint agh_mm_handler_release_objects(struct agh_state *mstate) {
 	if (mmstate->modemlocation)
 		g_clear_pointer(&mmstate->modemlocation, g_object_unref);
 
-	if (mmstate->messaging)
-		g_clear_pointer(&mmstate->messaging, g_object_unref);
-
 	if (mmstate->time)
 		g_clear_pointer(&mmstate->time, g_object_unref);
 
@@ -1045,8 +1165,6 @@ static gint agh_mm_handler_get_objects(struct agh_state *mstate, gint index) {
 	mmstate->modem3gppussd = mm_object_get_modem_3gpp_ussd(mmstate->mmobject);
 
 	mmstate->modemlocation = mm_object_get_modem_location(mmstate->mmobject);
-
-	mmstate->messaging = mm_object_get_modem_messaging(mmstate->mmobject);
 
 	mmstate->time = mm_object_get_modem_time(mmstate->mmobject);
 
