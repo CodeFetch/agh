@@ -713,11 +713,6 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 
 	agh_mm_start_bearer_checker(mstate);
 
-	agh_log_mm_crit("trying to connect bearer at %s",mm_bearer_get_path(b));
-
-	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
-	mstate->mmstate->global_bearer_connecting_lock = TRUE;
-
 out:
 	if (b)
 		g_object_unref(b);
