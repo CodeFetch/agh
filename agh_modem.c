@@ -503,18 +503,64 @@ out:
 	return status;
 }
 
-static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
+static void agh_mm_bearer_update_outside(MMBearer *b, GParamSpec *pspec, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	gint call_outside_error;
+
+	if (!b) {
+		agh_log_mm_crit("called with a NULL GObject? I did not think this was possible");
+		return;
+	}
+
+	call_outside_error = agh_mm_call_outside_helper(mstate, b);
+	if (call_outside_error) {
+		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
+	}
+
+	switch(mm_bearer_get_connected(b)) {
+		case TRUE:
+			agh_log_mm_dbg("we are connected!");
+			break;
+		case FALSE:
+			agh_log_mm_dbg("we are NOT connected...");
+			g_object_unref(b);
+			break;
+	}
+
+	return;
+}
+
+static gint agh_mm_bearer_signal(struct agh_state *mstate, MMBearer *b) {
+	gint retval;
+	gulong signal_id;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !b) {
+		agh_log_mm_crit("missing context when connecting signals to bearer");
+		retval = 71;
+		goto out;
+	}
+
+	signal_id = g_signal_connect(b, "notify::connected", G_CALLBACK(agh_mm_bearer_update_outside), mstate);
+	if (!signal_id) {
+		agh_log_mm_crit("failure while connecting signals to bearer");
+		retval = 72;
+		goto out;
+	}
+	agh_log_mm_dbg("signals connected to bearer %s",mm_bearer_get_path(b));
+
+out:
+	return retval;
+}
+
+static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
+	struct agh_state *mstate = user_data;
 
 	mstate->mmstate->global_bearer_connecting_lock = FALSE;
 	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("bearer successfully connected");
-			call_outside_error = agh_mm_call_outside_helper(mstate, b);
-			if (call_outside_error) {
-				agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
-			}
 			break;
 		case FALSE:
 			agh_log_mm_crit("failed to connect bearer");
@@ -529,7 +575,6 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 	MMBearer *b = MM_BEARER(data);
 	struct agh_state *mstate = user_data;
 	const gchar *bpath;
-	gint call_outside_error;
 
 	if (!b) {
 		agh_log_mm_crit("can not connect a NULL bearer");
@@ -539,14 +584,10 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 	if (mm_bearer_get_connected(b))
 		return;
 
-	call_outside_error = agh_mm_call_outside_helper(mstate, b);
-	if (call_outside_error) {
-		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
-	}
-
 	bpath = mm_bearer_get_path(b);
 
 	agh_log_mm_dbg("requesting for bearer %s to be connected", bpath);
+	agh_mm_bearer_signal(mstate, g_object_ref(b));
 	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
 	mstate->mmstate->global_bearer_connecting_lock = TRUE;
 	return;
@@ -716,6 +757,7 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 out:
 	if (b)
 		g_object_unref(b);
+
 	return;
 }
 
@@ -1683,13 +1725,16 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	}
 
 	mmstate = mstate->mmstate;
-	mmstate->global_bearer_connecting_lock = FALSE;
 
-	if (mmstate->bearers_check) {
-		g_source_destroy(mmstate->bearers_check);
-		mmstate->bearers_check = NULL;
-		mmstate->bearers_check_tag = 0;
-	}
+	if (mmstate->watch_id)
+		agh_mm_watch_deinit(mstate);
+
+	ret = agh_mm_mngr_deinit(mstate);
+	if (ret) {
+		agh_log_mm_crit("failure from agh_mm_mngr_deinit (code=%" G_GINT16_FORMAT")",ret);
+	}	
+
+	mmstate->global_bearer_connecting_lock = FALSE;
 
 	agh_mm_aghcomm = NULL;
 
@@ -1699,15 +1744,6 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 		mmstate->mctx = NULL;
 		mmstate->uci_package = NULL;
 	}
-
-	if (mmstate->current_cmd) {
-		agh_log_mm_crit("current_cmd ptr was still present");
-		agh_cmd_free(mmstate->current_cmd);
-		mmstate->current_cmd = NULL;
-	}
-
-	if (mmstate->watch_id)
-		agh_mm_watch_deinit(mstate);
 
 	g_free(mmstate);
 	mstate->mmstate = NULL;
