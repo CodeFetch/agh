@@ -1227,7 +1227,6 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 		return -ENOMEM;
 	}
 
-
 	mstate->xstate = g_try_malloc0(sizeof(struct xmpp_state));
 	if (!mstate->xstate) {
 		agh_log_xmpp_crit("failure while allocating XMPP state");
@@ -1247,6 +1246,7 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	agh_xmpp_config_init(mstate);
 
 	if (xstate->uci_ctx) {
+		xmpp_set_handlers_ext(mstate);
 		agh_xmpp_start_statemachine(mstate);
 	}
 	else
