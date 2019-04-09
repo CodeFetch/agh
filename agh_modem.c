@@ -565,6 +565,7 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 		case FALSE:
 			agh_log_mm_crit("failed to connect bearer");
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+			g_object_unref(b);
 			break;
 	}
 
