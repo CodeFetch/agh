@@ -1352,6 +1352,11 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 
 			break;
 		case MM_MODEM_STATE_DISABLED:
+			if (mstate->exiting) {
+				agh_log_mm_dbg("we are exiting, so this modem will not be enabled");
+				break;
+			}
+
 			retval = agh_mm_modem_bearers(mstate, modem, agh_mm_modem_delete_bearers);
 			if (retval)
 				agh_log_mm_crit("failure while deleting bearers (code=%" G_GINT16_FORMAT")",retval);
@@ -1560,6 +1565,54 @@ out:
 	return retval;
 }
 
+static gint agh_mm_disable_all_modems_sync(struct agh_state *mstate) {
+	GList *l;
+	GList *modems;
+	gint retval;
+	struct agh_mm_state *mmstate;
+	MMModem *m;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager) {
+		agh_log_mm_crit("AGH state, AGH MM state or manager object where not present");
+		retval = 20;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	modems = g_dbus_object_manager_get_objects(G_DBUS_OBJECT_MANAGER(mmstate->manager));
+
+	if (!modems) {
+		agh_log_mm_dbg("seems no modems have been found)");
+		goto out;
+	}
+
+	for (l = modems; l; l = g_list_next(l)) {
+		m = mm_object_get_modem(MM_OBJECT(l->data));
+		if (m) {
+			g_dbus_proxy_set_default_timeout(G_DBUS_PROXY(m), 5 * 1000);
+			if (!mm_modem_disable_sync(m, NULL, &mmstate->current_gerror)) {
+				agh_log_mm_crit("problem while disabling modem");
+				agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
+			}
+			else {
+				agh_log_mm_dbg("modem %s is now disabled",mm_modem_get_path(m));
+			}
+
+			g_object_unref(m);
+		}
+	}
+
+	retval = 0;
+
+	g_list_free_full(modems, g_object_unref);
+
+out:
+	return retval;
+}
+
 static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, struct agh_state *mstate) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	gint error;
@@ -1725,6 +1778,8 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	}
 
 	mmstate = mstate->mmstate;
+
+	agh_mm_disable_all_modems_sync(mstate);
 
 	if (mmstate->watch_id)
 		agh_mm_watch_deinit(mstate);
