@@ -16,7 +16,7 @@ include $(INCLUDE_DIR)/cmake.mk
 define Package/agh
   SECTION:=net
   CATEGORY:=Network
-  DEPENDS:=+libuci +libubus +ubusd +libubox +ubox +modemmanager +libstrophe +libnettle +libconfig
+  DEPENDS:=+libuci +libubus +ubusd +libubox +ubox +modemmanager +libstrophe +libnettle +libconfig +libblobmsg-json
   TITLE:=AGH XMPP control agent
   MAINTAINER:=Enrico Mioso <mrkiko.rs@gmail.com>
   PROVIDES:=agh
