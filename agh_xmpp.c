@@ -1235,8 +1235,6 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 
 	xstate = mstate->xstate;
 
-	xmpp_set_handlers_ext(mstate);
-
 	xstate->outxmpp_messages = g_queue_new();
 
 	agh_log_xmpp_crit("XMPP library init is taking place");
