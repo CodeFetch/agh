@@ -1593,7 +1593,7 @@ static gint agh_mm_disable_all_modems_sync(struct agh_state *mstate) {
 	for (l = modems; l; l = g_list_next(l)) {
 		m = mm_object_get_modem(MM_OBJECT(l->data));
 		if (m) {
-			g_dbus_proxy_set_default_timeout(G_DBUS_PROXY(m), 5 * 1000);
+			g_dbus_proxy_set_default_timeout(G_DBUS_PROXY(m), 45 * 1000);
 			if (!mm_modem_disable_sync(m, NULL, &mmstate->current_gerror)) {
 				agh_log_mm_crit("problem while disabling modem");
 				agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
