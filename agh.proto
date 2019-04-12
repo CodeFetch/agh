@@ -1,0 +1,193 @@
+#!/bin/sh
+
+[ -x /usr/bin/agh ] || exit 0
+[ -x /usr/bin/mmcli ] || exit 0
+[ -x /usr/sbin/ModemManager ] || exit 0
+
+[ -n "$INCLUDE_ONLY" ] || {
+	. /lib/functions.sh
+	. /lib/functions/network.sh
+	. ../netifd-proto.sh
+	init_proto "$@"
+}
+
+# Copied verbatim, including comment, from ModemManager protocol handler as found in ModemManager OpenWRt integration package
+cdr2mask() {
+	# Number of args to shift, 255..255, first non-255 byte, zeroes
+	set -- $(( 5 - ($1 / 8) )) 255 255 255 255 $(( (255 << (8 - ($1 % 8))) & 255 )) 0 0 0
+	[ $1 -gt 1 ] && shift $1 || shift
+	echo ${1-0}.${2-0}.${3-0}.${4-0}
+}
+
+proto_agh_init_config() {
+	no_device=1
+	available=1
+	echo "proto_agh_init_config params: $@"
+	proto_config_add_string "environment_fragments"
+}
+
+proto_agh_common_teardown() {
+	local cfg_interface="$1"
+
+	echo "common teardown code for $cfg_interface"
+
+	proto_init_update "*" 0
+	proto_send_update "${cfg_interface}"
+}
+
+proto_agh_dhcp_teardown() {
+	local cfg_interface="$1"
+
+	echo "DHCP teardown"
+
+	proto_agh_common_teardown "${cfg_interface}"
+}
+
+proto_agh_static_teardown() {
+	local cfg_interface="$1"
+
+	echo "static teardown ( ${cfg_interface} )"
+
+	proto_agh_common_teardown "${cfg_interface}"
+}
+
+proto_agh_interface_static() {
+	local cfg_interface="$1"
+	local fragments_path="$2"
+	local operation="$3"
+
+	local mask=""
+
+	case "$operation" in
+		down) proto_agh_static_teardown "${cfg_interface}" "${fragments_path}" "${operation}";;
+		up)
+			echo "static method"
+			[ -n "${BEARER_IP_ADDRESS}" ] || {
+				proto_notify_error "${cfg_interface}" ADDRESS_MISSING
+				return
+			}
+
+			[ -n "${BEARER_IP_PREFIX}" ] || {
+				proto_notify_error "${cfg_interface}" PREFIX_MISSING
+				return
+			}
+
+			mask=$(cdr2mask "${BEARER_IP_PREFIX}")
+
+			proto_init_update "${BEARER_INTERFACE}" 1
+			echo "adding IPv4 address ${BEARER_IP_ADDRESS}, netmask ${mask}"
+			proto_add_ipv4_address "${BEARER_IP_ADDRESS}" "${mask}"
+			[ -n "${BEARER_IP_GATEWAY}" ] && {
+				echo "adding default IPv4 route via ${BEARER_IP_GATEWAY}"
+				proto_add_ipv4_route "0.0.0.0" "0" "${BEARER_IP_GATEWAY}" "${BEARER_IP_ADDRESS}"
+				[ -n "${BEARER_IP_DNS_1}" ] && {
+					echo "adding primary DNS at ${BEARER_IP_DNS_1}"
+					proto_add_dns_server "${BEARER_IP_DNS_1}"
+				}
+
+				[ -n "${BEARER_IP_DNS_2}" ] && {
+					echo "adding secondary DNS at ${BEARER_IP_DNS_2}"
+					proto_add_dns_server "${BEARER_IP_DNS_2}"
+				}
+				proto_send_update "${cfg_interface}"
+			}
+		;;
+		*) echo "Unknown operation $operation while in DHCP method";;
+	esac
+}
+
+proto_agh_interface_dhcp() {
+	local cfg_interface="$1"
+	local fragments_path="$2"
+	local operation="$3"
+
+	case "$operation" in
+		down) proto_agh_dhcp_teardown "${cfg_interface}" "${fragments_path}" "${operation}";;
+		up)
+			proto_init_update "${BEARER_INTERFACE}" 1
+			proto_send_update "${cfg_interface}"
+
+			json_init
+			json_add_string name "${cfg_interface}_4"
+			json_add_string ifname "@${cfg_interface}"
+			json_add_string proto "dhcp"
+			ubus call network add_dynamic "$(json_dump)"
+		;;
+		*) echo "Unknown operation $operation while in DHCP method";;
+	esac
+}
+
+proto_agh_handle_bearers() {
+	local cfg_interface="$1"
+	local fragments_path="$2"
+	local operation="$3"
+	local available_items=$(ls -1 "${fragments_path}" | wc -l)
+
+	if [ "${available_items}" -eq 0 ]; then
+		echo "no bearer descriptions to process"
+		proto_notify_error "${cfg_interface}" NO_BEARER_DESCRIPTIONS
+		proto_block_restart "${cfg_interface}"
+		return 1
+	fi
+
+	ls -1 "${fragments_path}" | while read a; do
+		. "${fragments_path}"/"${a}"
+
+		echo "( ${BEARER_PATH} )"
+
+		case "$BEARER_IP_METHOD" in
+			static) proto_agh_interface_static "${cfg_interface}" "${fragments_path}" "${operation}";;
+			DHCP) proto_agh_interface_dhcp "${cfg_interface}" "${fragments_path}" "${operation}" ;;
+			*) echo "Unknown connection method $BEARER_IP_METHOD";;
+		esac
+		let processed_bearers++
+	done
+}
+
+proto_agh_setup() {
+	local cfg_interface="$1"
+
+	local environment_fragments
+	json_get_vars environment_fragments
+	echo "setup params: $@"
+
+	if [ -z "${environment_fragments}" ]; then
+		echo "unable to get environment fragments path"
+		proto_notify_error "${cfg_interface}" ENVIRONMENT_FRAGMENTS_PATH_MISSING
+		proto_set_available "${cfg_interface}" 0
+		return 1
+	fi
+
+	if [ ! -d "${environment_fragments}" ]; then
+		echo "fragments directory not found"
+		proto_notify_error "${cfg_interface}" ENVIRONMENT_FRAGMENTS_PATH_MISSING
+		proto_block_restart "${cfg_interface}"
+		return 1
+	fi
+
+	echo "Environment fragments at $environment_fragments"
+
+	proto_agh_handle_bearers "${cfg_interface}" "${environment_fragments}" "up"
+
+}
+
+proto_agh_teardown() {
+	local cfg_interface="$1"
+
+	local environment_fragments
+	json_get_vars environment_fragments
+
+	if [ -z "${environment_fragments}"  -o ! -d "${environment_fragments}" ]; then
+		echo "(teardown) unable to get environment fragments path, or specified directory does not exist"
+		return
+	fi
+
+	echo "Environment fragments at $environment_fragments"
+
+	proto_agh_handle_bearers "${cfg_interface}" "${environment_fragments}" "down"
+
+}
+
+[ -n "$INCLUDE_ONLY" ] || {
+	add_protocol agh
+}
