@@ -34,8 +34,10 @@ endef
 define Package/agh/install
 	$(INSTALL_DIR) $(1)/usr/bin
 	$(INSTALL_DIR) $(1)/opt
+	$(INSTALL_DIR) $(1)/lib/netifd/proto
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/agh $(1)/usr/bin
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bearer_setup_helper.sh $(1)/opt
+	$(INSTALL_BIN) agh.proto $(1)/lib/netifd/proto/agh.sh
 endef
 
 $(eval $(call BuildPackage,agh))
