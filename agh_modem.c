@@ -640,6 +640,41 @@ out:
 	return;
 }
 
+static gint agh_mm_modem_delete_all_bearers_sync(struct agh_state *mstate, MMModem *modem) {
+	GList *current_bearers;
+	GList *l;
+	MMBearer *b;
+	gint retval;
+
+	retval = 0;
+
+	current_bearers = mm_modem_list_bearers_sync(modem, NULL, &mstate->mmstate->current_gerror);
+	if (!current_bearers) {
+		agh_log_mm_crit("problem when requesting bearers list for deletion");
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+		retval = 15;
+		goto out;
+	}
+
+	for (l = current_bearers; l; l = g_list_next(l)) {
+		b = MM_BEARER(l->data);
+		if (b) {
+			if (!mm_modem_delete_bearer_sync(modem, mm_bearer_get_path(b), NULL, &mstate->mmstate->current_gerror)) {
+				agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+				retval = 81;
+			}
+			else {
+				agh_log_mm_dbg("bearer delete OK");
+			}
+		}
+	}
+
+	g_list_free_full(current_bearers, g_object_unref);
+
+out:
+	return retval;
+}
+
 static gint agh_mm_checker_get_modem(struct agh_state *mstate, MMObject *modem) {
 	gint retval;
 	MMModem *m;
@@ -1602,6 +1637,7 @@ static gint agh_mm_disable_all_modems_sync(struct agh_state *mstate) {
 
 	if (!modems) {
 		agh_log_mm_dbg("seems no modems have been found)");
+		retval = 21;
 		goto out;
 	}
 
@@ -1612,16 +1648,19 @@ static gint agh_mm_disable_all_modems_sync(struct agh_state *mstate) {
 			if (!mm_modem_disable_sync(m, NULL, &mmstate->current_gerror)) {
 				agh_log_mm_crit("problem while disabling modem");
 				agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
+				retval = 83;
 			}
 			else {
 				agh_log_mm_dbg("modem %s is now disabled",mm_modem_get_path(m));
+				retval = agh_mm_modem_delete_all_bearers_sync(mstate, m);
+				if (retval) {
+					agh_log_mm_crit("got failure from agh_mm_modem_delete_all_bearers_sync (code=%" G_GINT16_FORMAT")",retval);
+				}
 			}
 
 			g_object_unref(m);
 		}
 	}
-
-	retval = 0;
 
 	g_list_free_full(modems, g_object_unref);
 
