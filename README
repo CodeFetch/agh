@@ -82,10 +82,10 @@ The OpenWrt core contains some dependencies needed to build AGH, hence it will b
 OpenWrt image. Including the rpcd daemon and its plugins on the image may be useful.
 Other packages are contained in the feeds: selecting them during configuration should be sufficient.
 The only exception to these is the ModemManager package, which should be imported manually from the feed found here:
-https://bitbucket.org/aleksander0m/modemmanager-OpenWrt
+https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
 
 (e.g.: adding a like containing something like:
-src-git modemmanager https://bitbucket.org/aleksander0m/modemmanager-OpenWrt.git
+src-git modemmanager https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
 to your OpenWrt's build root directory feeds.conf.default before invoking the ./scripts/feeds script may be sufficient).
 
 Within this feed you will also get libqmi and libmbim.
