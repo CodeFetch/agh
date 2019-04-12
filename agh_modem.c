@@ -1620,6 +1620,12 @@ static void agh_mm_bootstrap(GDBusConnection *connection, GAsyncResult *res, str
 
 	error = 0;
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context while finishing manager object retrieval");
+		error++;
+		goto out;
+	}
+
 	mmstate->manager = mm_manager_new_finish(res, &mmstate->current_gerror);
 	if (!mmstate->manager) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
@@ -1784,11 +1790,6 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 
 	if (mmstate->watch_id)
 		agh_mm_watch_deinit(mstate);
-
-	ret = agh_mm_mngr_deinit(mstate);
-	if (ret) {
-		agh_log_mm_crit("failure from agh_mm_mngr_deinit (code=%" G_GINT16_FORMAT")",ret);
-	}	
 
 	mmstate->global_bearer_connecting_lock = FALSE;
 
