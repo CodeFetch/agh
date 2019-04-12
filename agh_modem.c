@@ -557,6 +557,14 @@ out:
 static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+
+		if (b)
+			g_object_unref(b);
+
+	}
+
 	mstate->mmstate->global_bearer_connecting_lock = FALSE;
 	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
@@ -860,6 +868,7 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	struct uci_section *default_bearer;
 	struct uci_section *system_profile_bearer;
 	gint retval;
+	const gchar **bearer_paths;
 
 	bearers_to_build = NULL;
 	sim = NULL;
@@ -868,6 +877,12 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	if (!sim) {
 		agh_log_mm_crit("unable to get SIM for modem %s while checking for defined bearers",mm_modem_get_path(modem));
 		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
+		goto out;
+	}
+
+	bearer_paths = (const gchar **)mm_modem_get_bearer_paths(modem);
+	if (bearer_paths && bearer_paths[0]) {
+		agh_log_mm_dbg("not creating bearers for this modem due to already present ones");
 		goto out;
 	}
 
