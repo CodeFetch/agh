@@ -24,6 +24,7 @@
 /* config options for AGH_MM_SECTION_MODEM. */
 #define AGH_MM_SECTION_MODEM_OPTION_EQUIPMENT_ID "Equipment_Identifier"
 #define AGH_MM_SECTION_MODEM_OPTION_ENABLE "enable"
+#define AGH_MM_SECTION_MODEM_OPTION_CONNECT "connect"
 #define AGH_MM_SECTION_MODEM_OPTION_SIMLIST_NAME "expected_simcards"
 #define AGH_MM_SECTION_MODEM_OPTION_BEARERSLIST "modem_bearers"
 #define AGH_MM_SECTION_MODEM_OPTION_REPORT_PROPSCHANGES "report_changes"

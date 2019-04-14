@@ -895,6 +895,35 @@ out:
 	return profile;
 }
 
+static gboolean agh_mm_modem_check_connected(struct agh_state *mstate, struct uci_section *modem_section) {
+	struct uci_option *connect_opt;
+	gboolean should_connect;
+
+	should_connect = TRUE;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx || !modem_section) {
+		agh_log_mm_crit("missing context");
+		goto out;
+	}
+
+	connect_opt = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_CONNECT);
+
+	switch(agh_mm_config_get_boolean(connect_opt)) {
+		case 0:
+			agh_log_mm_dbg("this modem will not be connected because of configuration data");
+			should_connect = FALSE;
+			break;
+		case 1:
+			break;
+		default:
+			agh_log_mm_crit("invalid option");
+			break;
+	}
+
+out:
+	return should_connect;
+}
+
 static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
 	MMSim *sim;
 	struct uci_section *sim_section;
@@ -934,6 +963,9 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 
 	/* and for this modem? */
 	modem_section = agh_mm_config_get_modem_section(mstate, modem);
+
+	if (!agh_mm_modem_check_connected(mstate, modem_section))
+		goto out;
 
 	bearers_to_build = agh_mm_config_get_referenced_sections(mstate, sim_section, AGH_MM_SECTION_SIMCARD_OPTION_BEARERSLIST);
 	if (!bearers_to_build) {
