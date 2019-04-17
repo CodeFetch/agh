@@ -515,10 +515,11 @@ static void agh_mm_handler_modem_sms_message_gate_exit_cb(MMModemMessaging *mess
 			/* if smslist is not NULL, then ... */
 		}
 		else {
-			agh_cmd_answer_set_status(mmstate->current_cmd, AGH_CMD_ANSWER_STATUS_OK);
-			agh_cmd_answer_addtext(mmstate->current_cmd, "LIST_OK", TRUE);
 
 			if (mmstate->smslist) {
+				agh_cmd_answer_set_status(mmstate->current_cmd, AGH_CMD_ANSWER_STATUS_OK);
+				agh_cmd_answer_addtext(mmstate->current_cmd, "LIST_OK", TRUE);
+
 				for (l = smslist; l; l = g_list_next (l)) {
 					agh_mm_report_sms(mstate->comm, MM_SMS(l->data));
 				}
