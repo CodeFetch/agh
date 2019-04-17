@@ -1,4 +1,10 @@
 #!/bin/sh
+# A lot of code found here has been copied from ModemManager OpenWRt integration package, found at
+# https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
+# so, author(s)'s copyright applies.
+# The cdr2mask function has been copied verbatim, including comments.
+#
+# A lot of thanks to Aleksander and all the contributors.
 
 [ -x /usr/bin/agh ] || exit 0
 [ -x /usr/bin/mmcli ] || exit 0
@@ -11,7 +17,6 @@
 	init_proto "$@"
 }
 
-# Copied verbatim, including comment, from ModemManager protocol handler as found in ModemManager OpenWRt integration package
 cdr2mask() {
 	# Number of args to shift, 255..255, first non-255 byte, zeroes
 	set -- $(( 5 - ($1 / 8) )) 255 255 255 255 $(( (255 << (8 - ($1 % 8))) & 255 )) 0 0 0
@@ -22,7 +27,7 @@ cdr2mask() {
 proto_agh_init_config() {
 	no_device=1
 	available=1
-	echo "proto_agh_init_config params: $@"
+	echo "proto_agh_init_config"
 	proto_config_add_string "environment_fragments"
 }
 
@@ -38,7 +43,7 @@ proto_agh_common_teardown() {
 proto_agh_dhcp_teardown() {
 	local cfg_interface="$1"
 
-	echo "DHCP teardown"
+	echo "DHCP teardown ( ${cfg_interface} )"
 
 	proto_agh_common_teardown "${cfg_interface}"
 }
@@ -57,6 +62,8 @@ proto_agh_interface_static() {
 	local operation="$3"
 
 	local mask=""
+	local mtu
+	local metric=100
 
 	case "$operation" in
 		down) proto_agh_static_teardown "${cfg_interface}" "${fragments_path}" "${operation}";;
@@ -77,20 +84,33 @@ proto_agh_interface_static() {
 			proto_init_update "${BEARER_INTERFACE}" 1
 			echo "adding IPv4 address ${BEARER_IP_ADDRESS}, netmask ${mask}"
 			proto_add_ipv4_address "${BEARER_IP_ADDRESS}" "${mask}"
-			[ -n "${BEARER_IP_GATEWAY}" ] && {
-				echo "adding default IPv4 route via ${BEARER_IP_GATEWAY}"
-				proto_add_ipv4_route "0.0.0.0" "0" "${BEARER_IP_GATEWAY}" "${BEARER_IP_ADDRESS}"
-				[ -n "${BEARER_IP_DNS_1}" ] && {
-					echo "adding primary DNS at ${BEARER_IP_DNS_1}"
-					proto_add_dns_server "${BEARER_IP_DNS_1}"
-				}
 
-				[ -n "${BEARER_IP_DNS_2}" ] && {
-					echo "adding secondary DNS at ${BEARER_IP_DNS_2}"
-					proto_add_dns_server "${BEARER_IP_DNS_2}"
-				}
-				proto_send_update "${cfg_interface}"
+			if [ -n "${AGH_PROFILE_BEARER_METRIC}" ]; then
+				metric="${AGH_PROFILE_BEARER_METRIC}"
+			fi
+
+			[ -n "${BEARER_IP_GATEWAY}" ] && {
+				echo "adding default IPv4 route via ${BEARER_IP_GATEWAY} (metric ${metric})"
+				proto_add_ipv4_route "0.0.0.0" "0" "${BEARER_IP_GATEWAY}" "${BEARER_IP_ADDRESS}" "${metric}"
 			}
+
+			[ -n "${BEARER_IP_DNS_1}" ] && {
+				echo "adding primary DNS at ${BEARER_IP_DNS_1}"
+				proto_add_dns_server "${BEARER_IP_DNS_1}"
+			}
+
+			[ -n "${BEARER_IP_DNS_2}" ] && {
+				echo "adding secondary DNS at ${BEARER_IP_DNS_2}"
+				proto_add_dns_server "${BEARER_IP_DNS_2}"
+			}
+
+			[ -n "${BEARER_IP_MTU}" ] && {
+				echo "MTU = ${BEARER_IP_MTU}"
+				ip link set mtu "${BEARER_IP_MTU}" dev "${BEARER_INTERFACE}"
+			}
+
+			proto_send_update "${cfg_interface}"
+
 		;;
 		*) echo "Unknown operation $operation while in DHCP method";;
 	esac
@@ -100,6 +120,9 @@ proto_agh_interface_dhcp() {
 	local cfg_interface="$1"
 	local fragments_path="$2"
 	local operation="$3"
+
+	local metric=100
+	local mtu
 
 	case "$operation" in
 		down) proto_agh_dhcp_teardown "${cfg_interface}" "${fragments_path}" "${operation}";;
@@ -111,6 +134,18 @@ proto_agh_interface_dhcp() {
 			json_add_string name "${cfg_interface}_4"
 			json_add_string ifname "@${cfg_interface}"
 			json_add_string proto "dhcp"
+
+			if [ -n "${AGH_PROFILE_BEARER_METRIC}" ]; then
+				metric="${AGH_PROFILE_BEARER_METRIC}"
+			fi
+
+			json_add_int metric "${metric}"
+
+			[ -n "${BEARER_IP_MTU}" ] && {
+				echo "MTU = ${BEARER_IP_MTU}"
+				json_add_int mtu "${BEARER_IP_MTU}"
+			}
+
 			ubus call network add_dynamic "$(json_dump)"
 		;;
 		*) echo "Unknown operation $operation while in DHCP method";;
