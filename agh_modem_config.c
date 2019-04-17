@@ -334,7 +334,7 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 	current_section = NULL;
 
 	if (!mmstate || !package_name) {
-		agh_log_mm_config_crit("passed AGH MM state where NULL, or NULL package name specified");
+		agh_log_mm_config_crit("passed AGH MM state was NULL, or NULL package name specified");
 		retval = 100;
 		goto out_noctx;
 	}
@@ -376,6 +376,12 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 
 	uci_foreach_element(&ptr.p->sections, e) {
 		current_section = uci_to_section(e);
+
+		if (!current_section->e.name || !strlen(current_section->e.name)) {
+			agh_log_mm_config_crit("section with an empty name");
+			retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION;
+			goto out;
+		}
 		section_type = AGH_MM_SECTION_UNKNOWN;
 
 		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_MODEM_NAME))
