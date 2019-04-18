@@ -85,8 +85,8 @@ proto_agh_interface_static() {
 			echo "adding IPv4 address ${BEARER_IP_ADDRESS}, netmask ${mask}"
 			proto_add_ipv4_address "${BEARER_IP_ADDRESS}" "${mask}"
 
-			if [ -n "${AGH_PROFILE_BEARER_METRIC}" ]; then
-				metric="${AGH_PROFILE_BEARER_METRIC}"
+			if [ -n "${AGH_PROFILE_BEARER_metric}" ]; then
+				metric="${AGH_PROFILE_BEARER_metric}"
 			fi
 
 			[ -n "${BEARER_IP_GATEWAY}" ] && {
@@ -135,8 +135,8 @@ proto_agh_interface_dhcp() {
 			json_add_string ifname "@${cfg_interface}"
 			json_add_string proto "dhcp"
 
-			if [ -n "${AGH_PROFILE_BEARER_METRIC}" ]; then
-				metric="${AGH_PROFILE_BEARER_METRIC}"
+			if [ -n "${AGH_PROFILE_BEARER_metric}" ]; then
+				metric="${AGH_PROFILE_BEARER_metric}"
 			fi
 
 			json_add_int metric "${metric}"
