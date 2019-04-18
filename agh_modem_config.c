@@ -13,7 +13,6 @@
 
 struct agh_mm_config_build_bearer_ctx {
 	struct agh_state *mstate;
-	MMBearer *bearer;
 	struct uci_section *section;
 };
 
@@ -383,11 +382,6 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 	uci_foreach_element(&ptr.p->sections, e) {
 		current_section = uci_to_section(e);
 
-		if (!current_section->e.name || !strlen(current_section->e.name)) {
-			agh_log_mm_config_crit("section with an empty name");
-			retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION;
-			goto out;
-		}
 		section_type = AGH_MM_SECTION_UNKNOWN;
 
 		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_MODEM_NAME))
@@ -787,6 +781,7 @@ gint agh_mm_config_build_bearer(struct agh_state *mstate, MMModem *modem, struct
 	struct uci_option *o;
 	MMBearerProperties *props;
 	gint status;
+	struct agh_mm_config_build_bearer_ctx *bctx;
 
 	status = 0;
 	props = NULL;
@@ -803,6 +798,13 @@ gint agh_mm_config_build_bearer(struct agh_state *mstate, MMModem *modem, struct
 	if (!props) {
 		agh_log_mm_config_crit("unable to obtain a MMBearerProperties object");
 		status = 11;
+		goto out;
+	}
+
+	bctx = agh_mm_config_build_bearer_ctx_init(mstate, s);
+	if (!bctx) {
+		agh_log_mm_config_crit("allocation failure from agh_mm_config_build_bearer_ctx_init");
+		status = 15;
 		goto out;
 	}
 
@@ -894,7 +896,7 @@ gint agh_mm_config_build_bearer(struct agh_state *mstate, MMModem *modem, struct
 
 	}
 
-	mm_modem_create_bearer(modem, props, NULL, (GAsyncReadyCallback)cb, mstate);
+	mm_modem_create_bearer(modem, props, NULL, (GAsyncReadyCallback)cb, bctx);
 
 out:
 	if (props)
@@ -959,24 +961,30 @@ gint agh_mm_config_build_bearer_ctx_deinit(struct agh_mm_config_build_bearer_ctx
 		retval++;
 	}
 	else {
-		g_clear_pointer(&ctx, g_free);
+		g_free(ctx);
 	}
 
 	return retval;
 }
 
-gint agh_mm_config_build_bearer_ctx_bearer(struct agh_mm_config_build_bearer_ctx *ctx, MMBearer *b) {
-	gint retval;
+struct agh_state *agh_mm_config_build_bearer_ctx_get_mstate(struct agh_mm_config_build_bearer_ctx *ctx) {
+	struct agh_state *mstate;
 
-	retval = 0;
+	mstate = NULL;
 
-	if (!ctx || !b) {
-		agh_log_mm_config_crit("NULL agh_mm_config_build_bearer_ctx structure or bearer");
-		retval++;
-	}
-	else {
-		ctx->bearer = b;
-	}
+	if (ctx)
+		mstate = ctx->mstate;
 
-	return retval;
+	return mstate;
+}
+
+struct uci_section *agh_mm_config_build_bearer_ctx_get_section(struct agh_mm_config_build_bearer_ctx *ctx) {
+	struct uci_section *section;
+
+	section = NULL;
+
+	if (ctx)
+		section = ctx->section;
+
+	return section;
 }

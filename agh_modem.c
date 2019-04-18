@@ -249,7 +249,7 @@ static gchar *agh_mm_call_outside_build_message_add_json_fragment(const gchar *n
 	return res;
 }
 
-static gchar *agh_mm_call_outside_build_message(MMBearer *b) {
+static gchar *agh_mm_call_outside_build_message(MMBearer *b, struct uci_section *section) {
 	GString *s;
 	gchar *numeric_quantity_string_tmp;
 	MMBearerIpConfig *ipv4_config;
@@ -262,6 +262,9 @@ static gchar *agh_mm_call_outside_build_message(MMBearer *b) {
 	gchar *dns_str_tmp;
 	struct agh_mm_iptypes_family_table *family;
 	int type;
+	struct uci_option *opt;
+	struct uci_element *e;
+	gchar *section_parsing_tmp;
 
 	s = g_string_new("{");
 	numeric_quantity_string_tmp = NULL;
@@ -440,12 +443,28 @@ static gchar *agh_mm_call_outside_build_message(MMBearer *b) {
 		ipv6_config = NULL;
 	}
 
+	if (section) {
+		str_tmp = agh_mm_call_outside_build_message_add_json_fragment("AGH_PROFILE_BEARER_SECTION", section->e.name, FALSE);
+		g_string_append(s, str_tmp);
+		g_free(str_tmp);
+		uci_foreach_element(&section->options, e) {
+			opt = uci_to_option(e);
+			if (opt->type == UCI_TYPE_STRING) {
+				section_parsing_tmp = g_strdup_printf("AGH_PROFILE_BEARER_%s",opt->e.name);
+				str_tmp = agh_mm_call_outside_build_message_add_json_fragment(section_parsing_tmp, opt->v.string, FALSE);
+				g_string_append(s, str_tmp);
+				g_free(str_tmp);
+				g_free(section_parsing_tmp);
+			}
+		}
+	}
+
 	g_string_append(s, "}");
 
 	return g_string_free(s, FALSE);
 }
 
-static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
+static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b, struct uci_section *s) {
 	gchar *ubus_call_bearers_info_message;
 	gchar *ubus_message;
 	gint status;
@@ -473,7 +492,7 @@ static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b) {
 		goto out;
 	}
 
-	ubus_call_bearers_info_message = agh_mm_call_outside_build_message(b);
+	ubus_call_bearers_info_message = agh_mm_call_outside_build_message(b, s);
 	if (!ubus_call_bearers_info_message) {
 		agh_log_mm_crit("no info message to pass");
 		status = 42;
@@ -512,7 +531,7 @@ static void agh_mm_bearer_update_outside(MMBearer *b, GParamSpec *pspec, gpointe
 		return;
 	}
 
-	call_outside_error = agh_mm_call_outside_helper(mstate, b);
+	call_outside_error = agh_mm_call_outside_helper(mstate, b, NULL);
 	if (call_outside_error) {
 		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
 	}
@@ -786,8 +805,18 @@ out:
 
 static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_data) {
 	MMModem *modem = MM_MODEM(o);
-	struct agh_state *mstate = user_data;
+	struct agh_mm_config_build_bearer_ctx *bctx = user_data;
 	MMBearer *b;
+	struct agh_state *mstate;
+	struct uci_section *section;
+	gint call_outside_error;
+
+	mstate = agh_mm_config_build_bearer_ctx_get_mstate(bctx);
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		goto out;
+	}
 
 	b = mm_modem_create_bearer_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!b) {
@@ -797,6 +826,14 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	}
 
 	agh_mm_start_bearer_checker(mstate);
+
+	section = agh_mm_config_build_bearer_ctx_get_section(bctx);
+	agh_mm_config_build_bearer_ctx_deinit(bctx);
+
+	call_outside_error = agh_mm_call_outside_helper(mstate, b, section);
+	if (call_outside_error) {
+		agh_log_mm_crit("failure from agh_mm_call_outside_helper (code=%" G_GINT16_FORMAT")",call_outside_error);
+	}
 
 out:
 	if (b)

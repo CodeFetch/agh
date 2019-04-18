@@ -86,6 +86,8 @@ struct uci_section *agh_mm_get_default_bearer(struct agh_state *mstate);
 
 struct agh_mm_config_build_bearer_ctx *agh_mm_config_build_bearer_ctx_init(struct agh_state *mstate, struct uci_section *section);
 gint agh_mm_config_build_bearer_ctx_deinit(struct agh_mm_config_build_bearer_ctx *ctx);
-gint agh_mm_config_build_bearer_ctx_bearer(struct agh_mm_config_build_bearer_ctx *ctx, MMBearer *b);
+
+struct agh_state *agh_mm_config_build_bearer_ctx_get_mstate(struct agh_mm_config_build_bearer_ctx *ctx);
+struct uci_section *agh_mm_config_build_bearer_ctx_get_section(struct agh_mm_config_build_bearer_ctx *ctx);
 
 #endif
