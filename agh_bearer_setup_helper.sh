@@ -3,6 +3,7 @@
 BEARERS_DESCRIPTIONS_BASE_DIR="/tmp/"
 BEARERS_DESCRIPTIONS_PATH="${BEARERS_DESCRIPTIONS_BASE_DIR}/bearers_descriptions"
 CURRENT_BFILE=""
+INCOMPLETE_BEARERS_DESCRIPTIONS=0
 
 # . /tmp/data_model
 
@@ -22,9 +23,14 @@ process_bearer_data() {
 	echo "Processing bearer data for ${BEARER_PATH}"
 
 	if [ "${BEARER_INTERFACE}" == "unknown" ]; then
-		rm "${BFILE}"
+		if [ ! -n "${AGH_PROFILE_BEARER_SECTION}" ]; then
+			rm "${BFILE}"
+		else
+			set | grep 'AGH_PROFILE_BEARER_' >"${BFILE}"
+			INCOMPLETE_BEARERS_DESCRIPTIONS=1
+		fi
 	else
-		set | grep 'BEARER_' >"${BFILE}"
+		set | grep 'BEARER_' >>"${BFILE}"
 	fi
 }
 
@@ -47,5 +53,10 @@ if [ ! -z "${BEARER_PATH}" ]; then
 	bearer_descriptions_dir_init
 	process_bearer_data
 	update_bearers_descriptions
-	ifup agh_mm
+
+	if [ "${INCOMPLETE_BEARERS_DESCRIPTIONS}" -eq 0 ]; then
+		ifup agh_mm
+	else
+		echo "Incomplete bearers descriptions are present, not causing the protocol handler to refresh its knowledge."
+	fi
 fi

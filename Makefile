@@ -28,7 +28,7 @@ define Package/agh/description
 endef
 
 define Build/Prepare
-	$(CP) bearer_setup_helper.sh *.c *.h CMakeLists.txt $(PKG_BUILD_DIR)/
+	$(CP) agh_bearer_setup_helper.sh *.c *.h CMakeLists.txt $(PKG_BUILD_DIR)/
 endef
 
 define Package/agh/install
@@ -36,7 +36,7 @@ define Package/agh/install
 	$(INSTALL_DIR) $(1)/opt
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/agh $(1)/usr/bin
-	$(INSTALL_BIN) $(PKG_BUILD_DIR)/bearer_setup_helper.sh $(1)/opt
+	$(INSTALL_BIN) $(PKG_BUILD_DIR)/agh_bearer_setup_helper.sh $(1)/opt
 	$(INSTALL_BIN) agh.proto $(1)/lib/netifd/proto/agh.sh
 endef
 

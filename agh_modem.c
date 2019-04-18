@@ -499,7 +499,7 @@ static gint agh_mm_call_outside_helper(struct agh_state *mstate, MMBearer *b, st
 		goto out;
 	}
 
-	ubus_message = g_strdup_printf("{\"command\":\"/opt/bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
+	ubus_message = g_strdup_printf("{\"command\":\"/opt/agh_bearer_setup_helper.sh\",\"env\":%s}", ubus_call_bearers_info_message);
 
 	status = agh_ubus_call(mstate->uctx, "file", "exec", ubus_message);
 	if (status) {

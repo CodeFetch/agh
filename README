@@ -657,7 +657,7 @@ BEARER_IPV6_MTU
 
 6.3.3.2. A sample bearer setup helper implementation
 ===============================================================================
-AGH ships with a bearer setup helper script, namely "bearer_setup_helper.sh". This script is expected to be located in the /opt
+AGH ships with a bearer setup helper script, namely "agh_bearer_setup_helper.sh". This script is expected to be located in the /opt
 folder of the filesystem. Upon startup, it inspects the environment for the required variables, adding and removing entries
 from the OpenWrt Networking subsystem via UCI calls.
 Due to the approach used, this script may leave stale interfaces present on the system. To this end, it tries to clean up stale
