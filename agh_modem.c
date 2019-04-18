@@ -1930,12 +1930,6 @@ static gint agh_mm_init_ready(struct agh_state *mstate) {
 		goto out;
 	}
 
-	ret = agh_modem_set_handler_ext(mstate);
-	if (ret) {
-		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",ret);
-		goto out;
-	}
-
 	agh_mm_aghcomm = mstate->comm;
 
 out:
@@ -1973,6 +1967,18 @@ gint agh_mm_init(struct agh_state *mstate) {
 	if (!mstate || mstate->ubus_wait_src || mstate->ubus_wait_src_tag) {
 		agh_log_mm_crit("missing or unexpected AGH state");
 		retval = 15;
+		goto out;
+	}
+
+	if (!mstate->uctx) {
+		agh_log_mm_crit("ubus setup failure, we will not wait for ubus");
+		retval = 16;
+		goto out;
+	}
+
+	retval = agh_modem_set_handler_ext(mstate);
+	if (retval) {
+		agh_log_mm_crit("got failure from agh_modem_set_handler_ext (code=%" G_GINT16_FORMAT")",retval);
 		goto out;
 	}
 
