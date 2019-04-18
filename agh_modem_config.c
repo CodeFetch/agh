@@ -11,6 +11,12 @@
 #define agh_log_mm_config_dbg(message, ...) agh_log_dbg(AGH_LOG_DOMAIN_MODEM_CONFIG, message, ##__VA_ARGS__)
 #define agh_log_mm_config_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM_CONFIG, message, ##__VA_ARGS__)
 
+struct agh_mm_config_build_bearer_ctx {
+	struct agh_state *mstate;
+	MMBearer *bearer;
+	struct uci_section *section;
+};
+
 static gint agh_modem_validate_config_modem_section(struct uci_section *s, GQueue **referenced_sims, GQueue **referenced_modem_bearers, GError **error) {
 	gboolean equipment_id_found;
 	struct uci_element *e;
@@ -919,4 +925,58 @@ struct uci_section *agh_mm_get_default_bearer(struct agh_state *mstate) {
 	}
 
 	return default_bearer_section;
+}
+
+struct agh_mm_config_build_bearer_ctx *agh_mm_config_build_bearer_ctx_init(struct agh_state *mstate, struct uci_section *section) {
+	struct agh_mm_config_build_bearer_ctx *ctx;
+
+	ctx = NULL;
+
+	if (!mstate || !section) {
+		agh_log_mm_config_crit("missing AGH state or UCi section");
+		return ctx;
+	}
+
+	ctx = g_try_malloc0(sizeof(*ctx));
+	if (!ctx) {
+		agh_log_mm_config_crit("allocation failure");
+		return ctx;
+	}
+
+	ctx->mstate = mstate;
+	ctx->section = section;
+
+	return ctx;
+}
+
+gint agh_mm_config_build_bearer_ctx_deinit(struct agh_mm_config_build_bearer_ctx *ctx) {
+	gint retval;
+
+	retval = 0;
+
+	if (!ctx) {
+		agh_log_mm_config_dbg("NULL agh_mm_config_build_bearer_ctx structure");
+		retval++;
+	}
+	else {
+		g_clear_pointer(&ctx, g_free);
+	}
+
+	return retval;
+}
+
+gint agh_mm_config_build_bearer_ctx_bearer(struct agh_mm_config_build_bearer_ctx *ctx, MMBearer *b) {
+	gint retval;
+
+	retval = 0;
+
+	if (!ctx || !b) {
+		agh_log_mm_config_crit("NULL agh_mm_config_build_bearer_ctx structure or bearer");
+		retval++;
+	}
+	else {
+		ctx->bearer = b;
+	}
+
+	return retval;
 }
