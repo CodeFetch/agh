@@ -765,15 +765,15 @@ static gint agh_mm_start_bearer_checker(struct agh_state *mstate) {
 		mmstate->bearers_check = g_timeout_source_new(45000);
 		g_source_set_callback(mmstate->bearers_check, agh_mm_checker, mstate, NULL);
 		mmstate->bearers_check_tag = g_source_attach(mmstate->bearers_check, mstate->ctx);
+
+		g_source_unref(mmstate->bearers_check);
+
 		if (!mmstate->bearers_check_tag) {
 			agh_log_mm_crit("failed to attach checker to GMainContext");
-			g_source_destroy(mmstate->bearers_check);
 			mmstate->bearers_check = NULL;
 			retval = 71;
 			goto out;
 		}
-
-		g_source_unref(mmstate->bearers_check);
 
 	}
 	else {
@@ -1895,7 +1895,7 @@ out:
 	return ret;
 }
 
-gint agh_mm_init(struct agh_state *mstate) {
+static gint agh_mm_init_ready(struct agh_state *mstate) {
 	struct agh_mm_state *mmstate;
 	gint ret;
 
@@ -1943,6 +1943,53 @@ out:
 		agh_mm_deinit(mstate);
 
 	return ret;
+}
+
+static gboolean agh_mm_init_check(gpointer data) {
+	struct agh_state *mstate = data;
+	gint report_retval;
+
+	if (agh_ubus_connection_state == AGH_UBUS_STATE_CONNECTED) {
+		agh_log_mm_dbg("ubus connection is present, proceeding with init");
+		mstate->ubus_wait_src = NULL;
+		mstate->ubus_wait_src_tag = 0;
+
+		report_retval = agh_mm_init_ready(mstate);
+		if (report_retval)
+			agh_log_mm_crit("failure from agh_mm_init_ready (code=%" G_GINT16_FORMAT")", report_retval);
+
+		return FALSE;
+	}
+
+	return TRUE;
+}
+
+gint agh_mm_init(struct agh_state *mstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mstate || mstate->ubus_wait_src || mstate->ubus_wait_src_tag) {
+		agh_log_mm_crit("missing or unexpected AGH state");
+		retval = 15;
+		goto out;
+	}
+
+	mstate->ubus_wait_src = g_timeout_source_new(5000);
+	g_source_set_callback(mstate->ubus_wait_src, agh_mm_init_check, mstate, NULL);
+
+	/* attach timeout GSource to GMainContext */
+	mstate->ubus_wait_src_tag = g_source_attach(mstate->ubus_wait_src, mstate->ctx);
+	g_source_unref(mstate->ubus_wait_src);
+	if (!mstate->ubus_wait_src_tag) {
+		agh_log_mm_crit("unable to attach timeout GSource to GMainContext");
+		retval = 14;
+		mstate->ubus_wait_src = NULL;
+		goto out;
+	}
+
+out:
+	return retval;
 }
 
 gint agh_modem_report_gerror_message(GError **error, struct agh_comm *comm) {

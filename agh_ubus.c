@@ -397,15 +397,15 @@ struct agh_ubus_ctx *agh_ubus_setup(struct agh_comm *comm, gint *retvptr) {
 	uctx->agh_ubus_timeoutsrc = g_timeout_source_new(AGH_UBUS_POLL_INTERVAL);
 	g_source_set_callback(uctx->agh_ubus_timeoutsrc, agh_ubus_handle_events, uctx, NULL);
 	uctx->agh_ubus_timeoutsrc_tag = g_source_attach(uctx->agh_ubus_timeoutsrc, uctx->gmctx);
+
+	g_source_unref(uctx->agh_ubus_timeoutsrc);
+
 	if (!uctx->agh_ubus_timeoutsrc_tag) {
 		agh_log_ubus_crit("error while attaching the ubus timeout source to GMainContext");
-		g_source_destroy(uctx->agh_ubus_timeoutsrc);
 		uctx->agh_ubus_timeoutsrc = NULL;
 		*retvptr = -3;
 		goto wayout;
 	}
-
-	g_source_unref(uctx->agh_ubus_timeoutsrc);
 
 wayout:
 
@@ -414,6 +414,7 @@ wayout:
 		if (uctx) {
 			g_free(uctx->event_handler);
 			g_free(uctx);
+			uctx = NULL;
 		}
 
 	}

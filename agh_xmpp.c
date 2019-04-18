@@ -1204,17 +1204,16 @@ static gboolean xmpp_idle(gpointer data) {
 static gint agh_xmpp_start_statemachine(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
-	mstate->mainloop_needed++;
 	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, mstate, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, mstate->ctx);
+	g_source_unref(xstate->xmpp_evs);
 	if (!xstate->xmpp_evs_tag) {
 		agh_log_xmpp_crit("unable to attach our GSource to GMainContext");
-		g_source_destroy(xstate->xmpp_evs);
 		xstate->xmpp_evs = NULL;
 		return 1;
 	}
-	g_source_unref(xstate->xmpp_evs);
+	mstate->mainloop_needed++;
 
 	return 0;
 }

@@ -64,15 +64,14 @@ static gint agh_start_exit(struct agh_state *mstate) {
 	mstate->exitsrc = g_idle_source_new();
 	g_source_set_callback(mstate->exitsrc, exitsrc_idle_cb, mstate, NULL);
 	mstate->exitsrc_tag = g_source_attach(mstate->exitsrc, mstate->ctx);
+	g_source_unref(mstate->exitsrc);
 	if (!mstate->exitsrc_tag) {
 		agh_log_core_crit("unable to attach mstate->exitsrc GSource to GMainContext");
-		g_source_destroy(mstate->exitsrc);
 		mstate->exitsrc = NULL;
 		retval = 3;
 		goto out;
 	}
 
-	g_source_unref(mstate->exitsrc);
 	mstate->exiting = 1;
 
 	retval = agh_mm_deinit(mstate);
@@ -151,7 +150,7 @@ static void agh_hello(void) {
 }
 
 /*
- * This is a GLib GSource, invoked upon UNIX SIGINT signal reception.
+ * This is a GLib GSource, invoked upon UNIX SIGINT signal reception, in this case.
  * This function should respect GLib GSources semantics.
 */
 static gboolean agh_unix_signals_cb(gpointer data) {
@@ -159,7 +158,7 @@ static gboolean agh_unix_signals_cb(gpointer data) {
 	gint retval;
 
 	if (!mstate) {
-		agh_log_core_crit("we can not, literally, be called with a NULL AGH state");
+		agh_log_core_crit("we can not be called with a NULL AGH state");
 		return FALSE;
 	}
 
@@ -218,26 +217,23 @@ static gint agh_sources_setup(struct agh_state *mstate) {
 	mstate->agh_main_unix_signals = g_unix_signal_source_new(SIGINT);
 	g_source_set_callback(mstate->agh_main_unix_signals, agh_unix_signals_cb, mstate, NULL);
 	mstate->agh_main_unix_signals_tag = g_source_attach(mstate->agh_main_unix_signals, mstate->ctx);
+	g_source_unref(mstate->agh_main_unix_signals);
 	if (!mstate->agh_main_unix_signals_tag) {
 		agh_log_core_crit("failure while attaching mstate->agh_main_unix_signals to GMainContext");
-		g_source_destroy(mstate->agh_main_unix_signals);
 		mstate->agh_main_unix_signals = NULL;
 		retval = 2;
 		goto out;
 	}
-
-	g_source_unref(mstate->agh_main_unix_signals);
 
 out:
 	return retval;
 }
 
 /*
- * Deallocates core GSOurces, at the moment UNIX signals interception only.
+ * Deallocates core GSOurces, at the moment UNIX signals interception and the timeout GSource used by the MM interaction code to wait for ubus.
  *
  * Returns: an integer with value 0 on success, or
- *  - 1: when no AGH state was present
- *  - 2: signal source wasn't attached to GMainContext, after all
+ *  - 10: when no AGH state was present
 */
 static gint agh_sources_teardown(struct agh_state *mstate) {
 	gint retval;
@@ -250,17 +246,22 @@ static gint agh_sources_teardown(struct agh_state *mstate) {
 		goto out;
 	}
 
-	if (!mstate->agh_main_unix_signals_tag || !mstate->agh_main_unix_signals) {
-		agh_log_core_crit("seems no UNIX signals interception was not present");
-		retval = 2;
-		goto out;
+	if (mstate->agh_main_unix_signals) {
+		agh_log_core_dbg("UNIX signals interception GSource was present");
+
+		if (!mstate->sigint_received)
+			g_source_destroy(mstate->agh_main_unix_signals);
+
+		mstate->agh_main_unix_signals_tag = 0;
+		mstate->agh_main_unix_signals = NULL;
 	}
 
-	if (!mstate->sigint_received)
-		g_source_destroy(mstate->agh_main_unix_signals);
-
-	mstate->agh_main_unix_signals_tag = 0;
-	mstate->agh_main_unix_signals = NULL;
+	if (mstate->ubus_wait_src) {
+		agh_log_core_dbg("ubus wait src for MM interaction code was present");
+		g_source_destroy(mstate->ubus_wait_src);
+		mstate->ubus_wait_src = NULL;
+		mstate->ubus_wait_src_tag = 0;
+	}
 
 out:
 	return retval;

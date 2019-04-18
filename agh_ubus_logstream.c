@@ -248,16 +248,14 @@ static gint agh_ubus_logstream_channel_init(struct agh_ubus_logstream_ctx *lctx,
 	lctx->logwatcher = g_io_create_watch(lctx->logstream_channel, G_IO_IN | G_IO_PRI | G_IO_ERR | G_IO_HUP);
 	g_source_set_callback(lctx->logwatcher, G_SOURCE_FUNC(agh_ubus_logstream_channel_io), lctx, NULL);
 	lctx->logwatcher_id = g_source_attach(lctx->logwatcher, gmctx);
+	g_source_unref(lctx->logwatcher);
 	if (!lctx->logwatcher_id) {
 		agh_log_ubus_logstream_crit("failed to attach logwatcher to this GmainContext");
-		g_source_unref(lctx->logwatcher);
 		lctx->logwatcher = NULL;
 		agh_ubus_logstream_channel_deinit(lctx);
 		retval = 23;
 		goto wayout;
 	}
-
-	g_source_unref(lctx->logwatcher);
 
 	agh_log_ubus_logstream_dbg("channel *SEEMS* OK");
 
@@ -464,16 +462,14 @@ gint agh_ubus_logstream_init(struct agh_ubus_ctx *uctx) {
 	lctx->logstream_reconnect = g_timeout_source_new(AGH_UBUS_LOGSTREAM_CHECK_INTERVAL);
 	g_source_set_callback(lctx->logstream_reconnect, agh_ubus_logstream_statemachine, uctx, NULL);
 	lctx->logstream_reconnect_tag = g_source_attach(lctx->logstream_reconnect, uctx->gmctx);
+	g_source_unref(lctx->logstream_reconnect);
+	lctx->fd = -1;
 	if (!lctx->logstream_reconnect_tag) {
 		agh_log_ubus_logstream_crit("failed to attach logstream timeout source to GMainContext");
-		g_source_destroy(lctx->logstream_reconnect);
 		lctx->logstream_reconnect = NULL;
 		retval = 4;
 		goto wayout;
 	}
-
-	g_source_unref(lctx->logstream_reconnect);
-	lctx->fd = -1;
 
 wayout:
 	return retval;

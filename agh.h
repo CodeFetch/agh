@@ -35,7 +35,7 @@ struct agh_state {
 	/* For parts of the program, like XMPP, who need the main loop to be running to properly deinitit. */
 	guint mainloop_needed;
 
-	/* Used to  signal we are going to exit. */
+	/* Used to signal we are going to exit. */
 	gint exiting;
 
 	/* Idle source for exiting. */
@@ -48,6 +48,10 @@ struct agh_state {
 
 	/* comm */
 	struct agh_comm *comm;
+
+	/* used by MM to wait for ubus, may be extended to be more general */
+	GSource *ubus_wait_src;
+	guint ubus_wait_src_tag;
 };
 
 /* Function prototypes */
