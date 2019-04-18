@@ -1925,6 +1925,7 @@ static gint agh_mm_init_ready(struct agh_state *mstate) {
 
 	ret = agh_mm_watch_init(mstate);
 	if (ret) {
+		agh_log_mm_crit("failure from agh_mm_watch_init (code=%" G_GINT16_FORMAT")", ret);
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
 	}
