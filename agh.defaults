@@ -1,0 +1,28 @@
+#!/bin/sh
+
+# uci-defaults script that creates an agh_mm interface in the network UCI package, and adds it to the wan zone of the firewall.
+
+. /lib/functions.sh
+
+[ "$(uci -q get network.agh_mm)" = "interface" ] && exit 0
+
+add_agh_mm_interface_to_firewall_wan_zone() {
+	config_get zone_name "${section}" name
+	if [ "${zone_name}" = "wan" ]; then
+
+		uci batch <<EOF
+add_list firewall."${section}".network="agh_mm"
+EOF
+
+	fi
+}
+
+config_load firewall
+config_foreach add_agh_mm_interface_to_firewall_wan_zone zone
+
+uci batch <<EOF
+set network.agh_mm=interface
+set network.agh_mm.proto=agh
+set network.agh_mm.environment_fragments="/tmp/bearers_descriptions"
+commit
+EOF
