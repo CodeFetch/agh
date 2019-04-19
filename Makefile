@@ -39,7 +39,7 @@ define Package/agh/install
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/agh $(1)/usr/bin
 	$(INSTALL_BIN) agh_bearer_setup_helper.sh $(1)/opt
 	$(INSTALL_BIN) agh.proto $(1)/lib/netifd/proto/agh.sh
-	$(INSTALL_BIN) agh.defaults $(1)/etc/uci-defaults
+	$(INSTALL_BIN) wwan_agh.defaults $(1)/etc/uci-defaults
 endef
 
 $(eval $(call BuildPackage,agh))
