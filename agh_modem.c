@@ -1248,7 +1248,35 @@ static void agh_mm_modem_enable_finish(MMModem *modem, GAsyncResult *res, struct
 	return;
 }
 
-static gint agh_mm_modem_enable(struct agh_state *mstate, MMModem *modem) {
+static gint agh_mm_setup_modes(struct agh_state *mstate, MMModem *modem, struct uci_section *modem_section) {
+	const gchar *allowed_modes_str;
+	const gchar *preferred_mode_str;
+	struct uci_option *o;
+
+	allowed_modes_str = NULL;
+	preferred_mode_str = NULL;
+
+	o = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_ALLOWED_MODES);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		allowed_modes_str = o->v.string;
+	}
+	else {
+		agh_log_mm_dbg("missing or invalid modes config option");
+		return 10;
+	}
+
+	o = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_PREFERRED_MODE);
+	if (o && (o->type == UCI_TYPE_STRING)) {
+		preferred_mode_str = o->v.string;
+	}
+
+	if (allowed_modes_str)
+		return agh_mm_modem_set_modes(mstate, modem, allowed_modes_str, preferred_mode_str);
+
+	return 0;
+}
+
+static gint agh_mm_modem_enable_setup(struct agh_state *mstate, MMModem *modem) {
 	gint retval;
 	struct uci_section *modem_section;
 	struct uci_option *enable_opt;
@@ -1269,6 +1297,11 @@ static gint agh_mm_modem_enable(struct agh_state *mstate, MMModem *modem) {
 		agh_log_mm_crit("unable to to find a valid configuration section for this modem");
 	}
 	else {
+
+		retval = agh_mm_setup_modes(mstate, modem, modem_section);
+		if (retval) {
+			agh_log_mm_crit("failure from agh_mm_setup_modes (code=%" G_GINT16_FORMAT")",retval);
+		}
 
 		enable_opt = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_ENABLE);
 
@@ -1481,9 +1514,9 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 			if (retval)
 				agh_log_mm_crit("failure while deleting bearers (code=%" G_GINT16_FORMAT")",retval);
 
-			retval = agh_mm_modem_enable(mstate, modem);
+			retval = agh_mm_modem_enable_setup(mstate, modem);
 			if (retval)
-				agh_log_mm_crit("failure from agh_mm_modem_enable (code=%" G_GINT16_FORMAT")",retval);
+				agh_log_mm_crit("failure from agh_mm_modem_enable_setup (code=%" G_GINT16_FORMAT")",retval);
 			break;
 		case MM_MODEM_STATE_DISABLING:
 			agh_log_mm_crit("modem %s is being disabled",mm_modem_get_path(modem));
