@@ -132,7 +132,7 @@ gchar *agh_mm_common_build_bands_string(const MMModemBand *bands, guint n_bands)
 }
 
 gchar *
-mm_utils_bin2hexstr (const guint8 *bin, gsize len)
+agh_mm_utils_bin2hexstr (const guint8 *bin, gsize len)
 {
     GString *ret;
     gsize i;
@@ -147,7 +147,7 @@ mm_utils_bin2hexstr (const guint8 *bin, gsize len)
 
 /* copied verbatim, including comments */
 const gchar *
-mm_sms_delivery_state_get_string_extended (guint delivery_state)
+agh_mm_sms_delivery_state_get_string_extended (guint delivery_state)
 {
     if (delivery_state > 0x02 && delivery_state < 0x20) {
         if (delivery_state < 0x10)
@@ -205,6 +205,56 @@ const gchar *agh_mm_get_statechange_reason_string(MMModemStateChangeReason reaso
 	}
 
 	return NULL;
+}
+
+MMModemMode
+agh_mm_common_get_modes_from_string (const gchar *str, const gchar *separator,
+                                 GError **error)
+{
+    GError *inner_error = NULL;
+    MMModemMode modes;
+    gchar **mode_strings;
+    GFlagsClass *flags_class;
+
+    modes = MM_MODEM_MODE_NONE;
+
+    flags_class = G_FLAGS_CLASS (g_type_class_ref (MM_TYPE_MODEM_MODE));
+    mode_strings = g_strsplit (str, separator, -1);
+
+    if (mode_strings) {
+        guint i;
+
+        for (i = 0; mode_strings[i]; i++) {
+            guint j;
+            gboolean found = FALSE;
+
+            for (j = 0; flags_class->values[j].value_nick; j++) {
+                if (!g_ascii_strcasecmp (mode_strings[i], flags_class->values[j].value_nick)) {
+                    modes |= flags_class->values[j].value;
+                    found = TRUE;
+                    break;
+                }
+            }
+
+            if (!found) {
+                inner_error = g_error_new (
+                    MM_CORE_ERROR,
+                    MM_CORE_ERROR_INVALID_ARGS,
+                    "Couldn't match '%s' with a valid MMModemMode value",
+                    mode_strings[i]);
+                break;
+            }
+        }
+    }
+
+    if (inner_error) {
+        g_propagate_error (error, inner_error);
+        modes = MM_MODEM_MODE_NONE;
+    }
+
+    g_type_class_unref (flags_class);
+    g_strfreev (mode_strings);
+    return modes;
 }
 
 /* local */

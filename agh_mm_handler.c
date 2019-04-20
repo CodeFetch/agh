@@ -686,7 +686,7 @@ static gint agh_mm_handler_modem_bands_cb(struct agh_state *mstate, struct agh_c
 	return 100;
 }
 
-static gint agh_mm_handler_modem_modes_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+static gint agh_mm_handler_modem_get_modes_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 	MMModemModeCombination *modes;
 	guint n_modes;
@@ -702,6 +702,34 @@ static gint agh_mm_handler_modem_modes_cb(struct agh_state *mstate, struct agh_c
 		if (mm_modem_get_current_modes(mmstate->modem, &allowed_modes, &preferred_mode)) {
 			agh_cmd_answer_addtext(cmd, mm_modem_mode_build_string_from_mask(allowed_modes), FALSE);
 			agh_cmd_answer_addtext(cmd, mm_modem_mode_build_string_from_mask(preferred_mode), FALSE);
+		}
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_set_modes_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+	const gchar *allowed_modes_str;
+	const gchar *preferred_mode_str;
+	config_setting_t *arg;
+
+	allowed_modes_str = NULL;
+	preferred_mode_str = NULL;
+
+	if (mmstate->modem) {
+
+		arg = agh_cmd_get_arg(cmd, 3, CONFIG_TYPE_STRING);
+		if (arg)
+			allowed_modes_str = config_setting_get_string(arg);
+
+		arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING);
+		if (arg)
+			preferred_mode_str = config_setting_get_string(arg);
+
+		if (allowed_modes_str) {
+			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+			agh_mm_modem_set_modes(mstate, mmstate->modem, allowed_modes_str, preferred_mode_str);
 		}
 	}
 
@@ -1084,10 +1112,16 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.cmd_cb = agh_mm_handler_modem_own_numbers_cb
 	},
 	{
-		.op_name = "modes",
+		.op_name = "get_modes",
 		.min_args = 0,
 		.max_args = 0,
-		.cmd_cb = agh_mm_handler_modem_modes_cb
+		.cmd_cb = agh_mm_handler_modem_get_modes_cb
+	},
+	{
+		.op_name = "set_modes",
+		.min_args = 1,
+		.max_args = 2,
+		.cmd_cb = agh_mm_handler_modem_set_modes_cb
 	},
 	{
 		.op_name = "bands",

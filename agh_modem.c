@@ -74,7 +74,7 @@ static gchar *agh_mm_sms_info_string(MMSms *sms) {
 	databin = mm_sms_get_data(sms, &databin_size);
 
 	if (databin)
-		data = mm_utils_bin2hexstr(databin, databin_size);
+		data = agh_mm_utils_bin2hexstr(databin, databin_size);
 
 	if (mm_sms_get_validity_type(sms) == MM_SMS_VALIDITY_TYPE_RELATIVE)
 		validity = g_strdup_printf("relative_validity=%u", mm_sms_get_validity_relative(sms));
@@ -90,7 +90,7 @@ static gchar *agh_mm_sms_info_string(MMSms *sms) {
 		message_reference = g_strdup_printf("message_reference=%u", mm_sms_get_message_reference(sms));
 
 	if (mm_sms_get_delivery_state(sms) != MM_SMS_DELIVERY_STATE_UNKNOWN)
-		delivery_state = mm_sms_delivery_state_get_string_extended(mm_sms_get_delivery_state(sms));
+		delivery_state = agh_mm_sms_delivery_state_get_string_extended(mm_sms_get_delivery_state(sms));
 
 	output = g_string_new("SMS_DATA: ");
 	if (data)
@@ -2100,5 +2100,59 @@ out:
 		g_free(evpath);
 	}
 
+	return retval;
+}
+
+static void agh_mm_modem_set_modes_result(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+	switch(mm_modem_set_current_modes_finish(modem, res, &mstate->mmstate->current_gerror)) {
+		case FALSE:
+			agh_log_mm_crit("failure setting modes for %s",mm_modem_get_path(modem));
+			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+			break;
+		case TRUE:
+			agh_mm_report_event(mstate->comm, "modes_changed", agh_mm_modem_to_index(mm_modem_get_path(modem)), ":)");
+			break;
+	}
+
+	return;
+}
+
+gint agh_mm_modem_set_modes(struct agh_state *mstate, MMModem *modem, const gchar *allowed_modes_str, const gchar *preferred_mode_str) {
+	gint retval;
+	MMModemMode allowed_modes;
+	MMModemMode preferred_mode = MM_MODEM_MODE_NONE;
+	struct agh_mm_state *mmstate;
+
+	retval = 0;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->manager || !modem || !allowed_modes_str) {
+		agh_log_mm_crit("missing data");
+		retval = 1;
+		goto out;
+	}
+
+	mmstate = mstate->mmstate;
+
+	allowed_modes = agh_mm_common_get_modes_from_string(allowed_modes_str, ",", &mmstate->current_gerror);
+	if (mmstate->current_gerror) {
+		agh_log_mm_dbg("(%s) failure parsing requested mode",mm_modem_get_path(modem));
+		agh_modem_report_gerror_message(&mmstate->current_gerror, mstate->comm);
+		retval = 2;
+		goto out;
+	}
+
+	if (preferred_mode_str) {
+		preferred_mode = agh_mm_common_get_modes_from_string(preferred_mode_str, ",", &mmstate->current_gerror);
+		if (mmstate->current_gerror) {
+			agh_log_mm_dbg("(%s) failure parsing requested mode",mm_modem_get_path(modem));
+			agh_modem_report_gerror_message(&mmstate->current_gerror, mstate->comm);
+			retval = 3;
+			goto out;
+		}
+	}
+
+	mm_modem_set_current_modes(modem, allowed_modes, preferred_mode, NULL, (GAsyncReadyCallback)agh_mm_modem_set_modes_result, mstate);
+
+out:
 	return retval;
 }
