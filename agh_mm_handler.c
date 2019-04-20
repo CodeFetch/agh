@@ -564,6 +564,10 @@ static gint agh_mm_handler_modem_sms_message_gate_enter_cb(struct agh_state *mst
 				agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 				agh_cmd_answer_addtext(cmd, "async_SMS_message_gate_traversal", TRUE);
 			}
+			else {
+				agh_log_mm_handler_dbg("no messaging object");
+				agh_mm_handler_cmd_unstore(mstate);
+			}
 		}
 	}
 
