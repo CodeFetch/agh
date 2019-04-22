@@ -112,7 +112,7 @@ proto_agh_interface_static() {
 			proto_send_update "${cfg_interface}"
 
 		;;
-		*) echo "Unknown operation $operation while in DHCP method";;
+		*) echo "Unknown operation $operation while in static method";;
 	esac
 }
 
