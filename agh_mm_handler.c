@@ -628,6 +628,69 @@ static gint agh_mm_handler_modem_sim_gate_enter_cb(struct agh_state *mstate, str
 	return 100;
 }
 
+static void agh_mm_handler_modem_time_ready(MMModemTime *time, GAsyncResult *res, struct agh_state *mstate) {
+	gchar *time_str;
+	MMNetworkTimezone *tz;
+	gint error_state;
+	gchar *tz_str_tmp;
+	struct agh_cmd *event;
+
+	tz = NULL;
+	error_state = 0;
+	tz_str_tmp = NULL;
+
+	time_str = mm_modem_time_get_network_time_finish(time, res, &mstate->mmstate->current_gerror);
+	if (!time_str) {
+		agh_log_mm_handler_dbg("unable to get time");
+		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
+		error_state = 1;
+		goto out;
+	}
+
+	event = agh_cmd_event_alloc(&error_state);
+	if (!event) {
+		agh_log_mm_handler_crit("failure allocating event (code=%" G_GINT16_FORMAT")",error_state);
+		goto out;
+	}
+
+	agh_cmd_answer_set_status(event, AGH_CMD_ANSWER_STATUS_OK);
+
+	agh_cmd_answer_addtext(event, agh_mm_modem_to_index(mm_modem_time_get_path(time)), FALSE);
+
+	agh_cmd_answer_addtext(event, time_str, FALSE);
+
+	tz = mm_modem_time_get_network_timezone(time);
+	if (tz) {
+		tz_str_tmp = g_strdup_printf("offset=%" G_GINT32_FORMAT", dst_offset=%" G_GINT32_FORMAT", leap_seconds=%" G_GINT32_FORMAT"",mm_network_timezone_get_offset(tz), mm_network_timezone_get_dst_offset(tz), mm_network_timezone_get_leap_seconds(tz));
+		agh_cmd_answer_addtext(event, tz_str_tmp, FALSE);
+	}
+
+	if (mstate->comm && !mstate->comm->teardown_in_progress)
+		error_state = agh_cmd_emit_event(mstate->comm, event);
+	else
+		agh_cmd_free(event);
+
+out:
+	if (tz)
+		g_object_unref(tz);
+
+	if (error_state && time_str)
+		g_clear_pointer(&time_str, g_free);
+
+	return;
+}
+
+static gint agh_mm_handler_modem_time_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->time) {
+		mm_modem_time_get_network_time(mmstate->time, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_time_ready, mstate);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
 static gint agh_mm_handler_modem_operator_name_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
@@ -1195,6 +1258,12 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.min_args = 0,
 		.max_args = 0,
 		.cmd_cb = agh_mm_handler_modem_imei_cb
+	},
+	{
+		.op_name = "time",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_time_cb
 	},
 	{
 		.op_name = "operator_name",
