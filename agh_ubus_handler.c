@@ -121,6 +121,11 @@ static void agh_ubus_handler_receive_event(struct ubus_context *ctx, struct ubus
 
 	error_value = 0;
 
+	if (!agh_ubus_aghcomm || agh_ubus_aghcomm->teardown_in_progress) {
+		agh_log_ubus_handler_crit("discarding event due to missing agh_ubus_aghcomm, or agh_ubus_aghcomm teardown being in progress");
+		return;
+	}
+
 	agh_event = agh_cmd_event_alloc(&error_value);
 	if (!agh_event) {
 		agh_log_ubus_handler_crit("discarding event due to agh_cmd_event_alloc failure (code=%" G_GINT16_FORMAT")", error_value);

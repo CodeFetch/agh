@@ -145,6 +145,12 @@ static gint agh_ubus_logstream_incoming_message(struct agh_ubus_logstream_ctx *l
 
 		g_free(message_part);
 
+		if (!agh_ubus_aghcomm || agh_ubus_aghcomm->teardown_in_progress) {
+			agh_log_ubus_logstream_crit("discarding logstream event due to missing agh_ubus_aghcomm (or teardown in progress)");
+			g_free(parsed_text_log_message);
+			return 5;
+		}
+
 		log_event = agh_cmd_event_alloc(&event_error_value);
 		if (!log_event) {
 			agh_log_ubus_logstream_crit("discarding logstream event due to agh_cmd_event_alloc failure (code=%" G_GINT16_FORMAT")", event_error_value);

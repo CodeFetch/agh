@@ -6,9 +6,6 @@
 /* command used to "quit" AGH */
 #define AGH_CMD_QUIT "quit"
 
-/* and for development related testing */
-#define AGH_CMD_DEVTEST "test"
-
 #define AGH_RELEASE_NAME "Gato"
 
 #define AGH_VERSION "0.01"

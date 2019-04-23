@@ -101,30 +101,6 @@ gint agh_core_cmd_cb_quit(struct agh_state *mstate, struct agh_cmd *cmd) {
 }
 
 /* playground: needs to be removed when no more needed */
-gint agh_core_cmd_cb_playground(struct agh_state *mstate, struct agh_cmd *cmd) {
-	struct agh_cmd *event;
-	struct agh_cmd *evcp;
-	struct agh_message *test_answer;
-	struct agh_cmd *copiedcmd;
-
-	event = agh_cmd_event_alloc(NULL);
-
-	agh_cmd_answer_addtext(event, "evtestname", TRUE);
-	evcp = agh_cmd_copy(event);
-	agh_cmd_emit_event(mstate->comm, event);
-	agh_cmd_emit_event(mstate->comm, evcp);
-	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-	agh_cmd_answer_set_data(cmd, FALSE);
-	test_answer = agh_cmd_answer_msg(cmd, mstate->comm, NULL);
-
-	copiedcmd = agh_cmd_copy(cmd);
-	agh_cmd_free(copiedcmd);
-
-	agh_msg_send(test_answer, mstate->comm, NULL);
-
-	return 100;
-}
-
 /* Core operations. */
 static const struct agh_cmd_operation core_ops[] = {
 	{
@@ -132,12 +108,6 @@ static const struct agh_cmd_operation core_ops[] = {
 		.min_args = 0,
 		.max_args = 0,
 		.cmd_cb = agh_core_cmd_cb_quit
-	},
-	{
-		.op_name = AGH_CMD_DEVTEST,
-		.min_args = 0,
-		.max_args = 0,
-		.cmd_cb = agh_core_cmd_cb_playground
 	},
 
 	{ }
