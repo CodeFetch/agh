@@ -1111,7 +1111,7 @@ wayout:
 */
 gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *ops, struct agh_cmd *cmd, guint index) {
 	gint retval;
-	const struct agh_cmd_operation **current_op;
+	const struct agh_cmd_operation *current_op;
 	const gchar *requested_op_text;
 	config_setting_t *arg;
 	gint args_needed;
@@ -1125,7 +1125,7 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 		goto wayout;
 	}
 
-	current_op = &ops;
+	current_op = ops;
 
 	if (!index)
 		requested_op_text = agh_cmd_get_operation(cmd);
@@ -1147,19 +1147,26 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 		goto wayout;
 	}
 
-	while ((*current_op)->op_name) {
+	while (current_op->op_name) {
 
-		if (!g_strcmp0((*current_op)->op_name, requested_op_text))
+		if (!g_strcmp0(current_op->op_name, requested_op_text))
 			break;
 
-		(*current_op)++;
+		current_op++;
 	}
 
-	if (!(*current_op)->op_name) {
+	if (!current_op->op_name) {
 		agh_log_cmd_dbg("no match while scanning for operation=%s (index=%" G_GUINT16_FORMAT")",requested_op_text,index);
 
-		if (index)
+		if (index) {
 			agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "INVALID_SUBCOMMAND", TRUE);
+
+			current_op = ops;
+			while (current_op->op_name) {
+				agh_cmd_answer_addtext(cmd, current_op->op_name, TRUE);
+				current_op++;
+			}
+		}
 
 		retval = -4;
 		goto wayout;
@@ -1177,17 +1184,17 @@ gint agh_cmd_op_match(struct agh_state *mstate, const struct agh_cmd_operation *
 	}
 
 	/* check */
-	if (agh_cmd_op_check(*current_op, cmd, index, &args_needed)) {
+	if (agh_cmd_op_check(current_op, cmd, index, &args_needed)) {
 		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, g_strdup_printf("args=%" G_GINT16_FORMAT"", args_needed), FALSE);
 		goto wayout;
 	}
 
-	if (!(*current_op)->cmd_cb) {
+	if (!current_op->cmd_cb) {
 		agh_cmd_op_answer_error(cmd, AGH_CMD_ANSWER_STATUS_FAIL, "NO_CB", TRUE);
 		goto wayout;
 	}
 
-	retval = (*current_op)->cmd_cb(mstate, cmd);
+	retval = current_op->cmd_cb(mstate, cmd);
 	if (retval && retval < 100)
 		agh_log_cmd_dbg("a (*current_op)->cmd_cb function invaded our return values space; this may complicate troubleshooting");
 
