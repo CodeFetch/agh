@@ -263,6 +263,45 @@ static gint agh_mm_handler_sim_id_cb(struct agh_state *mstate, struct agh_cmd *c
 	return 100;
 }
 
+static gint agh_mm_handler_modem_showchanges_disable_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem && mmstate->modem3gpp) {
+		agh_mm_showchanges(mstate, mmstate->modem, mmstate->modem3gpp, FALSE);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_showchanges_enable_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem && mmstate->modem3gpp) {
+		agh_mm_showchanges(mstate, mmstate->modem, mmstate->modem3gpp, TRUE);
+		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
+static const struct agh_cmd_operation agh_modem_showchanges_ops[] = {
+	{
+		.op_name = "+",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_showchanges_enable_cb
+	},
+	{
+		.op_name = "-",
+		.min_args = 0,
+		.max_args = 0,
+		.cmd_cb = agh_mm_handler_modem_showchanges_disable_cb
+	},
+
+	{ }
+};
+
 static const struct agh_cmd_operation agh_modem_sim_ops[] = {
 	{
 		.op_name = "id",
@@ -708,6 +747,16 @@ static gint agh_mm_handler_modem_imei_cb(struct agh_state *mstate, struct agh_cm
 	if (mmstate->modem3gpp) {
 		agh_cmd_answer_addtext(cmd, mm_modem_3gpp_get_imei(mmstate->modem3gpp), TRUE);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
+	}
+
+	return 100;
+}
+
+static gint agh_mm_handler_modem_showchanges_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
+	struct agh_mm_state *mmstate = mstate->mmstate;
+
+	if (mmstate->modem3gpp) {
+		agh_cmd_op_match(mstate, agh_modem_showchanges_ops, cmd, 3);
 	}
 
 	return 100;
@@ -1270,6 +1319,12 @@ static const struct agh_cmd_operation agh_modem_ops[] = {
 		.min_args = 0,
 		.max_args = 0,
 		.cmd_cb = agh_mm_handler_modem_operator_name_cb
+	},
+	{
+		.op_name = "showchanges",
+		.min_args = 1,
+		.max_args = 1,
+		.cmd_cb = agh_mm_handler_modem_showchanges_cb
 	},
 	{
 		.op_name = "sim",

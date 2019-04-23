@@ -29,6 +29,7 @@
 #define AGH_MM_SECTION_MODEM_OPTION_BEARERSLIST "modem_bearers"
 #define AGH_MM_SECTION_MODEM_OPTION_ALLOWED_MODES "allowed_modes"
 #define AGH_MM_SECTION_MODEM_OPTION_PREFERRED_MODE "preferred_mode"
+#define AGH_MM_SECTION_MODEM_OPTION_SHOWCHANGES "showchanges"
 /* End of config options for AGH_MM_SECTION_MODEM. */
 
 /* Config options for AGH_MM_SECTION_SIMCARD. */

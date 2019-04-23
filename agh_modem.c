@@ -1553,12 +1553,148 @@ static void agh_mm_statechange(MMModem *modem, MMModemState oldstate, MMModemSta
 	return;
 }
 
+static void agh_mm_showchanges_emit_event(struct agh_state *mstate, const gchar *marker, const gchar *object_path, GVariant *changed_props) {
+	struct agh_cmd *ev;
+	gint ev_retv;
+
+	ev_retv = 0;
+
+	if (!mstate->comm || mstate->comm->teardown_in_progress) {
+		agh_log_mm_crit("not emitting MMModem showchanges event");
+		return;
+	}
+
+	ev = agh_cmd_event_alloc(&ev_retv);
+	if (!ev) {
+		agh_log_mm_crit("AGH event allocation failure while in MMModem showchanges (code=%" G_GINT16_FORMAT")",ev_retv);
+		return;
+	}
+
+	agh_cmd_answer_set_status(ev, AGH_CMD_ANSWER_STATUS_OK);
+	agh_cmd_answer_addtext(ev, marker, TRUE);
+	agh_cmd_answer_addtext(ev, agh_mm_modem_to_index(object_path), FALSE);
+
+	agh_cmd_answer_addtext(ev, g_variant_print(changed_props, TRUE), FALSE);
+
+	ev_retv = agh_cmd_emit_event(mstate->comm, ev);
+	if (ev_retv) {
+		agh_log_mm_crit("event could not be emitted (code=%" G_GINT16_FORMAT")",ev_retv);
+	}
+
+	return;
+}
+
+static void agh_mm_showchanges_on_modem_signal(MMModem *modem, GVariant *changed_props, GStrv inv_props, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+
+	agh_mm_showchanges_emit_event(mstate, "modem_changes", mm_modem_get_path(modem), changed_props);
+
+	return;
+}
+
+static void agh_mm_showchanges_on_modem_3gpp_signal(MMModem3gpp *modem_3gpp, GVariant *changed_props, GStrv inv_props, gpointer user_data) {
+	struct agh_state *mstate = user_data;
+
+	agh_mm_showchanges_emit_event(mstate, "modem_3gpp_changes", mm_modem_3gpp_get_path(modem_3gpp), changed_props);
+
+	return;
+}
+
+gint agh_mm_showchanges(struct agh_state *mstate, MMModem *modem, MMModem3gpp *m3gpp, gboolean attach_signals) {
+	gulong sig_id;
+	gint num_handlers;
+	gint retval;
+
+	num_handlers = 0;
+	retval = 0;
+
+	if (modem)
+		num_handlers = g_signal_handlers_disconnect_by_func(modem, agh_mm_showchanges_on_modem_signal, mstate);
+	if (m3gpp)
+		num_handlers = num_handlers+g_signal_handlers_disconnect_by_func(m3gpp, agh_mm_showchanges_on_modem_3gpp_signal, mstate);
+
+	if (num_handlers) {
+		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during showchanges signal disconnect",num_handlers);
+	}
+	else {
+		agh_log_mm_crit("no handlers matched during showchanges signal disconnection");
+	}
+
+	if (attach_signals) {
+		if (modem) {
+			sig_id = g_signal_connect(modem, "g-properties-changed", G_CALLBACK(agh_mm_showchanges_on_modem_signal), mstate);
+			if (!sig_id) {
+				agh_log_mm_crit("failure connecting signals to MMModem object");
+				retval = 12;
+			}
+		}
+
+		if (!retval && m3gpp) {
+			sig_id = g_signal_connect(m3gpp, "g-properties-changed", G_CALLBACK(agh_mm_showchanges_on_modem_3gpp_signal), mstate);
+			if (!sig_id) {
+				agh_log_mm_crit("failure connecting signals to MMModem3gpp object");
+				retval = 14;
+			}
+		}
+	}
+
+	return retval;
+}
+
+static gint agh_mm_handle_modem_showchanges(struct agh_state *mstate, MMModem *modem, MMModem3gpp *m3gpp) {
+	gint retval;
+	struct uci_section *modem_section;
+	struct uci_option *showchanges;
+	gboolean attach_signals;
+
+	retval = 0;
+	attach_signals = FALSE;
+
+	if (!mstate || !mstate->mmstate || !mstate->mmstate->mctx) {
+		agh_log_mm_crit("missing context");
+		retval = 73;
+		goto out;
+	}
+
+	modem_section = agh_mm_config_get_modem_section(mstate, modem);
+	if (modem_section) {
+		showchanges = uci_lookup_option(mstate->mmstate->mctx, modem_section, AGH_MM_SECTION_MODEM_OPTION_SHOWCHANGES);
+
+		switch(agh_mm_config_get_boolean(showchanges)) {
+			case 0:
+				agh_log_mm_dbg("ok, not showing changes for %s",mm_modem_get_path(modem));
+				attach_signals = FALSE;
+				break;
+			case 1:
+				agh_log_mm_dbg("ok, showing changes for %s",mm_modem_get_path(modem));
+				attach_signals = TRUE;
+				break;
+			default:
+				agh_log_mm_crit("invalid or missing option, changes will not be shown");
+				retval = -44;
+				break;
+		}
+	}
+	else {
+		agh_log_mm_dbg("no section found for this modem");
+		retval = -45;
+	}
+
+	if (attach_signals)
+		agh_mm_showchanges(mstate, modem, m3gpp, attach_signals);
+
+out:
+	return retval;
+}
+
 static gint agh_mm_handle_modem(struct agh_state *mstate, MMObject *modem) {
 	MMModem *m;
+	MMModem3gpp *m3gpp;
 	gint retval;
 	gulong signal_id;
 
 	retval = 0;
+	m3gpp = NULL;
 
 	m = mm_object_get_modem(modem);
 	if (!m) {
@@ -1576,9 +1712,16 @@ static gint agh_mm_handle_modem(struct agh_state *mstate, MMObject *modem) {
 
 	agh_mm_statechange(m, MM_MODEM_STATE_UNKNOWN, mm_modem_get_state(m), MM_MODEM_STATE_CHANGE_REASON_UNKNOWN, mstate);
 
+	m3gpp = mm_object_get_modem_3gpp(modem);
+	if (m3gpp)
+		agh_mm_handle_modem_showchanges(mstate, m, m3gpp);
+
 out:
 	if (m)
 		g_object_unref(m);
+
+	if (m3gpp)
+		g_object_unref(m3gpp);
 
 	return retval;
 }
@@ -1587,8 +1730,10 @@ static gint agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
 	gint retval;
 	gint num_handlers;
 	MMModem *m;
+	MMModem3gpp *m3gpp;
 
 	retval = 0;
+	m3gpp = NULL;
 
 	m = mm_object_get_modem(modem);
 	if (!m) {
@@ -1604,9 +1749,16 @@ static gint agh_mm_unhandle_modem(struct agh_state *mstate, MMObject *modem) {
 	else
 		agh_log_mm_crit("%" G_GINT16_FORMAT" handlers matched during modem signal disconnect (MMModem)",num_handlers);
 
+	m3gpp = mm_object_get_modem_3gpp(modem);
+	if (m3gpp)
+		agh_mm_showchanges(mstate, m, m3gpp, FALSE);
+
 out:
 	if (m)
 		g_object_unref(m);
+
+	if (m3gpp)
+		g_object_unref(m3gpp);
 
 	return retval;
 }

@@ -50,6 +50,7 @@ gint agh_modem_report_gerror_message(GError **error, struct agh_comm *comm);
 gint agh_mm_report_event(struct agh_comm *comm, const gchar *evname, gchar *evpath, const gchar *evtext);
 gint agh_mm_report_sms(struct agh_comm *comm, MMSms *sms);
 gint agh_mm_modem_set_modes(struct agh_state *mstate, MMModem *modem, const gchar *allowed_modes, const gchar *preferred_mode);
+gint agh_mm_showchanges(struct agh_state *mstate, MMModem *modem, MMModem3gpp *m3gpp, gboolean attach_signals);
 
 void agh_mm_testwait(gint secs);
 
