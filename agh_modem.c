@@ -2104,7 +2104,7 @@ gint agh_mm_report_event(struct agh_comm *comm, const gchar *evname, gchar *evpa
 
 	retval = 0;
 
-	if (!comm || !evname || !evtext) {
+	if (!comm || !evname || !evtext || comm->teardown_in_progress) {
 		agh_log_mm_crit("no AGH COMM, or NULL event name / event text");
 		retval = 25;
 		goto out;
