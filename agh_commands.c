@@ -87,7 +87,7 @@ gint agh_cmd_answer_addtext(struct agh_cmd *cmd, const gchar *text, gboolean dup
 
 	if (!cmd || !cmd->answer || !text) {
 		retval = 1;
-		agh_log_cmd_crit("attempted to push NULL text to an AGH answer, or to use an invalid agh_cmd structure");
+		agh_log_cmd_dbg("attempted to push NULL text to an AGH answer, or to use an invalid agh_cmd structure");
 	}
 	else {
 
