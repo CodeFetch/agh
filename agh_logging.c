@@ -12,7 +12,6 @@
 
 #include <glib.h>
 #include <stdio.h>
-#include <syslog.h>
 
 #include "agh_logging.h"
 
@@ -25,21 +24,14 @@
 			    (wc == 0x7f) || \
 			    (wc >= 0x80 && wc < 0xa0)))
 
-static int glib_to_syslog_priority (GLogLevelFlags level) {
-	switch (level) {
-		case G_LOG_LEVEL_ERROR:
-			return LOG_CRIT;
-		case G_LOG_LEVEL_CRITICAL:
-			return LOG_ERR;
-		case G_LOG_LEVEL_WARNING:
-			return LOG_WARNING;
-		case G_LOG_LEVEL_MESSAGE:
-			return LOG_NOTICE;
-		case G_LOG_LEVEL_DEBUG:
-			return LOG_DEBUG;
-		default:
-			return LOG_INFO;
-	}
+static FILE *
+log_level_to_file (GLogLevelFlags log_level)
+{
+	if (log_level & (G_LOG_LEVEL_ERROR | G_LOG_LEVEL_CRITICAL |
+			G_LOG_LEVEL_WARNING | G_LOG_LEVEL_MESSAGE))
+		return stderr;
+	else
+		return stdout;
 }
 
 static const gchar *
@@ -418,18 +410,25 @@ agh_g_log_writer_format_fields (GLogLevelFlags   log_level,
 }
 
 static GLogWriterOutput
-agh_g_log_writer_syslog (GLogLevelFlags   log_level,
+agh_g_log_writer_standard_streams (GLogLevelFlags   log_level,
                                const GLogField *fields,
                                gsize            n_fields,
                                gpointer         user_data __attribute__((unused)) )
 {
+  FILE *stream;
   gchar *out = NULL;  /* in the current locale’s character set */
 
   g_return_val_if_fail (fields != NULL, G_LOG_WRITER_UNHANDLED);
   g_return_val_if_fail (n_fields > 0, G_LOG_WRITER_UNHANDLED);
 
-  out = agh_g_log_writer_format_fields (log_level, fields, n_fields, FALSE);
-  syslog(glib_to_syslog_priority(log_level), "%s", out);
+  stream = log_level_to_file (log_level);
+  if (!stream || fileno (stream) < 0)
+    return G_LOG_WRITER_UNHANDLED;
+
+  out = agh_g_log_writer_format_fields (log_level, fields, n_fields,
+                                    g_log_writer_supports_color (fileno (stream)));
+  fprintf (stream, "%s\n", out);
+  fflush (stream);
   g_free (out);
 
   return G_LOG_WRITER_HANDLED;
@@ -470,7 +469,7 @@ agh_g_log_writer (GLogLevelFlags   log_level,
         return G_LOG_WRITER_HANDLED;
     }
 
-  if (agh_g_log_writer_syslog (log_level, fields, n_fields, user_data) ==
+  if (agh_g_log_writer_standard_streams (log_level, fields, n_fields, user_data) ==
       G_LOG_WRITER_HANDLED)
     goto handled;
 
@@ -481,12 +480,6 @@ handled:
 }
 
 void agh_logging_init(void) {
-	openlog(G_LOG_DOMAIN, LOG_CONS | LOG_PID | LOG_PERROR, LOG_DAEMON);
 	g_log_set_writer_func(agh_g_log_writer, NULL, NULL);
-	return;
-}
-
-void agh_logging_deinit(void) {
-	closelog();
 	return;
 }

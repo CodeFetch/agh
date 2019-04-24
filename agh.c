@@ -682,9 +682,5 @@ out:
 
 	agh_state_teardown(mstate);
 
-	agh_log_core_dbg("about to invoke agh_logging_deinit...");
-
-	agh_logging_deinit();
-
 	return retval;
 }

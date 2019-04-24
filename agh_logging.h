@@ -15,6 +15,4 @@ agh_g_log_writer (GLogLevelFlags   log_level,
                       gpointer         user_data);
 
 void agh_logging_init(void);
-void agh_logging_deinit(void);
-
 #endif
