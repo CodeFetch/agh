@@ -14,6 +14,7 @@
 
 struct agh_mm_state {
 	GError *current_gerror;
+	GCancellable *cancellable;
 	GDBusConnection *dbus_connection;
 	MMManager *manager;
 	guint watch_id;

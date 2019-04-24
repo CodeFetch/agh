@@ -22,6 +22,7 @@
 #define agh_log_mm_crit(message, ...) agh_log_crit(AGH_LOG_DOMAIN_MODEM, message, ##__VA_ARGS__)
 
 struct agh_comm *agh_mm_aghcomm;
+GCancellable *global_cancellable;
 
 static MMObject *agh_mm_get_mmobject(struct agh_state *mstate, MMModem *modem) {
 	GList *l;
@@ -616,7 +617,7 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 
 	agh_log_mm_dbg("requesting for bearer %s to be connected", bpath);
 	agh_mm_bearer_signal(mstate, g_object_ref(b));
-	mm_bearer_connect(b, NULL, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
+	mm_bearer_connect(b, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
 	mstate->mmstate->global_bearer_connecting_lock = TRUE;
 	return;
 }
@@ -632,7 +633,7 @@ static gint agh_mm_modem_bearers(struct agh_state *mstate, MMModem *modem, GAsyn
 		goto out;
 	}
 
-	mm_modem_list_bearers(modem, NULL, (GAsyncReadyCallback)cb, mstate);
+	mm_modem_list_bearers(modem, mstate->mmstate->cancellable, (GAsyncReadyCallback)cb, mstate);
 
 out:
 	return retval;
@@ -1057,7 +1058,7 @@ static gint agh_mm_add_and_connect_bearers_from_config(struct agh_state *mstate,
 
 	agh_log_mm_dbg("obtaining SIM object to check for bearers");
 
-	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_add_and_connect_bearers_from_config_check_sim, mstate);
+	mm_modem_get_sim(modem, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_add_and_connect_bearers_from_config_check_sim, mstate);
 
 out:
 	return retval;
@@ -1093,7 +1094,7 @@ static void agh_mm_modem_delete_bearer(gpointer data, gpointer user_data) {
 
 	bpath = mm_bearer_get_path(b);
 	agh_log_mm_dbg("requesting for bearer %s to be deleted", bpath);
-	mm_modem_delete_bearer(modem, bpath, NULL, (GAsyncReadyCallback)agh_mm_modem_delete_bearer_finish, b);
+	mm_modem_delete_bearer(modem, bpath, global_cancellable, (GAsyncReadyCallback)agh_mm_modem_delete_bearer_finish, b);
 
 	return;
 }
@@ -1320,7 +1321,7 @@ static gint agh_mm_modem_enable_setup(struct agh_state *mstate, MMModem *modem) 
 	}
 
 	if (should_enable)
-		mm_modem_enable(modem, NULL, (GAsyncReadyCallback)agh_mm_modem_enable_finish, mstate);
+		mm_modem_enable(modem, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_modem_enable_finish, mstate);
 
 	return retval;
 }
@@ -1401,7 +1402,7 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 	}
 
 	agh_log_mm_crit("attempting to unlock modem via SIM PIN");
-	mm_sim_send_pin(sim, pin_option->v.string, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_finish, mstate);
+	mm_sim_send_pin(sim, pin_option->v.string, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_finish, mstate);
 
 out:
 	if (sim)
@@ -1424,7 +1425,7 @@ static gint agh_mm_sim_pin_unlock(struct agh_state *mstate, MMModem *modem) {
 		goto out;
 	}
 
-	mm_modem_get_sim(modem, NULL, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_stage1, mstate);
+	mm_modem_get_sim(modem, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_sim_pin_unlock_stage1, mstate);
 
 out:
 	return retval;
@@ -1797,6 +1798,14 @@ static gint agh_mm_mngr_deinit(struct agh_state *mstate) {
 
 	mmstate = mstate->mmstate;
 
+	if (mmstate->cancellable) {
+		agh_log_mm_crit("cancelling pending operations");
+		g_cancellable_cancel(mmstate->cancellable);
+		global_cancellable = NULL;
+		g_object_unref(mmstate->cancellable);
+		mmstate->cancellable = NULL;
+	}
+
 	if (mmstate->manager) {
 		agh_log_mm_crit("disconnecting manager signals");
 
@@ -1980,7 +1989,10 @@ static gint agh_mm_mngr_init(struct agh_state *mstate) {
 		goto out;
 	}
 
-	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, NULL, (GAsyncReadyCallback)agh_mm_bootstrap, mstate);
+	mmstate->cancellable = g_cancellable_new();
+	global_cancellable = mmstate->cancellable;
+
+	mm_manager_new(mmstate->dbus_connection, G_DBUS_OBJECT_MANAGER_CLIENT_FLAGS_DO_NOT_AUTO_START, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_bootstrap, mstate);
 
 out:
 	return retval;
@@ -2152,6 +2164,7 @@ static gint agh_mm_init_ready(struct agh_state *mstate) {
 		goto out;
 	}
 
+	global_cancellable = NULL;
 	agh_mm_aghcomm = mstate->comm;
 
 out:
@@ -2336,7 +2349,7 @@ gint agh_mm_modem_set_modes(struct agh_state *mstate, MMModem *modem, const gcha
 		}
 	}
 
-	mm_modem_set_current_modes(modem, allowed_modes, preferred_mode, NULL, (GAsyncReadyCallback)agh_mm_modem_set_modes_result, mstate);
+	mm_modem_set_current_modes(modem, allowed_modes, preferred_mode, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_modem_set_modes_result, mstate);
 
 out:
 	return retval;

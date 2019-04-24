@@ -91,7 +91,7 @@ static gint agh_mm_handler_sim_change_pin_cb(struct agh_state *mstate, struct ag
 
 		if (old_pin_code_str && new_pin_code_str) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			mm_sim_change_pin(mmstate->sim, old_pin_code_str, new_pin_code_str, NULL, (GAsyncReadyCallback)agh_mm_handler_sim_change_pin_cb_finish, mstate);
+			mm_sim_change_pin(mmstate->sim, old_pin_code_str, new_pin_code_str, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_sim_change_pin_cb_finish, mstate);
 		}
 	}
 
@@ -117,7 +117,7 @@ static gint agh_mm_handler_sim_enable_pin_cb(struct agh_state *mstate, struct ag
 	if (mmstate->sim) {
 		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			mm_sim_enable_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_enable_pin_cb_finish, mstate);
+			mm_sim_enable_pin(mmstate->sim, config_setting_get_string(arg), mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_sim_enable_pin_cb_finish, mstate);
 		}
 	}
 
@@ -144,7 +144,7 @@ static gint agh_mm_handler_sim_disable_pin_cb(struct agh_state *mstate, struct a
 	if (mmstate->sim) {
 		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			mm_sim_disable_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_disable_pin_cb_finish, mstate);
+			mm_sim_disable_pin(mmstate->sim, config_setting_get_string(arg), mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_sim_disable_pin_cb_finish, mstate);
 		}
 	}
 
@@ -186,7 +186,7 @@ static gint agh_mm_handler_sim_send_puk_cb(struct agh_state *mstate, struct agh_
 
 		if (puk_code_str && pin_code_str) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			mm_sim_send_puk(mmstate->sim, puk_code_str, pin_code_str, NULL, (GAsyncReadyCallback)agh_mm_handler_sim_send_puk_cb_finish, mstate);
+			mm_sim_send_puk(mmstate->sim, puk_code_str, pin_code_str, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_sim_send_puk_cb_finish, mstate);
 		}
 	}
 
@@ -212,7 +212,7 @@ static gint agh_mm_handler_sim_send_pin_cb(struct agh_state *mstate, struct agh_
 	if (mmstate->sim) {
 		if ( (arg = agh_cmd_get_arg(cmd, 4, CONFIG_TYPE_STRING)) ) {
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
-			mm_sim_send_pin(mmstate->sim, config_setting_get_string(arg), NULL, (GAsyncReadyCallback)agh_mm_handler_sim_send_pin_cb_finish, mstate);
+			mm_sim_send_pin(mmstate->sim, config_setting_get_string(arg), mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_sim_send_pin_cb_finish, mstate);
 		}
 	}
 
@@ -433,8 +433,8 @@ static void agh_mm_handler_messaging_sms_send_cb_with_msms(MMModemMessaging *mes
 		return;
 	}
 
-	mm_sms_send(sms, NULL, (GAsyncReadyCallback)agh_mm_handler_messaging_sms_send_cb_with_msms_send_result, mstate);
-	mm_modem_messaging_delete(messaging, mm_sms_get_path(sms), NULL, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
+	mm_sms_send(sms, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_sms_send_cb_with_msms_send_result, mstate);
+	mm_modem_messaging_delete(messaging, mm_sms_get_path(sms), mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
 	g_object_unref(sms);
 }
 
@@ -479,7 +479,7 @@ static gint agh_mm_handler_messaging_sms_send_cb(struct agh_state *mstate, struc
 		mm_sms_properties_set_number(smsprops, number);
 		mm_sms_properties_set_text(smsprops, text);
 
-		mm_modem_messaging_create(mmstate->messaging, smsprops, NULL, (GAsyncReadyCallback)agh_mm_handler_messaging_sms_send_cb_with_msms, mstate);
+		mm_modem_messaging_create(mmstate->messaging, smsprops, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_sms_send_cb_with_msms, mstate);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 		agh_cmd_answer_addtext(cmd, "create_req", TRUE);
 
@@ -498,7 +498,7 @@ static gint agh_mm_handler_messaging_list_delete_all_cb(struct agh_state *mstate
 
 	if (mmstate->messaging && mmstate->smslist) {
 		for (l = mmstate->smslist; l; l = g_list_next (l)) {
-			mm_modem_messaging_delete(mmstate->messaging, mm_sms_get_path(MM_SMS(l->data)), NULL, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
+			mm_modem_messaging_delete(mmstate->messaging, mm_sms_get_path(MM_SMS(l->data)), mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
 		}
 	}
 	agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
@@ -599,7 +599,7 @@ static gint agh_mm_handler_modem_sms_message_gate_enter_cb(struct agh_state *mst
 		if (!agh_mm_handler_cmd_store(mstate, cmd)) {
 			mmstate->messaging = mm_object_get_modem_messaging(mmstate->mmobject);
 			if (mmstate->messaging) {
-				mm_modem_messaging_list(mmstate->messaging, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_sms_message_gate_exit_cb, mstate);
+				mm_modem_messaging_list(mmstate->messaging, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_modem_sms_message_gate_exit_cb, mstate);
 				agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 				agh_cmd_answer_addtext(cmd, "async_SMS_message_gate_traversal", TRUE);
 			}
@@ -658,7 +658,7 @@ static gint agh_mm_handler_modem_sim_gate_enter_cb(struct agh_state *mstate, str
 
 	if (mmstate->modem) {
 		if (!agh_mm_handler_cmd_store(mstate, cmd)) {
-			mm_modem_get_sim(mmstate->modem, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_sim_gate_exit_cb, mstate);
+			mm_modem_get_sim(mmstate->modem, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_modem_sim_gate_exit_cb, mstate);
 			agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 			agh_cmd_answer_addtext(cmd, "async_SIM_gate_traversal", TRUE);
 		}
@@ -723,7 +723,7 @@ static gint agh_mm_handler_modem_time_cb(struct agh_state *mstate, struct agh_cm
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
 	if (mmstate->time) {
-		mm_modem_time_get_network_time(mmstate->time, NULL, (GAsyncReadyCallback)agh_mm_handler_modem_time_ready, mstate);
+		mm_modem_time_get_network_time(mmstate->time, mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_modem_time_ready, mstate);
 		agh_cmd_answer_set_status(cmd, AGH_CMD_ANSWER_STATUS_OK);
 	}
 
