@@ -2242,7 +2242,7 @@ gint agh_modem_report_gerror_message(GError **error, struct agh_comm *comm) {
 	retval = 0;
 
 	if (!error || !*error) {
-		agh_log_mm_crit("asked to report a NULL GError, or one pointing to a NULL pointer");
+		agh_log_mm_dbg("asked to report a NULL GError, or one pointing to a NULL pointer");
 		retval = 1;
 		goto out;
 	}

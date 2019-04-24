@@ -475,7 +475,7 @@ struct agh_message *agh_cmd_answer_msg(struct agh_cmd *cmd, struct agh_comm *src
 	m = NULL;
 
 	if (!cmd || !cmd->answer) {
-		agh_log_cmd_crit("NULL agh_cmd structure, or NULL agh_cmd_res pointer");
+		agh_log_cmd_dbg("NULL agh_cmd structure, or NULL agh_cmd_res pointer");
 		return m;
 	}
 

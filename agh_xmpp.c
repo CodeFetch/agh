@@ -184,7 +184,7 @@ void discard_xmpp_messages(gpointer data, gpointer userdata) {
 
 	tcsp = artificial_message->csp;
 
-	agh_log_xmpp_crit("[%s]: %s",tcsp->source_id ? tcsp->source_id : "unknown source", tcsp->text ? tcsp->text : "unknown text?");
+	agh_log_xmpp_dbg("[%s]: %s",tcsp->source_id ? tcsp->source_id : "unknown source", tcsp->text ? tcsp->text : "unknown text?");
 
 	g_queue_remove(xstate->outxmpp_messages, artificial_message);
 
@@ -760,7 +760,7 @@ static gint agh_xmpp_send_message(struct agh_state *mstate, const gchar *to, con
 
 	from = xmpp_conn_get_bound_jid(xstate->xmpp_conn);
 	if ((xstate->xmpp_idle_state != 1) || !from || !to || !text) {
-		agh_log_xmpp_crit("exiting early due to bad state or parameters");
+		agh_log_xmpp_dbg("exiting early due to bad state or parameters");
 		return 1;
 	}
 
@@ -850,7 +850,7 @@ static gint agh_xmpp_send_out_messages(struct agh_state *mstate) {
 			current_controller = g_queue_peek_nth(xstate->controllers, i);
 			retval = agh_xmpp_send_message(mstate, current_controller, tcsp->text);
 			if (retval) {
-				agh_log_xmpp_crit("failure while sending message to all controllers (code=%" G_GINT16_FORMAT")", retval);
+				agh_log_xmpp_dbg("failure while sending message to all controllers (code=%" G_GINT16_FORMAT")", retval);
 				break;
 			}
 		}
