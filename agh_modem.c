@@ -812,6 +812,8 @@ static void agh_mm_connect_bearer(GObject *o, GAsyncResult *res, gpointer user_d
 	struct uci_section *section;
 	gint call_outside_error;
 
+	b = NULL;
+
 	mstate = agh_mm_config_build_bearer_ctx_get_mstate(bctx);
 
 	if (!mstate || !mstate->mmstate) {
