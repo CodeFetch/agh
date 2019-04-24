@@ -1204,7 +1204,7 @@ static gboolean xmpp_idle(gpointer data) {
 static gint agh_xmpp_start_statemachine(struct agh_state *mstate) {
 	struct xmpp_state *xstate = mstate->xstate;
 
-	xstate->xmpp_evs = g_timeout_source_new(500);
+	xstate->xmpp_evs = g_idle_source_new();
 	g_source_set_callback(xstate->xmpp_evs, xmpp_idle, mstate, NULL);
 	xstate->xmpp_evs_tag = g_source_attach(xstate->xmpp_evs, mstate->ctx);
 	g_source_unref(xstate->xmpp_evs);
