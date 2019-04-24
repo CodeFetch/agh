@@ -16,7 +16,7 @@ include $(INCLUDE_DIR)/cmake.mk
 define Package/agh
   SECTION:=net
   CATEGORY:=Network
-  DEPENDS:=+libuci +libubus +ubusd +libubox +ubox +modemmanager +libstrophe +libnettle +libconfig +libblobmsg-json
+  DEPENDS:=+libuci +libubus +ubusd +libubox +ubox +modemmanager +libstrophe +libnettle +libconfig +libblobmsg-json +ca-bundle
   TITLE:=AGH XMPP control agent
   MAINTAINER:=Enrico Mioso <mrkiko.rs@gmail.com>
   PROVIDES:=agh
@@ -36,10 +36,12 @@ define Package/agh/install
 	$(INSTALL_DIR) $(1)/opt
 	$(INSTALL_DIR) $(1)/lib/netifd/proto
 	$(INSTALL_DIR) $(1)/etc/uci-defaults
+	$(INSTALL_DIR) $(1)/etc/init.d
 	$(INSTALL_BIN) $(PKG_BUILD_DIR)/agh $(1)/usr/bin
 	$(INSTALL_BIN) agh_bearer_setup_helper.sh $(1)/opt
 	$(INSTALL_BIN) agh.proto $(1)/lib/netifd/proto/agh.sh
 	$(INSTALL_BIN) wwan_agh.defaults $(1)/etc/uci-defaults
+	$(INSTALL_BIN) agh.init $(1)/etc/init.d/agh
 endef
 
 $(eval $(call BuildPackage,agh))

@@ -1,0 +1,38 @@
+#!/bin/sh /etc/rc.common
+# This script derives from ModemManager init script, which is
+# Copyright (C) 2016 Aleksander Morgado <aleksander@aleksander.es>
+
+USE_PROCD=1
+PROCD_DEBUG=1
+START=99
+
+service_triggers() {
+	procd_add_reload_trigger "agh_xmpp"
+	procd_add_reload_trigger "agh_modem"
+}
+
+stop_service() {
+	procd_send_signal agh agh_instance INT
+}
+
+reload_service() {
+	stop
+	start
+}
+
+start_service() {
+	procd_open_instance agh_instance
+	procd_set_param command /usr/bin/agh
+	procd_set_param term_timeout 40
+	procd_set_param respawn 3600 5 5
+	procd_set_param pidfile "/var/run/agh.pid"
+	procd_set_param env G_MESSAGES_DEBUG="CORE MM MM_CONFIG MM_HANDLER UBUS UBUS_HANDLER LOGSTREAM"
+
+	procd_add_jail agh_jail ubus log ronly
+	procd_add_jail_mount "/etc/config/agh_modem" "/etc/config/agh_xmpp" "/var/run/dbus" "/etc/ssl" "/usr/share/sys_connection_settings"
+
+	procd_set_param stdout 1
+	procd_set_param stderr 1
+	procd_set_param file '/etc/config/agh_xmpp' '/etc/config/agh_modem'
+	procd_close_instance
+}
