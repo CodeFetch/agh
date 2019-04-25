@@ -583,6 +583,7 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 		if (b)
 			g_object_unref(b);
 
+		return;
 	}
 
 	mstate->mmstate->global_bearer_connecting_lock = FALSE;
@@ -2107,6 +2108,14 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	}
 
 	mmstate = mstate->mmstate;
+
+	if (mmstate->cancellable) {
+		agh_log_mm_crit("cancelling pending operations");
+		g_cancellable_cancel(mmstate->cancellable);
+		global_cancellable = NULL;
+		g_object_unref(mmstate->cancellable);
+		mmstate->cancellable = NULL;
+	}
 
 	agh_mm_disable_all_modems_sync(mstate);
 
