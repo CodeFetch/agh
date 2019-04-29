@@ -646,6 +646,11 @@ static void agh_mm_modem_connect_bearers(GObject *o, GAsyncResult *res, gpointer
 	GList *l;
 	MMModem *modem = MM_MODEM(o);
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return;
+	}
+
 	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!current_bearers) {
 		agh_log_mm_crit("problem when checking bearers");
@@ -978,6 +983,11 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	bearers_to_build = NULL;
 	sim = NULL;
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		goto out;
+	}
+
 	sim = mm_modem_get_sim_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!sim) {
 		agh_log_mm_crit("unable to get SIM for modem %s while checking for defined bearers",mm_modem_get_path(modem));
@@ -1107,6 +1117,11 @@ static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer 
 	GList *current_bearers;
 	GList *l;
 	MMModem *modem = MM_MODEM(o);
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		goto out;
+	}
 
 	current_bearers = mm_modem_list_bearers_finish(modem, res, &mstate->mmstate->current_gerror);
 	if (!current_bearers) {
@@ -1239,6 +1254,12 @@ static gint agh_mm_modem_signals(struct agh_state *mstate, MMModem *modem, MMMod
 }
 
 static void agh_mm_modem_enable_finish(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return;
+	}
+
 	switch(mm_modem_enable_finish(modem, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("OK");
@@ -1330,6 +1351,11 @@ static gint agh_mm_modem_enable_setup(struct agh_state *mstate, MMModem *modem) 
 }
 
 static void agh_mm_sim_pin_unlock_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_send_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("unlock was successful! See you!");
@@ -1353,6 +1379,12 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 	gint error_code;
 
 	retries = NULL;
+	sim = NULL;
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing state");
+		goto out;
+	}
 
 	sim = mm_modem_get_sim_finish(modem, res, &mmstate->current_gerror);
 	if (!sim) {
@@ -2313,6 +2345,12 @@ out:
 }
 
 static void agh_mm_modem_set_modes_result(MMModem *modem, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return;
+	}
+
 	switch(mm_modem_set_current_modes_finish(modem, res, &mstate->mmstate->current_gerror)) {
 		case FALSE:
 			agh_log_mm_crit("failure setting modes for %s",mm_modem_get_path(modem));

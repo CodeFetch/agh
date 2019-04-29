@@ -57,6 +57,12 @@ out:
 }
 
 static void agh_mm_handler_sim_change_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_change_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "CHANGE_PIN_OK");
@@ -99,6 +105,12 @@ static gint agh_mm_handler_sim_change_pin_cb(struct agh_state *mstate, struct ag
 }
 
 static void agh_mm_handler_sim_enable_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_enable_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "ENABLE_PIN_OK");
@@ -107,6 +119,7 @@ static void agh_mm_handler_sim_enable_pin_cb_finish(MMSim *sim, GAsyncResult *re
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "ENABLE_PIN_FAIL");
 	}
+
 	return;
 }
 
@@ -125,6 +138,12 @@ static gint agh_mm_handler_sim_enable_pin_cb(struct agh_state *mstate, struct ag
 }
 
 static void agh_mm_handler_sim_disable_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_disable_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "DISABLEPIN_OK");
@@ -152,6 +171,12 @@ static gint agh_mm_handler_sim_disable_pin_cb(struct agh_state *mstate, struct a
 }
 
 static void agh_mm_handler_sim_send_puk_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_send_puk_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PUK_OK");
@@ -194,6 +219,12 @@ static gint agh_mm_handler_sim_send_puk_cb(struct agh_state *mstate, struct agh_
 }
 
 static void agh_mm_handler_sim_send_pin_cb_finish(MMSim *sim, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sim_send_pin_finish(sim, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PIN_OK");
@@ -202,6 +233,7 @@ static void agh_mm_handler_sim_send_pin_cb_finish(MMSim *sim, GAsyncResult *res,
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
 			agh_mm_report_event(mstate->comm, AGH_MM_MODEM_EVENT_NAME, agh_mm_modem_to_index(mm_sim_get_path(sim)), "PIN_FAIL");
 	}
+
 	return;
 }
 
@@ -402,6 +434,12 @@ out:
 }
 
 static void agh_mm_handler_messaging_list_delete_finish(MMModemMessaging *messaging, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_modem_messaging_delete_finish(messaging, res, &mstate->mmstate->current_gerror)) {
 		case FALSE:
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
@@ -411,6 +449,12 @@ static void agh_mm_handler_messaging_list_delete_finish(MMModemMessaging *messag
 }
 
 static void agh_mm_handler_messaging_sms_send_cb_with_msms_send_result(MMSms *sms, GAsyncResult *res, struct agh_state *mstate) {
+
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	switch(mm_sms_send_finish(sms, res, &mstate->mmstate->current_gerror)) {
 		case FALSE:
 			agh_log_mm_handler_crit("failure sending message");
@@ -426,6 +470,11 @@ static void agh_mm_handler_messaging_sms_send_cb_with_msms_send_result(MMSms *sm
 static void agh_mm_handler_messaging_sms_send_cb_with_msms(MMModemMessaging *messaging, GAsyncResult *res, struct agh_state *mstate) {
 	MMSms *sms;
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		return;
+	}
+
 	sms = mm_modem_messaging_create_finish(messaging, res, &mstate->mmstate->current_gerror);
 	if (!sms) {
 		agh_log_mm_handler_crit("failure creating SMS");
@@ -434,8 +483,17 @@ static void agh_mm_handler_messaging_sms_send_cb_with_msms(MMModemMessaging *mes
 	}
 
 	mm_sms_send(sms, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_sms_send_cb_with_msms_send_result, mstate);
-	mm_modem_messaging_delete(messaging, mm_sms_get_path(sms), mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
+
+	/* We used to delete the SMS right here:
+	 *
+	 * mm_modem_messaging_delete(messaging, mm_sms_get_path(sms), mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_handler_messaging_list_delete_finish, mstate);
+	 *
+	 * but maybe we should leave it?
+	*/
+
 	g_object_unref(sms);
+
+	return;
 }
 
 static gint agh_mm_handler_messaging_sms_send_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
@@ -678,11 +736,15 @@ static void agh_mm_handler_modem_time_ready(MMModemTime *time, GAsyncResult *res
 	error_state = 0;
 	tz_str_tmp = NULL;
 
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_handler_crit("missing context");
+		goto out;
+	}
+
 	time_str = mm_modem_time_get_network_time_finish(time, res, &mstate->mmstate->current_gerror);
 	if (!time_str) {
 		agh_log_mm_handler_dbg("unable to get time");
 		agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, mstate->comm);
-		error_state = 1;
 		goto out;
 	}
 
