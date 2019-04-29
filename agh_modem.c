@@ -579,10 +579,6 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 
 	if (!mstate || !mstate->mmstate) {
 		agh_log_mm_crit("missing context");
-
-		if (b)
-			g_object_unref(b);
-
 		return;
 	}
 
@@ -787,8 +783,8 @@ static gint agh_mm_start_bearer_checker(struct agh_state *mstate) {
 	mmstate = mstate->mmstate;
 
 	if (!mmstate->bearers_check) {
-		agh_log_mm_dbg("activating bearers checker");
-		mmstate->bearers_check = g_timeout_source_new(45000);
+		agh_log_mm_dbg("activating bearers checker (will run every %"G_GINT32_FORMAT" usecs)",mmstate->bearer_check_interval);
+		mmstate->bearers_check = g_timeout_source_new(mmstate->bearer_check_interval);
 		g_source_set_callback(mmstate->bearers_check, agh_mm_checker, mstate, NULL);
 		mmstate->bearers_check_tag = g_source_attach(mmstate->bearers_check, mstate->ctx);
 
@@ -2164,6 +2160,9 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 		mmstate->mctx = NULL;
 		mmstate->uci_package = NULL;
 	}
+
+	mmstate->allow_sms = FALSE;
+	mmstate->bearer_check_interval = 0;
 
 	g_free(mmstate);
 	mstate->mmstate = NULL;

@@ -653,6 +653,11 @@ static void agh_mm_handler_modem_sms_message_gate_exit_cb(MMModemMessaging *mess
 static gint agh_mm_handler_modem_sms_message_gate_enter_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
 
+	if (!mmstate->allow_sms) {
+		agh_cmd_answer_addtext(cmd, "NOT_ALLOWED", TRUE);
+		return 101;
+	}
+
 	if (mmstate->modem) {
 		if (!agh_mm_handler_cmd_store(mstate, cmd)) {
 			mmstate->messaging = mm_object_get_modem_messaging(mmstate->mmobject);

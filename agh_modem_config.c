@@ -314,6 +314,134 @@ out:
 	return retval;
 }
 
+static gint agh_mm_config_get_int(struct uci_option *o, gint *e) {
+	const gchar *tmp;
+	gchar *eptr;
+	gint value;
+	glong ltmp;
+
+	value = 0;
+
+	if (!e || *e) {
+		agh_log_mm_config_crit("e should not be NULL, and *e should be 0");
+		value = -100;
+		goto out;
+	}
+
+	if (!o || (o->type != UCI_TYPE_STRING)) {
+		agh_log_mm_config_dbg("not a string option");
+		*e = 90;
+		goto out;
+	}
+
+	ltmp = strtol(o->v.string, &eptr, 10);
+
+	if (ltmp < INT_MIN || ltmp > INT_MAX) {
+		agh_log_mm_config_crit("failure parsing integer (out of INT_MIN / INT_MAX range)");
+		*e = 91;
+		goto out;
+	}
+
+	if (!(!eptr || *eptr == '\0')) {
+		agh_log_mm_config_crit("failure parsing integer");
+		*e = 91;
+		goto out;
+	}
+
+	value = (gint)ltmp;
+
+out:
+	return value;
+}
+
+static gint agh_mm_init_default_settings(struct agh_mm_state *mmstate) {
+	gint retval;
+
+	retval = 0;
+
+	if (!mmstate) {
+		agh_log_mm_config_crit("missing context");
+		retval = 9;
+		goto out;
+	}
+
+	agh_log_mm_config_dbg("default settings are being applied");
+	mmstate->bearer_check_interval = 45000;
+	mmstate->allow_sms = TRUE;
+
+out:
+	return retval;
+}
+
+static gint agh_modem_validate_config_global_settings(struct agh_mm_state *mmstate, struct uci_context *mctx, struct uci_section *msettings, gboolean apply) {
+	gint retval;
+	struct uci_option *o;
+	gint checkval_tmp;
+	gint checkval;
+	gboolean sms;
+
+	retval = 0;
+
+	if (!mmstate || !mctx || !msettings) {
+		agh_log_mm_config_dbg("missing context or no global settings");
+		retval = 102;
+		goto out;
+	}
+
+	sms = mmstate->allow_sms;
+	checkval = mmstate->bearer_check_interval;
+
+	o = uci_lookup_option(mctx, msettings, "allow_sms");
+	if (o) {
+		switch(agh_mm_config_get_boolean(o)) {
+			case 0:
+				agh_log_mm_config_dbg("was asked to disallow SMS");
+				sms = FALSE;
+				break;
+			case 1:
+				agh_log_mm_config_dbg("was asked to allow SMS");
+				sms = TRUE;
+				break;
+			default:
+				agh_log_mm_config_crit("invalid allow_sms option");
+				retval = 103;
+				goto out;
+		}
+	}
+
+	o = uci_lookup_option(mctx, msettings, "bearers_check_interval");
+	if (o) {
+		checkval_tmp = agh_mm_config_get_int(o, &retval);
+		if (retval) {
+			agh_log_mm_config_crit("got failure from agh_mm_config_get_int (code=%" G_GINT16_FORMAT")",retval);
+			goto out;
+		}
+
+		if (checkval_tmp < 5000 || checkval_tmp > 60000) {
+			agh_log_mm_config_crit("unacceptable value (%" G_GINT16_FORMAT") for bearers_check_interval option",checkval_tmp);
+			retval = 104;
+		}
+		else {
+			checkval = checkval_tmp;
+			agh_log_mm_config_dbg("bearers_check_interval=%" G_GINT16_FORMAT"",checkval);
+		}
+	}
+
+	if (!retval) {
+		if (apply) {
+			agh_log_mm_config_dbg("applying settings");
+			mmstate->allow_sms = sms;
+			mmstate->bearer_check_interval = checkval;
+		}
+		else {
+			agh_log_mm_config_dbg("not applying settings");
+		}
+	}
+
+out:
+	return retval;
+}
+
 gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name) {
 	gint retval;
 	struct uci_context *uci_ctx;
@@ -328,6 +456,8 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 	gchar *error_location_str;
 	gchar *reference_error_element_name;
 	gint refstate;
+	gint n_settings;
+	struct uci_section *settings_section;
 
 	retval = 0;
 	referenced_sims = NULL;
@@ -337,6 +467,8 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 	reference_error_element_name = NULL;
 	refstate = 0;
 	current_section = NULL;
+	n_settings = 0;
+	settings_section = NULL;
 
 	if (!mmstate || !package_name) {
 		agh_log_mm_config_crit("passed AGH MM state was NULL, or NULL package name specified");
@@ -393,6 +525,9 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_BEARER_NAME))
 			section_type = AGH_MM_SECTION_BEARER;
 
+		if (!g_strcmp0(current_section->type, AGH_MM_SECTION_SETTINGS_NAME))
+			section_type = AGH_MM_SECTION_SETTINGS;
+
 		switch(section_type) {
 			case AGH_MM_SECTION_MODEM:
 				retval = agh_modem_validate_config_modem_section(current_section, &referenced_sims, &referenced_modem_bearers, &mmstate->current_gerror);
@@ -404,6 +539,17 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 				break;
 			case AGH_MM_SECTION_BEARER:
 				retval = agh_modem_validate_config_bearer_section(current_section, &mmstate->current_gerror);
+
+				break;
+			case AGH_MM_SECTION_SETTINGS:
+				if (!n_settings) {
+					n_settings++;
+					settings_section = current_section;
+				}
+				else {
+					agh_log_mm_config_crit("only one settings section may exist");
+					retval = AGH_MODEM_VALIDATE_CONFIG_ERROR_INVALLIDSECTION;
+				}
 
 				break;
 			default:
@@ -451,6 +597,18 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 			refstate++;
 	}
 
+	/* validate settings */
+	retval = agh_modem_validate_config_global_settings(mmstate, uci_ctx, settings_section, FALSE);
+	if (retval) {
+		agh_log_mm_config_crit("got failure from agh_modem_validate_config_global_settings (code=%" G_GINT16_FORMAT")",retval);
+		if (retval == 102) {
+			retval = 0;
+			agh_log_mm_config_dbg("this is allowed");
+		}
+		else
+			goto out;
+	}
+
 out:
 
 	if (retval) {
@@ -484,8 +642,14 @@ out_noctx:
 	if (retval) {
 		agh_log_mm_config_crit("failure %" G_GINT16_FORMAT" (%s)",retval,error_location_str ? error_location_str : "??");
 	}
-	else
+	else {
 		agh_log_mm_config_dbg("(%s) config load was successful",package_name);
+
+		agh_mm_init_default_settings(mmstate);
+
+		agh_modem_validate_config_global_settings(mmstate, mmstate->mctx, settings_section, TRUE);
+
+	}
 
 	g_free(error_location_str);
 

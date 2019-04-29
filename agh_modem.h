@@ -43,6 +43,10 @@ struct agh_mm_state {
 	struct agh_cmd *current_cmd;
 	MMSim *sim;
 	GList *smslist;
+
+	/* settings */
+	gint bearer_check_interval;
+	gboolean allow_sms;
 };
 
 gint agh_mm_init(struct agh_state *mstate);

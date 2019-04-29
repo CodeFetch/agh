@@ -10,6 +10,8 @@
 #define AGH_MM_SECTION_SIMCARD 2
 #define AGH_MM_SECTION_BEARER_NAME "bearer"
 #define AGH_MM_SECTION_BEARER 3
+#define AGH_MM_SECTION_SETTINGS_NAME "settings"
+#define AGH_MM_SECTION_SETTINGS 4
 /* end of config section types */
 
 /* Maximum number of bearers accepted in a AGH_MM_SECTION_SIMCARD section */
