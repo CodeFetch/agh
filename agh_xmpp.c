@@ -1140,7 +1140,7 @@ static gboolean xmpp_idle(gpointer data) {
 		if (altport_tmp) {
 			altport = strtol(altport_tmp, &eptr, 10);
 
-			if (altport < INT_MIN || altport > INT_MAX)
+			if (altport < 0 || altport > 65536 )
 				altport = 0;
 
 			if (!(!eptr || *eptr == '\0'))
