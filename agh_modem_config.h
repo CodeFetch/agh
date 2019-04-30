@@ -78,7 +78,7 @@
 #define AGH_MODEM_VALIDATE_CONFIG_BEARER_SECTION_ERROR_APN_OR_AUTH_METHOD_NOT_FOUND 15
 /* End of config validation errors. */
 
-gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name);
+gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name, gboolean apply_settings);
 
 /* Functions useful to search for a config section related to a given MM object. */
 struct uci_section *agh_mm_config_get_sim_section(struct agh_state *mstate, MMModem *modem, MMSim *sim);

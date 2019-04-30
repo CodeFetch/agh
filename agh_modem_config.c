@@ -442,7 +442,7 @@ out:
 	return retval;
 }
 
-gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name) {
+gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, gchar *package_name, gboolean apply_settings) {
 	gint retval;
 	struct uci_context *uci_ctx;
 	struct uci_ptr ptr;
@@ -645,9 +645,11 @@ out_noctx:
 	else {
 		agh_log_mm_config_dbg("(%s) config load was successful",package_name);
 
-		agh_mm_init_default_settings(mmstate);
+		if (apply_settings) {
+			agh_mm_init_default_settings(mmstate);
 
-		agh_modem_validate_config_global_settings(mmstate, mmstate->mctx, settings_section, TRUE);
+			agh_modem_validate_config_global_settings(mmstate, mmstate->mctx, settings_section, TRUE);
+		}
 
 	}
 

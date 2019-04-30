@@ -925,7 +925,7 @@ static struct uci_section *agh_mm_config_search_system_profiles(struct agh_state
 
 	mmstate = mstate->mmstate;
 
-	retval = agh_modem_validate_config(mmstate, path, "sys_connection_settings");
+	retval = agh_modem_validate_config(mmstate, path, "sys_connection_settings", FALSE);
 	if (retval) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
@@ -998,7 +998,7 @@ static void agh_mm_add_and_connect_bearers_from_config_check_sim(MMModem *modem,
 	}
 
 	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
-		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem", FALSE);
 		if (retval) {
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			goto out;
@@ -1307,7 +1307,7 @@ static gint agh_mm_modem_enable_setup(struct agh_state *mstate, MMModem *modem) 
 	should_enable = TRUE;
 
 	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
-		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		retval = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem", FALSE);
 		if (retval) {
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 		}
@@ -1390,7 +1390,7 @@ static void agh_mm_sim_pin_unlock_stage1(MMModem *modem, GAsyncResult *res, stru
 	}
 
 	if (!mstate->mmstate->uci_package || (mstate->mmstate->uci_package && g_strcmp0(mstate->mmstate->uci_package->e.name, "agh_modem"))) {
-		error_code = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem");
+		error_code = agh_modem_validate_config(mstate->mmstate, NULL, "agh_modem", FALSE);
 		if (error_code) {
 			agh_modem_report_gerror_message(&mstate->mmstate->current_gerror, NULL);
 			agh_log_mm_crit("failure when trying to reload config for SIM unlock via PIN (code=%" G_GINT16_FORMAT")",error_code);
@@ -2193,7 +2193,7 @@ static gint agh_mm_init_ready(struct agh_state *mstate) {
 
 	mstate->mmstate = mmstate;
 
-	ret = agh_modem_validate_config(mmstate, NULL, "agh_modem");
+	ret = agh_modem_validate_config(mmstate, NULL, "agh_modem", TRUE);
 	if (ret) {
 		agh_modem_report_gerror_message(&mmstate->current_gerror, NULL);
 		goto out;
