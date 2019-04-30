@@ -23,7 +23,7 @@ config_foreach add_agh_mm_interface_to_firewall_wan_zone zone
 uci batch <<EOF
 set network.agh_mm=interface
 set network.agh_mm.proto=agh
-set network.agh_mm.environment_fragments="/tmp/bearers_descriptions"
+set network.agh_mm.environment_fragments="/tmp/bearers_data"
 EOF
 
 touch /etc/config/agh_modem

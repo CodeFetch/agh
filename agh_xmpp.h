@@ -5,7 +5,7 @@
 
 #define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 300
 
-#define AGH_XMPP_RUN_ONCE_INTERVAL 200
+#define AGH_XMPP_RUN_ONCE_INTERVAL 10
 
 /* Delivery receipts. */
 #define AGH_XMPP_FEATURE_RECEIPTS "urn:xmpp:receipts"

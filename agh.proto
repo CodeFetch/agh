@@ -167,26 +167,40 @@ proto_agh_handle_bearers() {
 	local cfg_interface="$1"
 	local fragments_path="$2"
 	local operation="$3"
-	local available_items=$(ls -1 "${fragments_path}" | wc -l)
+	local available_items=$(ls -1 "${fragments_path}/descriptions" | wc -l)
 
 	if [ "${available_items}" -eq 0 ]; then
 		echo "no bearer descriptions to process"
 		proto_notify_error "${cfg_interface}" NO_BEARER_DESCRIPTIONS
 		proto_block_restart "${cfg_interface}"
 		return 1
+	else
+		echo "${available_items} descriptions"
 	fi
 
-	ls -1 "${fragments_path}" | while read a; do
-		. "${fragments_path}"/"${a}"
+	ls -1 "${fragments_path}/descriptions" | while read a; do
 
-		echo "( ${BEARER_PATH} processing starts )"
+		(
+
+		if [ -f "${fragments_path}"/settings/"${a}" ]; then
+			echo "loading user settings"
+			. "${fragments_path}"/settings/"${a}"
+		else
+			echo "user settings are missing!"
+		fi
+
+		. "${fragments_path}"/descriptions/"${a}"
+
+		echo "( ${BEARER_PATH} )"
 
 		case "$BEARER_IP_METHOD" in
 			static) proto_agh_interface_static "${cfg_interface}" "${fragments_path}" "${operation}";;
 			DHCP) proto_agh_interface_dhcp "${cfg_interface}" "${fragments_path}" "${operation}" ;;
 			*) echo "Unknown connection method $BEARER_IP_METHOD";;
 		esac
-		let processed_bearers++
+
+		)
+
 	done
 }
 
