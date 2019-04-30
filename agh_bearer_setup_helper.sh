@@ -24,13 +24,18 @@ process_bearer_data() {
 
 	if [ "${BEARER_INTERFACE}" == "unknown" ]; then
 		if [ ! -n "${AGH_PROFILE_BEARER_SECTION}" ]; then
-			rm "${BFILE}"
+			if [ -f "${BFILE}".connected ]; then
+				rm "${BFILE}" "${BFILE}".connected
+			else
+				echo "This bearer was never connected, not deleting description."
+			fi
 		else
 			set | grep 'AGH_PROFILE_BEARER_' >"${BFILE}"
 			INCOMPLETE_BEARERS_DESCRIPTIONS=1
 		fi
 	else
 		set | grep 'BEARER_' >>"${BFILE}"
+		echo "CONNECTED_SINCE=$(date +%F+%H:%M)" >"${BFILE}".connected
 	fi
 }
 
@@ -41,6 +46,10 @@ update_bearers_descriptions() {
 			continue
 		fi
 		. "${BEARERS_DESCRIPTIONS_PATH}"/"${a}"
+		if [ -n "${CONNECTED_SINCE}" ]; then
+			echo "skipping ${a} state file"
+			continue
+		fi
 		BCONNECTED=$(mmcli -b "${BEARER_PATH}" -K | tr -d ' ' | grep 'bearer.status.connected:' | cut -d ':' -f 2)
 		if [ "${BCONNECTED}" != "yes" ]; then
 			echo "Deleting $a obsolescent bearer description."
