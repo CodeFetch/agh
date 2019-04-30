@@ -196,7 +196,12 @@ proto_agh_handle_bearers() {
 		case "$BEARER_IP_METHOD" in
 			static) proto_agh_interface_static "${cfg_interface}" "${fragments_path}" "${operation}";;
 			DHCP) proto_agh_interface_dhcp "${cfg_interface}" "${fragments_path}" "${operation}" ;;
-			*) echo "Unknown connection method $BEARER_IP_METHOD";;
+			*)
+				echo "Unknown connection method $BEARER_IP_METHOD"
+				proto_agh_common_teardown "${cfg_interface}"
+				proto_notify_error "${cfg_interface}" UNKNOWN_CONNECTION_METHOD
+				proto_block_restart "${cfg_interface}"
+			;;
 		esac
 
 		)
