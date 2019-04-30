@@ -106,7 +106,13 @@ proto_agh_interface_static() {
 
 			[ -n "${BEARER_IP_MTU}" ] && {
 				echo "MTU = ${BEARER_IP_MTU}"
-				ip link set mtu "${BEARER_IP_MTU}" dev "${BEARER_INTERFACE}"
+
+				if [ -n "${AGH_PROFILE_BEARER_override_mtu}" ]; then
+					echo "user forcd MTU = ${AGH_PROFILE_BEARER_override_mtu}"
+					ip link set mtu "${AGH_PROFILE_BEARER_override_mtu}" dev "${BEARER_INTERFACE}"
+				else
+					ip link set mtu "${BEARER_IP_MTU}" dev "${BEARER_INTERFACE}"
+				fi
 			}
 
 			proto_send_update "${cfg_interface}"
@@ -143,7 +149,12 @@ proto_agh_interface_dhcp() {
 
 			[ -n "${BEARER_IP_MTU}" ] && {
 				echo "MTU = ${BEARER_IP_MTU}"
-				json_add_int mtu "${BEARER_IP_MTU}"
+				if [ -n "${AGH_PROFILE_BEARER_override_mtu}" ]; then
+					echo "user forced MTU = ${AGH_PROFILE_BEARER_override_mtu}"
+					json_add_int mtu "${AGH_PROFILE_BEARER_override_mtu}"
+				else
+					json_add_int mtu "${BEARER_IP_MTU}"
+				fi
 			}
 
 			ubus call network add_dynamic "$(json_dump)"
@@ -168,7 +179,7 @@ proto_agh_handle_bearers() {
 	ls -1 "${fragments_path}" | while read a; do
 		. "${fragments_path}"/"${a}"
 
-		echo "( ${BEARER_PATH} )"
+		echo "( ${BEARER_PATH} processing starts )"
 
 		case "$BEARER_IP_METHOD" in
 			static) proto_agh_interface_static "${cfg_interface}" "${fragments_path}" "${operation}";;
