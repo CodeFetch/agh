@@ -24,5 +24,12 @@ uci batch <<EOF
 set network.agh_mm=interface
 set network.agh_mm.proto=agh
 set network.agh_mm.environment_fragments="/tmp/bearers_descriptions"
+EOF
+
+touch /etc/config/agh_modem
+uci batch <<EOF
+add agh_modem settings
+set agh_modem.@settings[0].allow_sms='yes'
+set agh_modem.@settings[0].bearers_check_interval='10000'
 commit
 EOF
