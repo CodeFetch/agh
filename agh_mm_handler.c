@@ -740,6 +740,7 @@ static void agh_mm_handler_modem_time_ready(MMModemTime *time, GAsyncResult *res
 	tz = NULL;
 	error_state = 0;
 	tz_str_tmp = NULL;
+	time_str = NULL;
 
 	if (!mstate || !mstate->mmstate) {
 		agh_log_mm_handler_crit("missing context");
