@@ -316,7 +316,6 @@ out:
 */
 static struct agh_message *core_recvtextcommand_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_text_payload *csp = m->csp;
-	struct agh_state *mstate = h->handler_data;
 
 	struct agh_message *command_message;
 	struct agh_cmd *cmd;
@@ -435,8 +434,6 @@ static struct agh_message *core_event_to_text_handle(struct agh_handler *h, stru
  * Furthermore, it may lead to an unclean program termination.
 */
 static struct agh_message *xmppmsg_to_text_handle(struct agh_handler *h, struct agh_message *m) {
-	struct agh_state *mstate = h->handler_data;
-
 	struct agh_text_payload *tcsp;
 	struct xmpp_csp *xcsp;
 	struct agh_message *tm;

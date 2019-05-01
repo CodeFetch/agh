@@ -24,7 +24,7 @@ struct agh_mm_state {
 	struct uci_package *uci_package;
 	GSource *bearers_check;
 	guint bearers_check_tag;
-	gboolean global_bearer_connecting_lock;
+	gint pending_bearer_async_ops;
 
 	/* MM Objects, used in agh_mm_handler */
 	MMObject *mmobject;

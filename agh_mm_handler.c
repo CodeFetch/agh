@@ -872,7 +872,6 @@ static gint agh_mm_handler_modem_signal_cb(struct agh_state *mstate, struct agh_
 
 static gint agh_mm_handler_modem_ip_families_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	struct agh_mm_state *mmstate = mstate->mmstate;
-	MMBearerIpFamily family;
 
 	if (mmstate->modem) {
 		agh_cmd_answer_addtext(cmd, mm_bearer_ip_family_build_string_from_mask(mm_modem_get_supported_ip_families(mmstate->modem)), FALSE);
@@ -1559,8 +1558,6 @@ out:
 static gint agh_mm_handler_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	gint retval;
 	config_setting_t *arg;
-	gint modem_index;
-	MMObject *m;
 
 	retval = 0;
 
@@ -1569,7 +1566,11 @@ static gint agh_mm_handler_cmd_cb(struct agh_state *mstate, struct agh_cmd *cmd)
 	}
 	else
 		if ( (arg = agh_cmd_get_arg(cmd, 1, CONFIG_TYPE_INT)) ) {
-			agh_log_mm_handler_dbg("should search for modem");
+			/*
+			 *
+			 * agh_log_mm_handler_dbg("should search for modem");
+			 *
+			*/
 			if ( (retval = agh_mm_handler_get_objects(mstate, config_setting_get_int(arg)) )) {
 				agh_log_mm_handler_crit("failed to get objects");
 				return 100+retval;
@@ -1601,7 +1602,6 @@ struct agh_message *agh_mm_cmd_handle(struct agh_handler *h, struct agh_message 
 	struct agh_state *mstate = h->handler_data;
 	struct agh_message *answer;
 	struct agh_cmd *cmd;
-	config_setting_t *arg;
 
 	answer = NULL;
 

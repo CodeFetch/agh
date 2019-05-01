@@ -24,6 +24,55 @@
 struct agh_comm *agh_mm_aghcomm;
 GCancellable *global_cancellable;
 
+static gint agh_mm_async_init(struct agh_state *mstate) {
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return -1;
+	}
+
+	if (mstate->mmstate->pending_bearer_async_ops) {
+		agh_log_mm_crit("called in an invalid state (pending_bearer_async_ops should be 0, but is %" G_GINT16_FORMAT")",mstate->mmstate->pending_bearer_async_ops);
+		return -2;
+	}
+
+	mstate->mmstate->pending_bearer_async_ops++;
+
+	return 0;
+}
+
+static gint agh_mm_async_del(struct agh_state *mstate) {
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return -3;
+	}
+
+	mstate->mmstate->pending_bearer_async_ops--;
+	if (mstate->mmstate->pending_bearer_async_ops+1 > 1) {
+		agh_log_mm_dbg("async_ops (%" G_GINT16_FORMAT" -> %" G_GINT16_FORMAT")",mstate->mmstate->pending_bearer_async_ops+1,mstate->mmstate->pending_bearer_async_ops);
+	}
+
+	return 0;
+}
+
+static gint agh_mm_async_add(struct agh_state *mstate) {
+	if (!mstate || !mstate->mmstate) {
+		agh_log_mm_crit("missing context");
+		return -4;
+	}
+
+	if (!mstate->mmstate->pending_bearer_async_ops) {
+		agh_log_mm_crit("invalid addition attempt");
+		return -5;
+	}
+
+	mstate->mmstate->pending_bearer_async_ops++;
+	if (mstate->mmstate->pending_bearer_async_ops > 1) {
+		agh_log_mm_dbg("async_ops (%" G_GINT16_FORMAT" -> %" G_GINT16_FORMAT")",mstate->mmstate->pending_bearer_async_ops-1,mstate->mmstate->pending_bearer_async_ops);
+	}
+
+	return 0;
+}
+
 static MMObject *agh_mm_get_mmobject(struct agh_state *mstate, MMModem *modem) {
 	GList *l;
 	GList *modems;
@@ -582,7 +631,6 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 		return;
 	}
 
-	mstate->mmstate->global_bearer_connecting_lock = FALSE;
 	switch(mm_bearer_connect_finish(b, res, &mstate->mmstate->current_gerror)) {
 		case TRUE:
 			agh_log_mm_dbg("bearer successfully connected");
@@ -593,6 +641,8 @@ static void agh_mm_connect_bearer_finish(MMBearer *b, GAsyncResult *res, gpointe
 			g_object_unref(b);
 			break;
 	}
+
+	agh_mm_async_del(mstate);
 
 	return;
 }
@@ -612,10 +662,11 @@ static void agh_mm_modem_connect_bearer(gpointer data, gpointer user_data) {
 
 	bpath = mm_bearer_get_path(b);
 
+	agh_mm_async_add(mstate);
+
 	agh_log_mm_dbg("requesting for bearer %s to be connected", bpath);
 	agh_mm_bearer_signal(mstate, g_object_ref(b));
 	mm_bearer_connect(b, mstate->mmstate->cancellable, (GAsyncReadyCallback)agh_mm_connect_bearer_finish, mstate);
-	mstate->mmstate->global_bearer_connecting_lock = TRUE;
 	return;
 }
 
@@ -624,11 +675,13 @@ static gint agh_mm_modem_bearers(struct agh_state *mstate, MMModem *modem, GAsyn
 
 	retval = 0;
 
-	if (!modem || !cb) {
-		agh_log_mm_crit("NULL modem object, or callback");
+	if (!modem || !cb || !mstate || !mstate->mmstate) {
+		agh_log_mm_crit("NULL modem object, callback, AGH state or AGH MM state");
 		retval = 41;
 		goto out;
 	}
+
+	agh_mm_async_init(mstate);
 
 	mm_modem_list_bearers(modem, mstate->mmstate->cancellable, (GAsyncReadyCallback)cb, mstate);
 
@@ -639,7 +692,6 @@ out:
 static void agh_mm_modem_connect_bearers(GObject *o, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	GList *current_bearers;
-	GList *l;
 	MMModem *modem = MM_MODEM(o);
 
 	if (!mstate || !mstate->mmstate) {
@@ -659,6 +711,7 @@ static void agh_mm_modem_connect_bearers(GObject *o, GAsyncResult *res, gpointer
 	g_list_free_full(current_bearers, g_object_unref);
 
 out:
+	agh_mm_async_del(mstate);
 	return;
 }
 
@@ -743,8 +796,12 @@ static gboolean agh_mm_checker(gpointer data) {
 		return FALSE;
 	}
 
-	if (mstate->mmstate->global_bearer_connecting_lock) {
-		agh_log_mm_crit("skipping check due to connecting lock");
+	if (mstate->mmstate->pending_bearer_async_ops) {
+
+		if (mstate->mmstate->pending_bearer_async_ops > 1 || mstate->mmstate->pending_bearer_async_ops < 0) {
+			agh_log_mm_crit("skipping check due to pending asynchronous operations on bearers (%" G_GINT16_FORMAT")",mstate->mmstate->pending_bearer_async_ops);
+		}
+
 		return TRUE;
 	}
 
@@ -1111,7 +1168,6 @@ static void agh_mm_modem_delete_bearer(gpointer data, gpointer user_data) {
 static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer user_data) {
 	struct agh_state *mstate = user_data;
 	GList *current_bearers;
-	GList *l;
 	MMModem *modem = MM_MODEM(o);
 
 	if (!mstate || !mstate->mmstate) {
@@ -1131,6 +1187,7 @@ static void agh_mm_modem_delete_bearers(GObject *o, GAsyncResult *res, gpointer 
 	g_list_free_full(current_bearers, g_object_unref);
 
 out:
+	agh_mm_async_del(mstate);
 	return;
 }
 
@@ -2150,7 +2207,10 @@ gint agh_mm_deinit(struct agh_state *mstate) {
 	if (mmstate->watch_id)
 		agh_mm_watch_deinit(mstate);
 
-	mmstate->global_bearer_connecting_lock = FALSE;
+	if (mmstate->pending_bearer_async_ops) {
+		agh_log_mm_crit("something was wrong (%" G_GINT16_FORMAT" pending async ops)",mstate->mmstate->pending_bearer_async_ops);
+		mmstate->pending_bearer_async_ops = 0;
+	}
 
 	agh_mm_aghcomm = NULL;
 

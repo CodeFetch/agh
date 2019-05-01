@@ -375,7 +375,6 @@ static const struct agh_cmd_operation agh_ubus_handler_logstream_subcommands[] =
 
 static gint agh_ubus_cmd_logstream_cb(struct agh_state *mstate, struct agh_cmd *cmd) {
 	config_setting_t *arg;
-	const gchar *argstr;
 	gint retval;
 
 	retval = 0;

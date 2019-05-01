@@ -315,7 +315,6 @@ out:
 }
 
 static gint agh_mm_config_get_int(struct uci_option *o, gint *e) {
-	const gchar *tmp;
 	gchar *eptr;
 	gint value;
 	glong ltmp;
@@ -449,7 +448,6 @@ gint agh_modem_validate_config(struct agh_mm_state *mmstate, const gchar *path, 
 	gint section_type;
 	struct uci_element *e;
 	struct uci_section *current_section;
-	struct uci_option *current_option;
 	GQueue *referenced_sims;
 	GQueue *referenced_sim_bearers;
 	GQueue *referenced_modem_bearers;
@@ -868,7 +866,6 @@ static gint agh_mm_config_build_bearer_set_apn(struct agh_state *mstate, struct 
 }
 
 static gint agh_mm_config_build_bearer_set_auth_method(struct agh_state *mstate, struct uci_option *o, MMBearerProperties *props) {
-	gint status;
 	MMBearerAllowedAuth ah;
 
 	if (!g_strcmp0(o->v.string, "none"))

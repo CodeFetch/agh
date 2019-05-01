@@ -1,7 +1,7 @@
 CMAKE_MINIMUM_REQUIRED(VERSION 3.13)
 
 PROJECT(AGH C)
-ADD_DEFINITIONS(-Wall -Wextra -Wno-unused-variable -Wno-unused-parameter)
+ADD_DEFINITIONS(-Wall -Wextra -Wno-unused-parameter)
 
 FIND_PACKAGE(PkgConfig REQUIRED)
 
