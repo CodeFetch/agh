@@ -734,6 +734,7 @@ static void xmpp_connection_handler(xmpp_conn_t * const conn, const xmpp_conn_ev
 		agh_log_xmpp_dbg("sending presence");
 		xmpp_send(xstate->xmpp_conn, pres);
 		xmpp_stanza_release(pres);
+		xstate->failing = 0;
 		break;
 	case XMPP_CONN_DISCONNECT:
 		xstate->xmpp_idle_state++;
@@ -1191,8 +1192,14 @@ static gboolean xmpp_idle(gpointer data) {
 		agh_xmpp_send_out_messages(mstate);
 		break;
 	case 2:
-		if (!mstate->exiting)
+		if (!mstate->exiting) {
+			xstate->failing++;
+			if (xstate->failing >= 3) {
+				xstate->failing = 300;
+				xstate->failed_flag = TRUE;
+			}
 			xstate->xmpp_idle_state = 0;
+		}
 
 		break;
 	default:
