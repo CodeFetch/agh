@@ -61,10 +61,6 @@ struct xmpp_state {
 	GQueue *controllers;
 	GSource *xmpp_evs;
 	guint xmpp_evs_tag;
-	GQueue *outxmpp_messages;
-	guint64 msg_id;
-	guint xmpp_idle_state;
-	struct agh_xmpp_caps_entity *e;
 
 	/* Config. */
 	struct uci_context *uci_ctx;
@@ -72,7 +68,15 @@ struct xmpp_state {
 	struct uci_section *xsection;
 	gint ping_interval;
 	gint ping_timeout;
+
+	/* state */
 	gboolean ping_is_timeout;
+	guint xmpp_idle_state;
+	GQueue *outxmpp_messages;
+	guint64 msg_id;
+	struct agh_xmpp_caps_entity *e;
+	guint failing;
+	gboolean failed_flag;
 };
 
 struct xmpp_csp {

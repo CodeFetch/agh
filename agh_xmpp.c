@@ -1131,8 +1131,19 @@ static gboolean xmpp_idle(gpointer data) {
 	eptr = NULL;
 	altport = 0;
 
+	if (xstate->failed_flag) {
+		xstate->failing--;
+		if (!xstate->failing) {
+			agh_log_xmpp_dbg("resetting failed flag");
+			xstate->failed_flag = FALSE;
+		}
+	}
+
 	switch(xstate->xmpp_idle_state) {
 	case 0:
+		if (xstate->failed_flag)
+			break;
+
 		altdomain = agh_xmpp_getoption(xstate, AGH_XMPP_UCI_OPTION_ALTDOMAIN);
 
 		altport_tmp = agh_xmpp_getoption(xstate, AGH_XMPP_UCI_OPTION_ALTPORT);
@@ -1153,12 +1164,22 @@ static gboolean xmpp_idle(gpointer data) {
 
 		if (!xstate->uci_ctx) {
 			agh_log_xmpp_dbg("config parsing failure");
+			xstate->failing++;
+			if (xstate->failing >= 3) {
+				xstate->failing = 300;
+				xstate->failed_flag = TRUE;
+			}
 			break;
 		}
 
 		xmpp_client_connect_status = xmpp_connect_client(xstate->xmpp_conn, altdomain, altport, xmpp_connection_handler, mstate);
 		if (xmpp_client_connect_status) {
 			agh_log_xmpp_dbg("can not connect (code=%" G_GINT16_FORMAT")", xmpp_client_connect_status);
+			xstate->failing++;
+			if (xstate->failing >= 3) {
+				xstate->failing = 300;
+				xstate->failed_flag = TRUE;
+			}
 			break;
 		}
 
@@ -1235,6 +1256,8 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	xstate = mstate->xstate;
 
 	xstate->outxmpp_messages = g_queue_new();
+	xstate->failing = 300;
+	xstate->failed_flag = TRUE;
 
 	agh_log_xmpp_crit("XMPP library init is taking place");
 	xmpp_initialize();
