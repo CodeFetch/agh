@@ -585,7 +585,7 @@ static int message_handler(xmpp_conn_t * const conn, xmpp_stanza_t * const stanz
 	/* body should not be freed */
 	body = xmpp_stanza_get_child_by_name(stanza, "body");
 	if (!body) {
-		agh_log_xmpp_crit("no body in this stanza");
+		agh_log_xmpp_dbg("no body in this stanza");
 		return 1;
 	}
 
