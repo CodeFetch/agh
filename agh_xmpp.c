@@ -1263,7 +1263,7 @@ gint agh_xmpp_init(struct agh_state *mstate) {
 	xstate = mstate->xstate;
 
 	xstate->outxmpp_messages = g_queue_new();
-	xstate->failing = 300;
+	xstate->failing = 120;
 	xstate->failed_flag = TRUE;
 
 	agh_log_xmpp_crit("XMPP library init is taking place");
