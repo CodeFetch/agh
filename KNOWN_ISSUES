@@ -5,3 +5,18 @@ Some memory allocations are not allowed to fail
 ====================
 In some cases, when calling GLib functions like g_strdup, a memory allocation failure will cause the program to terminate,
 with no chance for us to try to handle the failure.
+
+MMBearer GObjects may leak
+====================
+When no disconnection events are emitted for a bearer object, but the object becomes "stale?" (e.g.: because the modem to
+which the bearer was related gets unplugged), then AGH will leak the object.
+
+Is something wrong happening with data representation?
+====================
+In the agh_mm_start_bearer_checker function, found in agh_modem.c: why should I use the G_GINT32_FORMAT specified to display the value?
+Is something wrong going on?
+
+Memory leak in libconfig
+====================
+It seems a memory leak happens in libconfig every time it is presented with some invalid config strings. We need to look at this. I submitted a GitHub issue at:
+https://github.com/hyperrealm/libconfig/issues/142

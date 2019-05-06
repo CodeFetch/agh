@@ -1,65 +1,62 @@
 Welcome!
 ===============================================================================
 
-Welcome AGH, your management agent for OpenWrt systems, with support for cellular modems via ModemManager.
+Welcome AGH, your management agent for OpenWrt systems, with support for cellular modems management via ModemManager.
 Copyright (C) 2018-2019 Meizo Networks.
 This software is distributed under the terms of the GPL license, version 2 or later, as published by the Free Software Foundation.
 
 This document aims to be an easy to read starting point, describing AGH.
-The first part of the document covers the background context: where AGH is supposed to run, and what is needed to build it.
-The second part delves a little bit more into the details of how AGH was inspired and a rationale for some of the design choices.
 
 1. Introduction
 ===============================================================================
 AGH was conceived to be a control agent to be used on an OpenWrt based system, receiving commands over an XMPP connection.
-AGH should run on any hardware which has support for OpenWrt, assuming enough storage and memory resources are present.
+AGH should run on any hardware supported by OpenWrt (or, in other words, in any Linux distribution), provided enough storage and memory resources are available.
 
 2. A quick overview
 ===============================================================================
 Upon startup, AGH performs the following tasks:
-1 - Connects to an XMPP server, and listens for control commands.
-To this end, a user name and a password should be provided for AGH to authenticate with the server. The use of TLS / SSL is considered mandatory.
-2 - Connects to the uBus ( https://wiki.openwrt.org/doc/techref/ubus ) micro bus architecture, to listen for events, send method calls and so on.
-3 - Connects to the D-Bus messaging bus, via GLib, and waits for ModemManager. Once ModemManager appears on the bus, AGH will try to connect one or more cellular modems, based on its configuration.
-4 - Optionally reports on system events and system log messages.
+1 - If provided with authentication credentials, connects to an XMPP server, and waits for control commands.
+The use of TLS / SSL is considered mandatory.
+2 - Connects to the uBus ( https://wiki.openwrt.org/doc/techref/ubus ) micro bus architecture, to listen for events, do method calls and so on.
+3 - Once an uBus connection is established, connects to the D-Bus messaging bus, via GLib, and waits for ModemManager. Once ModemManager appears on the bus, AGH will try to connect one or more cellular modems, based on its configuration.
+4 - Optionally reports on ubus events and system log messages.
 
-AGH tries to converge to a state where the system is connected to the network, can talk to the control XMPP server and talk over uBus to other processes in the system.
-Once this stage is reached, what can be done on the system depends also on the currently employed configuration. If the OpenWrt rpcd daemon ( https://wiki.openwrt.org/doc/techref/ubus#rpcd ) is installed and running, commands may be
-executed on the system, and UCI ( https://wiki.openwrt.org/doc/uci ) configuration values may be retrieved or set.
+AGH tries to converge to a state where the system is connected to the network, can talk to the control XMPP server and access
+the uBus messaging bus.
+Once this stage is reached, what can be done on the system depends also on the currently employed configuration. If the
+OpenWrt rpcd daemon ( https://wiki.openwrt.org/doc/techref/ubus#rpcd ) is installed and running, commands may be
+executed on the system, and UCI ( https://wiki.openwrt.org/doc/uci ) configuration values may be retrieved or changed.
 
-AGH has been designed to be event driven when possible, a crucial property on systems where the ordering of events is not deterministic, also due to interactions with reality (e.g.: cables unplugged and re-plugged, and so on).
-Thus, AGH can survive uBus restarts, and is able to reconnect to uBus at any time. This is, unfortunately, not true for the D-Bus system.
-AGH can interact via uBus with the OpenWrt logd daemon, as shipped with the ubox package. Thus, it is able to stream log events to
-the XMPP server.
+AGH has been designed to be event driven when possible, a crucial property on systems where the ordering of events is not
+deterministic, also due to interactions with reality (e.g.: cables (un-)plugged, and so on).
+Thus, AGH handles uBus restarts, and is able to reconnect to uBus at any time. This is not true for the D-Bus bus.
+AGH can interact via uBus with the OpenWrt logd daemon, as shipped with the ubox package. Thus, it is able to stream log
+events to the XMPP server.
 
 3. Building AGH
 ===============================================================================
 3.1. Dependencies
 ===============================================================================
-AGH should run properly under both glibc GNU C library and the musl C library as present in OpenWrt. At the moment, musl has
-been considered to be the "primary target", since it is the default choice in OpenWrt. It may still be needed to stick to the
-glibc GNU C library in some situations (e.g.: when running AGH under Valgrind or when you want to run the software on a
-Desktop Linux distribution).
-
+AGH should run properly under both the glibc GNU C library and the musl C library as used in OpenWrt by default.
 The following libraries are needed when building AGH: you may use the given URLs as arguments to the "git clone" command.
 - UCI configuration library as shipped with OpenWrt: needed to read UCI configuration files internally
 http://git.openwrt.org/project/uci.git
 - ubox package as shipped with OpenWrt: contains various utility functions needed when interacting with logd or ubus
 http://git.openwrt.org/project/ubox.git
-and
+and libubox
 http://git.openwrt.org/project/libubox.git
-- ubus: AGH uses libubus directly when talking to uBus
+- ubus:
 http://git.openwrt.org/project/ubus.git
 - libstrophe XMPP library: used to talk to XMPP servers
 https://github.com/strophe/libstrophe
 - libnettle: at the moment, it provides functions to calculate SHA-1 hash for XMPP capabilities
 https://git.lysator.liu.se/nettle/nettle.git
 - the GLib2 library, containing various utility functions and data structures, extensively used in the whole program:
-(note: GObject and GIO are both needed, and may be packaged separately)
+(note: GObject and GIO are both needed)
 https://gitlab.gnome.org/GNOME/glib.git
 - libconfig library: used for commands parsing
 https://github.com/hyperrealm/libconfig
-- ModemManager, and it's libmm library: used to interact with it
+- ModemManager, and it's libmm-glib library: used to interact with cellular modems
 git://anongit.freedesktop.org/ModemManager/ModemManager
 
 Make sure ModemManager can link against some important support libraries:
@@ -70,39 +67,50 @@ git://anongit.freedesktop.org/libmbim/libmbim
 
 3.2. Building AGH
 ===============================================================================
-The CMake suite is used to build AGH. After moving to the AGH source directory, you may proceed the following way:
+3.2.1. On a Desktop Linux distribution
+===============================================================================
+The CMake suite is used to build AGH. After moving to the AGH source directory, you may proceed as follows:
 $ mkdir build
 $ cd build
 $ cmake ..
 $ make
 
-3.2.1. Preparing your OpenWrt buildroot for AGH
+3.2.2. Preparing your OpenWrt buildroot for AGH
 ===============================================================================
 The OpenWrt core contains some dependencies needed to build AGH, hence it will be sufficient to select them when building your
-OpenWrt image. Including the rpcd daemon and its plugins on the image may be useful.
-Other packages are contained in the feeds: selecting them during configuration should be sufficient.
-The only exception to these is the ModemManager package, which should be imported manually from the feed found here:
+OpenWrt image. Including the rpcd daemon and its plugins on the image may be useful, and is a requirement if you intend to use
+AGH with cellular modems. Infact, AGH will use the file object as provided by rpcd to invoke it's bearers helper setup script.
+Other packages are contained in the feeds: they should be selected by the AGH package itself when enabled.
+The ModemManager package should be imported manually from the ModemManager OpenWrt integration feed (Mobile Broadband feed), found at:
 https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
 
-(e.g.: adding a like containing something like:
-src-git modemmanager https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
+(e.g.: adding a line containing something like:
+src-git mobilebroadband https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
 to your OpenWrt's build root directory feeds.conf.default before invoking the ./scripts/feeds script may be sufficient).
-
 Within this feed you will also get libqmi and libmbim.
-When your OpenWrt image has been successfully built, you should be able to run AGH by transferring the resulting executable to your device's /tmp directory.
-A proper OpenWrt package for AGH will be available soon.
+
+3.2.2.1. AGH integration in the image
+===============================================================================
+The AGH source code directory may be moved to a location where the OpenWrt build system will pick it up (e.g.: openwrt/package/network ).
+At this point, you should be able to select the AGH package as you do with other packages.
 
 4. Running AGH
 ===============================================================================
-At the moment, AGH stays on the foreground when run. Using tmux may be recommended if you intend to leave it running.
-If the "agh_xmpp" configuration file is missing, then AGH won't connect to an XMPP server.
-Similarly, when no "agh_modem" UCI config package can be found, no actions will be taken on any cellular modems via ModemManager.
+When AGH is installed into the generated OpenWrt image, it should automatically be started when the device boots up.
+To prevent this from happening, you can use OpenWrt's service management utilities:
+# /etc/init.d/agh enabled && /etc/init.d/agh disable
+
+and, to stop a running instance:
+# /etc/init.d/agh stop
+
+When the "agh_xmpp" UCI package is present, AGH will try to connect to an XMPP server to receive commands.
+Furthermore, if an "agh_modem" UCI package is found, AGH will handle all the cellular modems exposed by Modemmanager.
 
 5. Configuring AGH
 ===============================================================================
-AGH expects two UCI configuration files to be present as below:
+AGH expects two UCI configuration packages (files) to be present:
 1 - agh_xmpp: stores informations about XMPP connectivity;
-2 - agh_modem: contains information about Modem settings.
+2 - agh_modem: contains information about modem settings.
 
 The configuration data is read via the UCI library. These files are to be placed in the /etc/config default configuration
 directory. 
@@ -111,8 +119,8 @@ operational. The "uci" command line tool may be used to check for syntax errors 
 
 5.1. XMPP configuration
 ===============================================================================
-This file contains the needed settings to connect to an XMPP server, and to determine which XMPP users may send commands to the
-program. A configuration file may look like the following:
+This file contains the needed settings to connect to an XMPP server, and to determine which JIDs may send commands to the
+program. A agh_xmpp configuration file may look like the following:
 
 config section 'connection'
 	option node 'username'
@@ -125,8 +133,6 @@ config section 'connection'
 	list controller_barejid 'user2@domain2.com'
 	option ping_interval '120'
 	option ping_timeout '10'
-
-In particular, a single section named 'connection' is expected.
 
 5.1.1. XMPP account data
 ===============================================================================
@@ -171,8 +177,7 @@ Description:
 	The password used to authenticate with the XMPP server.
 	**: [1]
 
-[1]: AGH does not currently handle gracefully failed logins, and will keep trying to authenticate to the XMPP server. This Needs to
-be fixed, (e.g.: by slowing down retries based on configurable settings in the agh_xmpp file).
+[1]: AGH will try logging in again every 150 second, approximately. This value is currently hard-coded.
 
 5.1.2. Other XMPP settings
 ===============================================================================
@@ -208,8 +213,8 @@ UCI type: list
 Data type: string
 Description:
 	A list of strings defining "controller accounts": AGH will execute commands sent by those accounts.
-	In additions, any of tese accounts will receive ubus events or system log messages if uBus event reporting or log
-	streaming are enabled.
+	In additions, any of tese accounts will receive AGH events notifications (e.g.: ubus events or system log messages if uBus event reporting or log
+	streaming are enabled).
 	The bare JID of an account is expected, so a full JID like
 	myname@mydomain.com/tablet
 	should be entered in it's bare form
@@ -219,7 +224,7 @@ Option: altdomain
 UCI type: string
 Data type: string
 Description:
-	An alternate domain to use when connecting to an XMPP server. This may be useful in some XMPP setups.
+	An alternate domain to use when connecting to an XMPP server.
 
 Option: altport
 UCI type: string
@@ -227,33 +232,14 @@ Data type: integer
 Description:
 	Alternate port to use when connecting to an XMPP server, instead of the default 5222.
 
-Option: stress
-UCI type: string
-Data type: string
-Description:
-	This option is used to enable stress testing of the XMPP coe in the AGH program.
-	Enabling this option in production environments should be avoided, as it will cause AGH to send lots of XMPP messages, with detrimental
-	effects.
-
-	To make sure this option gets activated only intentionally, we require a special value for it to take effect: adding
-	this line to the agh_xmpp config file should enable stress mode;
-
-	option stress "StressMe!Please"
-
 [2]: at the moment, AGH does not implement the full XMPP capabilities protocol, and will happily send and answer XMPP ping
-messages from servers that do not advertise this capability. Needs to be fixed, by fully implementing the relevant XEPs, and correctly honouring returned informations.
+messages to / from servers that do not advertise this capability. Needs to be fixed, by fully implementing the relevant XEPs, and correctly honouring returned informations.
 [3]: it is currently not possible to prevent AGH from answering server-side XMPP ping messages
 
 5.2. Modem configuration
 ===============================================================================
 
-To be consistent, we are reporting an example agh_modem configuration file here. Still, it may be better to look at it after
-having read the next chapters.
-
-config bearer 'wind_Italy'
-	option apn      internet.wind
-	option allowed_auth     PAP
-	option operator_id      22288
+Here we show an example "agh_modem" configuration file.
 
 config bearer 'default'
 	option apn      internet
@@ -264,38 +250,158 @@ config bearer 'default'
 
 config modem 'quectel'
 	option Equipment_Identifier 861107036962398
-	option report_changes 1
+	option showchanges 1
 
 config simcard 'mysim'
 	option id	'1234567890123456789'
 	option PIN_code "2579"
 
-5.2.1. Modem config structure
+5.2.1. Modem configuration overview
 ===============================================================================
 
-You may expect three kinds of sections in an agh_modem config file:
-1 - Modem sections ("modem"):
+You may find four kinds of sections in an agh_modem config file:
+1 - A global settings section ("settings"):
+	Defines some "global settings2, influencing the entire modem handling in the program. Only a single section of this type is
+	permitted.
+2 - Modem sections ("modem"):
 	They define settings that should be applied to a specific modem object as reported by ModemManager. This usually corresponds
 	to an hardware modem device. A modem is identified via it's Equipment Identifier (e.g.: the IMEI for 3GPP-based hardware).
 
-2 - SIM card section ("simcard"):
-	Contains settings related to a specific SIM card. Those sections are especially useful when a SIM card needs to be unlocked
-	via its PIN code. A SIM card is identified via it's SIM Identifier.
+3 - SIM card section ("simcard"):
+	Contains settings related to a specific SIM card. Those sections are especially useful when working with SIM cards needing to
+	be unlocked	via PIN codes. A SIM card is identified via it's SIM Identifier.
 
-3 - Bearer section ("bearer"):
+4 - Bearer section ("bearer"):
 	Settings in these sections are used when a connection needs to be established ("a bearer needs to be created").
 	These include connection and authentication details, such as the APN to be used, allowed authentication methods and user credentials when applicable.
 
-In general, all of these sections can have UCI acceptable arbitrary names. An exception is the default bearer section, which should be named "defaut".
+In general, all of these sections can have UCI acceptable arbitrary names. An exception is the default bearer section, which
+should be named "defaut".
+When a string value is used as a boolean, it may have values like "1, "yes" or "on", to indicate a TRUE value, and "0", "no" or
+"off" to indicate FALSE ones.
+5.2.2. Global settings
+===============================================================================
+A single global settings section may be present on the "agh_modem" UCI package.
 
-5.2.2. Defining bearers
+Option: allow_sms
+UCI type: string
+Data type: string / boolean
+Description:
+	Defines whether SMS commands should be allowed for this modem. This is meant to prevent accidental exposure of private text
+	messages, and should not be tought as a security measure. Infact, the ubser will be able to use uBus calls and system
+	commands to access SMS messages.
+
+Option: bearers_check_interval
+UCI type: string
+Data type: integer
+Description:
+	Defines how often, in milliseconds, the bearer checker should run.
+	Acceptable values range from 5000 to 60000.
+
+5.2.3. Defining modem sections
 ===============================================================================
 
-A useful AGH modem configuration file should define at least one bearer, possibly the default one.
+If a modem section is present, AGH will apply some settings to that particular modem when it becomes available via
+ModemManager.
+
+Option: Equipment_Identifier
+UCI type: string
+Data type: string
+Description:
+	The modem Equipment Identifier, uniquely identifying a modem device. For 3GPP-based modems, this is the IMEI number.
+	This option is mandatory in a modem section.
+
+Option: enable
+UCI type: string
+Data type: string / boolean
+Description:
+	Defines whether this modem should be enabled or not.
+	Note that, while the modem won't be enabled and thus no connection will be performed, AGH will still try to get the modem in
+	a "disabled" state. This implies that, if a locked SIM is present, AGH will try to unlock it.
+	Furthermore, AGH may react to state changes of the modem. In particular, once the modem gets enabled by an external tool such as ModemManager's "mmcli", AGH may try to get it to a connected state if suitable configuration data is found.
+
+Option: expected_simcards
+UCI type: list
+Data type: string
+Description:
+	AGH will search for unlocking informations only across the list of specified SIM cards.
+	If the SIM card currently in use is unlocked, this option has no effect.
+
+Option: modem_bearers
+UCI type: list
+Data type: string
+Description:
+	Bearers to be connected over this modem.
+	Only up to 2 bearers may be specified.
+
+Option: showchanges
+UCI type: string
+Data type: string / boolean
+Description:
+	If this option is present, property changes regarding the modem will be reported over the XMPP connection (e.g.: signal quality changing over time).
+
+Option: connect
+UCI type: string
+Data type: string / boolean
+Description:
+	Defines whether a modem should be connected. AGH will not search for suitable configuration data for this modem,
+	and no bearers will be created. AGH will still try to get the modem to an enabled state, so the modem may register to the
+	network.
+
+Option: allowed_modes
+UCI type: string
+Data type: string
+Description:
+	A comma-separated list of modes the modem is allowed to use (e.g.: "3g,4g").
+	**: [1]
+
+Option: preferred_mode
+UCI type: string
+Data type: string
+Description:
+	The preferred mode for the modem to use (e.g.: "4g").
+
+[1]: depending on devices (and the firmware they are running), setting modem modes may not work as one would expect; have a
+look at ModemManager documentation, and play a little bit with "mmcli" tool, to have an idea on how this may work in your
+current scenario. You may also use the "modem" operation's "set_modes" subcommand.
+
+5.2.4. Defining SIM card sections
+===============================================================================
+
+Whenever a modem becomes available via ModemManager, AGH tries to enable it. If the modem contains a locked SIM card, AGH tries
+to unlock it if it has access to the needed information.
+At the moment, the only supported SIM card unlocking method is via PIN code.
+
+The following parameters are valid in a SIM card section.
+
+Option: id
+UCI type: string
+Data type: string
+Description:
+	The SIM card ID, an unique identifier for a given SIM card.
+	This option is mandatory for each SIM section.
+	Retrieving current SIM card's ID may fail on some devices. In those cases, it will not be possible to automatically
+	unlock a SIM card.
+
+Option: sim_bearers
+UCI type: list
+Data type: string
+Description:
+	A list of bearers that may be used when trying to connect with this SIM card.
+	Currently, no more than 2 bearers may be defined.
+
+Option: PIN_code
+UCI type: string
+Data type: string
+Description:
+	If the SIM card requires a PIN code to be unlocked, then this code will be used.
+
+5.2.5. Defining bearers
+===============================================================================
+
 In this context, a bearer is an entity that can carry data. We inherit our concept of bearer directly from the one exposed by
 ModemManager, thus it's advisable to look at its documentation to have a better understanding of what a bearer is, and what it
 can be used for.
-
 Most recent modem devices support more than one bearer.
 
 The following parameters are valid for a bearer section:
@@ -353,112 +459,62 @@ Description:
 
 Option: allow_roaming
 UCI type: string
-Data type: string
+Data type: string / boolean
 Description:
-	Defines wheter this bearer is allowed to work in a roaming context.
-	This string can have "1" or "0" values, resembling a boolean.
+	Defines whether this bearer is allowed to work in a roaming context.
 
 Option: rm_protocol
 UCI type: string
 Data type: string
 Description:
-	Defines the bearer RM protocol, for CDMA modems. We do not support this kind of modems at the moment. Setting this property
-	won't probably have useful effects.
+	Defines the bearer RM protocol, for CDMA modems. AGH does not support this kind of modems at the moment.
 
 Option: operator_id
 UCI type: string
 Data type: string
 Description:
-	Network operator ID, as exposed by ModemManager, the MMC/MNC pair.
-	If a bearer in the configuration file has this property, AGH may use it when connecting to a network operator with such an
-	operator ID. Retrieving this value from some modems may not be possible.
+	Network operator ID, as exposed by ModemManager, the MMC/MNC pair. This property is used when present in bearers defined in
+	the system profiles UCI configuration package ("sys_connection_settings"), expected by AGH in the /usr/share directory.
+	When the current SIM card or modem do not have section defined for them in the "agh_modem" configuration file, the existing
+	ones do not specify any bearer section names to use, and 	there is no default bearer, then AGH will search for bearers
+	sections with this property in the system profiles UCi package. If one matching the current operator's Operator ID is found,
+	then AGH will use it to try to connect.
+	Retrieving this value from some modems may not be possible. The first found section is used.
 
-5.2.3. Defining SIM card sections
-===============================================================================
-
-Whenever a modem becomes available via ModemManager, AGH tries to enable it. If the modem contains a locked SIM card, AGH tries
-to unlock it if it has access to the needed information.
-At the moment, the only supported SIM card unlocking method is via its PIN code.
-
-The following parameters are valid in a SIM card section.
-
-Option: id
+Option: metric
 UCI type: string
-Data type: string
+Data type: integer
 Description:
-	The SIM card ID, an unique identifier for a given SIM card.
-	This option is mandatory for each SIM section.
-	Some modems do not support exposing the SIM id. In those cases, it is not currently possible to automatically unlock a SIM
-	card.
+	The metric for this bearer.
+	**: [1]
 
-Option: sim_bearers
-UCI type: list
-Data type: string
-Description:
-	A list of bearers that may be used when trying to connect with this SIM card.
-
-Option: PIN_code
+Option: override_mtu
 UCI type: string
-Data type: string
+Data type: integer
 Description:
-	If the SIM card requires a PIN code to be unlocked, then this code will be used.
+	Override the MTU value we receive from modem / ModemManager for this bearer.
+	**: [1]
 
-5.2.4. Defining modem sections
-===============================================================================
-
-If a modem section is present, AGH will apply some settings to that particular modem when it becomes available via
-ModemManager.
-
-Option: Equipment_Identifier
-UCI type: string
-Data type: string
-Description:
-	The modem Equipment Identifier, uniquely identifying a modem device. For 3GPP-based modems, this is the IMEI number.
-	This option is mandatory in a modem section.
-
-Option: enable
-UCI type: string
-Data type: string
-Description:
-	If this string has the value "0", then a modem won't be enabled. Any other value causes the modem to be enabled.
-	Note that, while the modem won't be anbled and thus no connection will be performed, AGH will still try to get the modem in a
-	"disabled" state. This implies that, if a locked SIM is present, AGH will try to unlock it.
-	Furthermore, AGH may react to state changes of the modem. In particular, once the modem gets enabled by an external tool such as ModemManager's "mmcli", AGH may try to get it to a connected state if suitable configuration data is found.
-
-Option: expected_simcards
-UCI type: list
-Data type: string
-Description:
-	AGH will search for unlocking informations only across the list of specified SIM cards.
-	If the SIM card currently in use is unlocked, this option has no effect.
-
-Option: modem_bearers
-UCI type: list
-Data type: string
-Description:
-	Bearers to be connected over this modem.
-
-Option: report_changes
-UCI type: string
-Data type: string
-Description:
-	If this option is present, property changes regarding the modem will be reported over the XMPP connection (e.g.: signal quality changing over time).
-	The value of this option is ignored, so setting it to "0" as an example, won't stop AGH from reporting modem properties changes.
-	This needs to be fixed, by reimplementing the code handling this optio.
+[1]: those options are applied by the AGH OpenWrt netifd protocol handler. AGH passes to the handler all of the section
+settings when a new bearer is created. Have a look at the "agh.proto" file in the source directory, installed as
+/lib/netifd/proto/agh.sh in an OpenWrt image, to add other options or modify the behaviour of those.
 
 6. An AGH instance lifecycle
 ===============================================================================
 
 Whenever AGH starts up, it performs the following tasks:
 1 - It connects to the uBus system bus if possible, retrying indefinitely otherwise.
-2 - If valid XMPP configuration data is present, it tries to connect to an XMPP server, retrying indefinitely upon failure.
-3 - If valid modem configuration data is present (an empty configuration file may be enough), AGH will try to enable all modems
-it can find at startup time, or modems that become available over Modemmanager. Those modems may get connected if suitable
-configuration informations are provided.
+2 - If valid XMPP configuration data is present, it tries to connect to an XMPP server, retrying indefinitely upon failure but
+waiting some seconds.
+3 - If valid modem configuration data is present (an empty configuration file may be enough) and an uBus connection is
+available, AGH will try to enable all modems
+it can find at startup time, or modems that become available over ModemManager. Those modems may get connected if suitable
+configuration data is found.
 
-From a logical perspective, AGH performs those operations independently. As an example, it will try to connect to an XMPP
+From a logical perspective, AGH performs some operations independently. As an example, it will try to connect to an XMPP
 server regardless of the state of the other tasks (e.g.: if a modem is connected or not). In other words, if a TCP socket can be established to the XMPP server via the libstrophe XMPP library, then
-AGH will try connecting to the server and wait for commands, according to the configuration data in the agh_xmpp file.
+AGH will try connecting to the server and wait for commands, according to the configuration data in the "agh_xmpp"
+configuration package.
 
 6.1. uBus
 ===============================================================================
@@ -469,7 +525,7 @@ uBus is infact one of the primary ways to control the system, so AGH was designe
 uBus connection active all the time.
 Whenever an uBus connection is available, AGH uses it to provide the following directly exposed functionalities:
 - receiving uBus events as emitted by other processes on the systems (currently AGH is not able to emit events on its own)
-- listing objects and invoking related methods as exposed by other processes on the system
+- listing objects and invoking methods as exposed by other processes on the system
 
 Furthermore, AGH uses the uBus connection internally:
 - to request a file descriptor to which it can connect to receive system log messages (interacting with the log object as
@@ -494,17 +550,16 @@ terms of CPU cycles. This needs to be fixed by modifying the AGH code to perform
 ===============================================================================
 
 AGH can handle cellular modems as exposed by the ModemManager daemon. Should ModemManager be restarted for any reason, AGH will
-be able to act accordingly. (Note: at the moment we experience a crash when ModemManager goes away, that should be fixed, maybe handling object references differently.)
+be able to act accordingly.
 Cellular modems are presumed to be "hot-pluggable", so they may be connected or disconnected at any time: a very important
-aspect, given the fact that a modem may disappear from the bus for various reasons (e.g.: firmware issues, insufficient power
-available to the device, and so on). A cellular modem may react very differently in different environmental, and radio
-conditions. So, AGH should be able to handle sequences of unplugging and re-plugging events.
+aspect, given the fact that a modem may disappear from the bus for various reasons (e.g.: firmware reboots, insufficient power
+available to the device, and so on).
 
 6.3.1. ModemManager connection
 ===============================================================================
 
 AGH interacts with ModemManager over the D-Bus message bus. To the code within the entire program, D-Bus messages are sent and
-received "transparently", also due to the libmm ModemManager library usage. While we can handle ModemManager appearing and
+received transparently, due to the libmm-glib ModemManager library usage. While we can handle ModemManager appearing and
 disappearing from the D-Bus bus gracefully, the same is not true for what pertains our connection with ModemManager itself, the D-bus
 bus. If for any reason the D-Bus daemon quits, AGH will be terminated immediately, and will have no chance to shut down
 cleanly.
@@ -512,7 +567,7 @@ cleanly.
 6.3.2. Modems handling
 ===============================================================================
 
-AGH retains the ModemManager notion of a modem in a sense. A modem infact, is a stateful device.
+AGH retains the ModemManager notion of a modem: a stateful device. A modem object may be in one of the following states:
 
 a - Failed state:
 	When in this state, a modem is considered to be in an error condition, that can not be recovered, at least not easily.
@@ -530,22 +585,29 @@ d - Locked:
 	modem or SIM card.
 	A modem may be netowkr-locked, SIM-locked, and so on. One of the most common reasons for a modem to enter thi state, is due
 	to the SIM card currently in use requiring a PIN code.
-	In such a scenario, AGH will try to unlock the SIM card by searching for a SIM card section having a SIM Identifier
+	In such cases, AGH will try to unlock the SIM card by searching for a SIM card section having a SIM Identifier
 	corresponding to the one of the current SIM card, and a PIN code. If a list of expected SIM cards is present, AGH will
 	restrict its search to this list of SIM cards.
-	If an appropriate section is found, then AGH will try to unlock the SIm card via the found PIN code, causing a state transition to happen
-	upon a succesful unlock. Otherwise, this state should be considered final, and no further action is taken.
+	If an appropriate section is found, then AGH will check if the available PIN unlock retries for this SIM card are more than 2
+	(an hard-coded limit). If so, the PIN code will be sent to the SIM card via ModemManager / the modem. A state transition is
+	expected to occur upon a successful unlock. Otherwise, this state is considered final, and no further action is taken.
 e - Disabling:
 	A modem is being disabled. This state is considered temporary, hence no action is taken.
 f - Disabled:
-	You can say that a modem is in a disabled state once it is ready to be enabled, or when it has been explicitly disabled. AGH
-	tries to enable all disabled modems, except when shutting down.
+	You can say that a modem is in a disabled state once it is ready to be enabled, or when it has been explicitly disabled
+	(e.g.: via the "mmcli" tool). AGH tries to enable all disabled modems for which there are no modem sections with an "enable"
+	option set to a boolean FALSE value or when shutting down. Furthermore, if a configuration section for this modem exists,
+	modes settings are applied by calling libmm-glib's mm_modem_set_current_modes function.
+	All of the existing bearers in this modem are deleted asynchronously. This process is expected to be complete when the modem
+	reaches a registered state, and so far we never experienced the contrary. Should AGH complain about already existing bearers
+	during the configuration / connection process, but they seems "vanished" when you look at the modem via the "mmcli" tool,
+ 	looking at the code which is run in this state is a good idea.
 g - Enabling:
 	A modem is in the process of being enabled. This state is considered temporary, hence no action is taken.
 h - Enabled:
 	A modem is enabled when ready to connect to a cellular network. Messaging and other services may be available via ModemManager.
 	This state is considered temporary, at least in 3GPP-based modems, which may automatically register to a network. Until this
-	happens, no data connection may be established.
+	happens, no data connection may be established. Currently, AGH will simply wait for a state change.
 i - Searching:
 	The modem is searching for a network to register with. This process is not mediated in any way by AGH, which takes no action.
 j - Registered:
@@ -553,47 +615,96 @@ j - Registered:
 	and connecting bearers).
 	When a modem enters this state, AGH looks up its configuration data to determine how to connect it.
 	If a "modem" section exists for this modem (e.g.: its Equipment Identifier setting "Equipment_Identifier" corresponds to the
-	one of this modem), then special modem settings are taken into account. As an example, if the user requested it, AGH will
+	one of this modem), then modem settings are taken into account. As an example: if the user requested it, AGH will
 	start reporting modem properties changes (e.g.: signal quality changes).
 k - Connecting:
 	The modem is in the process of being connected. A modem may switch to this state from the "registered" one, upon the creation
 	and the connection of the first data bearer.
 l - Connected:
-	The modem is connected. AGH will try to keep the modem in this state. When a modem enters this state, at least one data bearer should be connected. The modem will exit this state when the last data bearer exits the connected state.
+	This state is entered when at least one data bearer is connected, and left when the last bearer is disconnected.
 m - Disconnecting:
 	The modem is in the process of being disconnected. This state is considered temporary, hence no action is taken.
 
 Ideally, AGH should always be able to keep in control of the modems present on the system. Still, if for some reason the modem
-gets stuck in a state that was considered temporary (e.g.: the "enabled" state), then AGH won't perform any other action,
-leaving the modem in an undesirable state. This has been observed to happen in some cases.
-This will need to be handled. Ideas and patches are very welcome!
+gets stuck in a state that was considered temporary (e.g.: the "enabled" state), then no other action is performed, leaving the
+modem in an undesirable state. This has been observed to happen in some cases.
+This will need to be handled. Any ideas, suggestions and patches are very welcome.
 
 6.3.3. Connecting to the network
 ===============================================================================
 
-Whenever a modem registers to the cellualr network, entering registered state, AGH tries to create and connect one or more bearers, depending on the current configuration data.
-Here we describe the steps involved in this process. A step is considered successful when it creates and connects one or more
-bearers. Whenever a step completes successfully, the process is interrupted.
-1 - If a SIM card section exists for the current SIM card, and it has an associated list of bearers, then AGH will use the
-refenced bearer sections to create new bearers, connecting them if possible.
-2 - If a modem section exists for the current modem, and it has an associated list of referenced bearers, then this list will be
-used to create new bearers, connecting them if possible.
-3 - If a default bearer section exists, it will be used to create a new bearer, that will be connected if possible.
-4 - If a bearer section with an operator ID property defined exist, for which the operator ID corresponds to the one of the
-network operator to which the current SIM authenticated, then that section will be used to create a new bearer, that will be connected if possible. If more than one bearer is matched via operator ID, then AGH will consider all the matches.
+Whenever a modem registers to the cellualr network, thus entering the registered state, AGH tries to create and connect one or
+more bearers, depending on the current configuration data.
+Here we describe the steps involved in this process. Every time one or more bearers are created, AGH will try to connect them.
+0 - Prerequisites: AGH should be able to obtain a MMSim object representing the SIM card on this modem from ModemManager, and
+successfully reload the "agh_modem" UCI configuration package, should this be needed (e.g.: because we did already search for a
+suitable bearer section in the "sys_connection_settings" UCI package, related to "system profiles"). Furthermore,
+mm_modem_get_bearer_paths should return no bearer paths (e.g.: no bearers should exist in the modem). If one of those
+conditions is not met, then the process will be interrupted.
+1 - AGH will search for a configuration section relative to this SIM card (comparing SIM IDs), and for this modem (comparing
+Equipment Identifiers).
+If a section for the current modem is found and it has a "connect" option set to a boolean FALSE value, then the process is
+interrupted.
+2 - If a SIM card section exists for the current SIM card, and it has an associated list of bearers, then AGH will use the
+refenced bearer sections to create new bearers. The process is considered completed then, and no further steps are taken.
+3 - If a modem section exists for the current modem, and it has an associated list of referenced bearers, then this bearers
+list will be used. The process is considered completed then, and no further steps are taken.
+4 - If a default bearer section exists, it will be used to create a new bearer. The process is considered completed then, and
+no further steps are taken.
+5 - We switch to the "sys_connection_settings" package, using /usr/share as UCI configuration directory (invoking the
+uci_set_confdir function).
+If a bearer section with a defined operator ID property exist, for which the operator ID corresponds to the one of the network
+operator to which the current SIM authenticated, then that section will be used to create a new bearer.
+Only the first match will be considered.
 
-If all of the above steps fail, no bearer is created, and no connection happens.
+If all of the above steps fail, no bearer is created.
+Upon the first successfull 
 
-6.3.3.1. The bearer setup helper
+6.3.3.1. Staying connected
+===============================================================================
+When the first bearer is successfully created, the "bearer checker" is started.
+It periodically checks all the bearers related to all the modems in a connected or registered state, trying to reconnect those
+that got disconnected. By default, it will run every 40 seconds, but this may be changed within the settings section of the
+"agh_modem" UCI package. The checker stops when there are no more modems exposed by ModemManager, or ModemManager disconnects
+from the D-Bus bus.
+
+6.3.3.2. The bearer setup helper
 ===============================================================================
 
-Once a connection has been established (e.g.: the data bearer has been created and connected), AGH will invoke an external helper program that should inform the Linux Operating System
-on which it is running, about the new connection. This happens even when a data bearer gets disconnected, so the helper program has a chance to clean up the connection. Invocations are performed via uBus, calling the "exec" method exposed
-by the rpcd daemon via it's "file" object. If an uBus connection is not present or the rpcd daemon is not running, the helper script won't be invoked.
-The helper program receives all of the needed informations to set up a connection via its environment. Some exposed properties are not strictly necessary in
-general, still they are provided. Refer to the ModemManager documentation for more details on bearer properties.
+When a data connection is established via a modem (e.g.: a data bearer has been created and connected), AGH will invoke an
+external helper program that should inform the Linux Operating System on which it is running, about the new connection. This
+happens even when a data bearer gets disconnected, so the helper program has a chance to clean up the connection. Invocations
+are performed via uBus, calling the "exec" method exposed by the rpcd daemon via it's "file" object. If an uBus connection is
+not present or the rpcd daemon is not running, the helper script won't be invoked.
+An helper script implementation should take into account it may not be invoked when a bearer gets disconnected (e.g.: AGH
+crashes or other circumstances where no GLib GObjects signals are received regarding disconnection events). See the
+KNOWN_ISSUES file in the source directory for some more details on this issue (GObject leaks).
+The helper program receives all of the needed informations to set up a connection via its environment. Some exposed properties
+are not strictly necessary in general, still they are provided. 
 
 The following environment variables are provided to the helper program:
+
+a - AGH bearer section settings: here you will find UCI strings settings related to the UCI section from which this bearer was
+built.
+AGH_PROFILE_BEARER_SECTION
+	The name of the section.
+
+AGH_PROFILE_BEARER_allow_roaming
+	Related to the "allow_roaming" configuration setting.
+
+AGH_PROFILE_BEARER_allowed_auth
+	Related to the "allowed_auth" configuration setting.
+
+AGH_PROFILE_BEARER_apn
+	Related to the "apn" configuration setting.
+
+And so on.
+This is general, and you will find
+AGH_PROFILE_BEARER_<setting_name>
+in your environment, where <setting_name> is the name of the UCI string setting to which this environment variable is related.
+
+b - ModemManager bearer properties: while we we recommend you to refer to the ModemManager documentation for more details on
+bearer properties, here you'll find a brief description of those we encountered so far.
 
 BEARER_PATH
 	The path of the bearer object in the D-Bus bus.
@@ -620,7 +731,7 @@ BEARER_IP_ADDRESS
 	IP address the host should use.
 
 BEARER_IP_PREFIX
-	IP prefix, used to calculate the IP address netmask to be used by the host.
+	IP prefix (netmask) to be used by the host.
 
 BEARER_IP_DNS_1
 BEARER_IP_DNS_2
@@ -638,6 +749,7 @@ BEARER_IPV6_METHOD
 	- ppp: modem expects PPP protocol to be used over one of its serial ports
 	- static: the program is expected to configure IP parameters on its own, statically
 	- DHCP: modem firmware supports DHCP, so a DHCP client may be used to configure the required IP parameters
+	Refer to ModemManager documentation for more details on handling this scenario.
 
 BEARER_IPV6_ADDRESS
 	An IPV6 address the host system is expected to use.
@@ -647,7 +759,7 @@ BEARER_IPV6_PREFIX
 
 BEARER_IP_DNSV6_1
 BEARER_IP_DNSV6_2
-	IPV6 addresses of the primary and secondary DNS servers the host system is expected to use.
+	IPV6 addresses of the primary and secondary DNS servers the host system may use.
 
 BEARER_IPV6_GATEWAY
 	IPV6 address of the gateway the host system is expected to use.
@@ -655,27 +767,23 @@ BEARER_IPV6_GATEWAY
 BEARER_IPV6_MTU
 	Maximum Transmit Unit expected to be used when sending data via this bearer.
 
-6.3.3.2. A sample bearer setup helper implementation
+6.3.3.3. The provided bearer setup helper implementation
 ===============================================================================
-AGH ships with a bearer setup helper script, namely "agh_bearer_setup_helper.sh". This script is expected to be located in the /opt
-folder of the filesystem. Upon startup, it inspects the environment for the required variables, adding and removing entries
-from the OpenWrt Networking subsystem via UCI calls.
-Due to the approach used, this script may leave stale interfaces present on the system. To this end, it tries to clean up stale
-interface definitions every time it is invoked.
-Note: in the script we use PIDs (process IDs) to name interfaces. This choice came from the need of keeping logical interface
-names shorter than 9 characters, to be sure they may be usable in a wider range of OpenWrt setups.
-See https://wiki.openwrt.org/doc/uci/network for more details; we quote here the relevant part:
-":!: The system limits the physical interface name length to 15 characters including the automatically added prefix that is
-added for some protocols (e.g. "6in4-", "pppoa-", "pppoe-") or due to bridge status ("br-"). Depending on the protocol type,
-the logical interface name may thus be limited to only 9 characters. E.g. 'abcde67890' is a valid interface name for a normal
-interface using dhcp, but not for a pppoe interface where the final name would be 'pppoe-abcde67890', which is >15 chars. Using
-a too long name may lead into errors, as some of the settings in network, firewall or dhcp config may be left unapplied.".
+AGH ships with a bearer setup helper script, namely "agh_bearer_setup_helper.sh", which is supposed to run in an OpenWrt
+system. It should be located in the /opt folder.
+**: [1]
+Upon startup, it inspects the environment for the required variables, updating it's status directory (usually at
+/tmp/bearers_data).
+It then invokes the agh protocol handler to set up network interfaces.
+
+[1]: the path from which AGH executes the script is currently hard-coded in the agh_mm_call_outside_helper function, found in
+agh_modem.c.
 
 6.4. XMPP
 ===============================================================================
 
-AGH uses the libstrophe XMPP library to talk to an XMPP server. Tahnks to libstrophe, AGH supports SSL / TLS (via the
-OpenSSL SSL library).
+AGH uses the libstrophe XMPP library to talk to an XMPP server. Thanks to libstrophe, AGH supports SSL / TLS (via the
+OpenSSL library).
 AGH partially implements some XEPs (XMPP Extension Protocols), and in particular:
 - XEP-0115: entity capabilities
 	This allows AGH to communicate to other XMPP clients about its capabilities; needed to let other clients send AGH
@@ -688,14 +796,17 @@ AGH partially implements some XEPs (XMPP Extension Protocols), and in particular
 - XEP-0128: Service Discovery Extensions
 
 Due to an incomplete impelemntation of XEP-0115 (entity capabilities), AGH won't act properly in some circumstances. For
-instance, it will try to send XMPP Ping messages even when the server did not advertise that capability.
-Furthermore, disconnections from an XMPP server, may cause AGH messages to be lost. Infact, also due to libstrophe not exposing an interface to do so, we are not able to determine wheter a message has been received by the server.
-When the software determines we are no longer connected, it starts queuing messages internally up to some numerical limit, but other
-messages may have already been lost. When the internal queue gets full, all of the queued messages are discarded.
+instance, it will try to send XMPP Ping messages even when the server did not advertise that XMPP capability.
+Furthermore, disconnections from an XMPP server, may cause AGH messages to be lost. Infact, also due to libstrophe not exposing
+an interface to do so, we are not able to determine whether a message has been received by the server or not.
+When the software determines we are no longer connected, it starts queuing messages internally up to some numerical limit, but
+other messages may have already been lost. When the internal queue gets full, all of the queued messages are discarded.
 **: [1]
 
 AGH implements XEP-0184, so any message containing Read Receipts Requests tags will be answered accordingly. AGH keeps silent
-on invalid commands, so a client may use this information to detect wheter a message has been actually received.
+on invalid commands, so a client may use this information to detect whether a message has been actually received.
+To prevent excessive traffic and login attempts, when AGH detects it's not able to get to a connected state, it will pause for
+a while. The current implementation of this mechanism is arguable...
 
 [1]: file: agh_xmpp.h
 #define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 300
