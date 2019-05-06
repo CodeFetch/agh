@@ -774,10 +774,14 @@ system. It should be located in the /opt folder.
 **: [1]
 Upon startup, it inspects the environment for the required variables, updating it's status directory (usually at
 /tmp/bearers_data).
-It then invokes the agh protocol handler to set up network interfaces.
+It then invokes the "ifup" command on the "agh_mm" network interface, causing the agh protocol handler to set up network
+interfaces. The script assumes a "standard" OpenWrt configuration, after the AGH UCI defaults script has been run.
+See https://openwrt.org/docs/guide-developer/uci-defaults
+for more informations on UCI defaults.
 
 [1]: the path from which AGH executes the script is currently hard-coded in the agh_mm_call_outside_helper function, found in
 agh_modem.c.
+[2]: I know I know... how can I explain this better?
 
 6.4. XMPP
 ===============================================================================
@@ -835,17 +839,16 @@ a - Length:
 	**: [1]
 	Operation names (see below) are limited in length as well.
 	**: [2]
-b - Non-ascii characters should be avoided in commands; AGH will try to convert them to ascii ones, still results may not be
-what the user expects.
+b - Non-ascii characters should be avoided in commands; AGH will try to convert them to ascii ones.
 c - Configuration command structure:
 	After successfully parsing the text string, libconfig creates a "root" settings group.
 	That group should contain only one element: the "attention keyword" setting.
 	** [5]
 	The "attention keyword" setting, should be a data structure, namely a list, which should be composed of at least two members:
 	an integer value (command ID), and a text string (the requested operation). Any element following these two, is considered an
-	argument to the requested operation. Different operations may expect arguments of different data types.
+	argument to the requested operation. Different operations may expect different numbers of arguments, of different data types.
 	In particular:
-	- command ID: used to track commands and the messages they may originate from
+	- a command ID: used to track commands and the messages they may originate from
 	**: [3]
 	- an operation name: the action to be performed by AGH
 	**: [2]
@@ -854,31 +857,30 @@ c - Configuration command structure:
 
 So, a valid AGH command may look as follows:
 
-AT = (21, "modem", 0, "get_ModemManager_plugin")
+AT = (21, "modem", 0, "plugin")
 
 Where:
 - "AT" is the attention keyword
 **: [5]
 - for a more in-depth explanation about the equal signs and the parentheses you see here, we refer you once again to the
-libconfig's Configuration Grammar.
+libconfig's Configuration Grammar
 - 21 is an arbitrarily choosen integer value, a command ID
 - "modem": the operation name; this is a modem-related command
 
 Then we have some arguments:
-- the first one is an integer value, 0: in this case it refers to the modem we want to operate on
-- "get_ModemManager_plugin" is a text string
+- the first one is an integer value, 0: in this case it refers to the modem we want to work with
+- "plugin" is an argument, a text string.
 
 We are asking AGH to report us the ModemManager plugin being used to handle modem 0 on the system.
 Different operations may have compeltely different semantics, still the command structure should be the same.
-
-[1]: file: agh_commands.h
-#define CMD_MAX_TEXT_LEN 400
-[2]: file: agh_commands.h
-#define CMD_MAX_OP_NAME_LEN 10
+[1]: file: agh_commands.c
+#define AGH_CMD_MAX_TEXT_LEN 400
+[2]: file: agh_commands.c
+#define AGH_CMD_MAX_OP_NAME_LEN 10
 [3]: ID should be a non-zero value
 [4]: operation name can not be an empty string
 [5]: file: agh_commands.h
-#define CMD_IN_KEYWORD "AT"
+#define AGH_CMD_IN_KEYWORD "AT"
 
 7.2. AGH messages
 ===============================================================================
@@ -920,7 +922,7 @@ message.
 
 As an example, a client may send to AGH the following command, to determine what ModemManager plugin is being used to handle a
 specific modem:
-AT = (21, "modem", 0, "get_ModemManager_plugin")
+AT = (21, "modem", 0, "plugin")
 Obtaining an answer like the following one:
 IH = ( 21, 200, "Quectel" )
 
@@ -928,26 +930,26 @@ Another command may be used to list the available modems on the system:
 AT = (21, "modem")
 Yelding to the following answer:
 IH = ( 21, 200, "0" )
-(.i.e.: only one modem, with index 0)
+(i.e.: only one modem, with index 0)
 **: [5]
 
 [1]: file: agh_commands.h
-#define CMD_OUT_KEYWORD "IH"
+#define AGH_CMD_OUT_KEYWORD "IH"
 (IH standards for "I am here")
 [2]: file: agh_commands.h
-#define CMD_EVENT_KEYWORD CMD_OUT_KEYWORD"!"
+#define AGH_CMD_EVENT_KEYWORD AGH_CMD_OUT_KEYWORD"!"
 [3]: file: agh_commands.h
-#define CMD_EVENT_MAX_ID CMD_EVENT_UNKNOWN_ID
+#define AGH_CMD_EVENT_MAX_ID AGH_CMD_EVENT_UNKNOWN_ID-1
 file: agh_commands.h
-#define CMD_EVENT_UNKNOWN_ID CMD_ANSWER_STATUS_UNKNOWN
+#define AGH_CMD_EVENT_UNKNOWN_ID AGH_CMD_ANSWER_STATUS_UNKNOWN
 file: agh_commands.h
-#define CMD_ANSWER_STATUS_UNKNOWN 380
-(Note: 380 are the first three digits of my phone number, excluding the international calling prefix.)
+#define AGH_CMD_ANSWER_STATUS_UNKNOWN 380
+( Note: 380 are the first three digits of my phone number, excluding the international calling prefix. :) )
 [5]: Why not use integer values for e.g.: modem indexes, in output messages? Because at the moment there isn't a sound way to do so from within
-AGH.
+AGH. May we define this a design limitation?
 [6]: file: agh_commands.h
-#define CMD_ANSWER_STATUS_OK 200
-#define CMD_ANSWER_STATUS_FAIL 400
+#define AGH_CMD_ANSWER_STATUS_OK 200
+#define AGH_CMD_ANSWER_STATUS_FAIL 400
 
 7.2.2. DATA messages
 ===============================================================================
@@ -958,11 +960,7 @@ After that parentheses, arbitrary data may be present, of which the structure sh
 strcutured message.
 
 Some examples of data messages:
-1 - A message generated by a modem property change (signal quality value change):
-IH! = ( 151, 200, "modem_changes", "DATA" )
-modem=0
-{'SignalQuality': <(uint32 99, true)>}
-2 - A system log message being reported:
+1 - A system log message being reported:
 IH! = ( 152, 200, "SYSTEM_LOG_MESSAGE", "DATA" )
 Thu Oct 25 20:37:39 2018 [1540471059.107] user.notice mrkiko: Hello to everyone reading this document!
 
@@ -970,12 +968,12 @@ Thu Oct 25 20:37:39 2018 [1540471059.107] user.notice mrkiko: Hello to everyone 
 ===============================================================================
 
 Here we will describe the list of command operations currently supported by AGH.
-This section of the document, is especially subject to changes as a consequence of AGH development.
+This section of the document is especially subject to changes as a consequence of AGH development.
 
 At the moment, we can categorise all of the supported operations in three main types:
 1. Those interacting with modems (and in future maybe with ModemManager itself)
 2. Those interacting with uBus (and from there, with different parts of the system)
-3. AGH management operations: at the moment, the only supported command in this category is "quit", useful during development / testing.
+3. AGH management operations: at the moment, the only supported one in this category is "quit".
 
 8.1. Modem related operations
 ===============================================================================
@@ -989,7 +987,7 @@ Operation arguments: <none>
 Description:
 	Displays the list of modems exposed by ModemManager.
 Answer expected: yes
-Error status codes: 400=can not obtain modems list
+Error status codes: 400=can not obtain modems list, or no modems
 Answer body:
 	An index of an available modem.
 Extra fields:
@@ -1006,117 +1004,97 @@ Error status codes: subcommand dependent
 Answer body: subcommand dependent
 Extra fields: subcommand dependent
 
-Subcommand name: get_imei
+Subcommand name: imei
 Description: retrieve a modem's IMEI number.
 
-Subcommand name: get_state
+Subcommand name: state
 Description: Prints current modem state. The answer looks like:
 	IH = ( <id>, <status>, "modem_state", "failed_reason" )
 
 	E.g.: if all is well, you may get an answer like:
 	IH = ( 21, 200, "connected", "none" )
 
-Subcommand name: get_power_state
+Subcommand name: powerstate
 Description: retrieve current modem power state
 	Example:
-	AT = (21, "modem", 1, "get_power_state")
+	AT = (21, "modem", 1, "powerstate")
 	An answer may look like:
 	IH = ( 21, 200, "on" )
 
-Subcommand name: get_supported_capabilities
+Subcommand name: supported_caps
 Description: Gets the list of combinations of generic families of access technologies supported by this modem.
 	Example command:
-	AT = (21, "modem", 1, "get_supported_capabilities")
+	AT = (21, "modem", 1, "supported_caps")
 	An answer may look like:
 	IH = ( 21, 200, "gsm-umts lte gsm-umts, lte" )
 
-Subcommand name: get_current_capabilities
+Subcommand name: current_caps
 Description: Gets the list of generic families of access technologies supported by this modem without a firmware reload or reinitialization.
 
-Subcommand name: get_manifacturer
+Subcommand name: manifacturer
 Description: returns modem manifacturer.
 
-Subcommand name: get_model
+Subcommand name: model
 Description: returns modem device model
 
-Subcommand name: get_rev
-Description: returns modem firmware revision
-
-Subcommand name: get_hwrev
-Description: returns modem hardware revision
+Subcommand name: revision
+Description: returns modem firmware revision and hardware revision
 
 Subcommand name: drivers
 Description: returns the names of the drivers currently handling communications with this modem
 
-Subcommand name: get_ModemManager_plugin
+Subcommand name: plugin
 Description: returns the name of the ModemManager plugin used to handle this modem.
 	An example may look like:
-	AT = (21, "modem", 1, "get_ModemManager_plugin")
+	AT = (21, "modem", 1, "plugin")
 	Answer:
 	IH = ( 21, 200, "Quectel" )
 
-Subcommand name: get_primary_port
+Subcommand name: primary_port
 Description: returns the name of the modem primary port; may be a cdc-wdm device in case of QMI, MBIM or NCM modems.
 
-Subcommand name: get_device
+Subcommand name: device
 Description: returns the sysfs path of the USB device corresponding to this modem.
 	An example looks like:
-	AT = (21, "modem", 1, "get_device")
+	AT = (21, "modem", 1, "device")
 	Answer:
 	IH = ( 21, 200, "/sys/devices/bcma0:4/ehci-platform.0/usb1/1-1" )
 
-Subcommand name: get_equipment_identifier
-Description: Returns the equipment identifier, in the case of 3GPP-based modems this is the iMEI number.
+Subcommand name: equipment_identifier
+Description: returns the equipment identifier, in the case of 3GPP-based modems this is the iMEI number.
 
-Subcommand name: get_deviceid
+Subcommand name: device_identifier
 Description: gets a best-effort modem device identifier based on various device informations, like model name, firmware revision, USB/PCI/PCMCIA IDs, and other properties.
 
-Subcommand name: get_lockstatus
+Subcommand name: unlock_required
 Description: gets current lock state of the modem (e.g.: why is this modem locked? What locks are in effect?).
 
-Subcommand name: get_unlock_retries
+Subcommand name: unlock_retries
 Description: gets available unlock retries.
 
 Subcommand name: max_bearers
-Description: returns the maximum number of bearers supported by this modem.
+Description: returns the maximum number of bearers supported by this modem (definable, and active)
 
-Subcommand name: max_active_bearers
-Description: returns the number of concurrently active bearers supported by this modem.
-
-Subcommand name: get_own_numbers
+Subcommand name: numbers
 Description: gets the list of numbers (e.g. MSISDN in 3GPP) being currently handled by this SIM / modem.
 
-Subcommand name: supported_modes
-Description: gets the list of supported mode combinations. To switch to one of these modes, the modem firmware may need to be reinitialized.
+Subcommand name: get_modes
+Description: gets the list of supported mode combinations for this modem, and the currently selected allowed / preferred modes
 
-Subcommand name: current_modes
-Description: gets the list of modes specifying the access technologies (eg 2G/3G/4G) the modem is currently allowed to use when connecting to a network, as well as the preferred one, if any.
-	Example:
-	AT = (21, "modem", 1, "current_modes")
-	Answer:
-	IH = ( 21, 200, "2g, 3g, 4g", "none" )
-
-Subcommand name: supported_bands
-Description: gets the list of radio frequency and technology bands supported by the modem.
+Subcommand name: bands
+Description: gets the list of radio frequency and technology bands supported by the modem, and the ones the modem is currently using to connect to the network.
 	An example may look like:
-	AT = (21, "modem", 1, "supported_bands")
+	AT = (21, "modem", 1, "bands")
 	Answer:
-	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
-
-Subcommand name: current_bands
-Description: gets the list of radio frequency and technology bands the modem is currently using when connecting to a network.
-	Example:
-	AT = (21, "modem", 1, "current_bands")
-	Answer:
-	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
+	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41", "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
 
 Subcommand name: ip_families
-Description: gets the list of supported IP families.
+Description: gets the list of supported IP families
 
-Subcommand name: signal_quality
-Description: gets the signal quality value in percent (0 - 100) of the dominant access technology the modem is using to communicate with the network.
+Subcommand name: signal
+Description: gets the signal quality value in percent (0 - 100) of the dominant access technology the modem is using to communicate with the network
 
-Subcommand name: access_technologies
+Subcommand name: access
 Description: gets the current network access technology used by the modem to communicate with the network.
 
 8.2. uBus related operations
