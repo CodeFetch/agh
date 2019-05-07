@@ -8,6 +8,9 @@ static char *agh_xmpp_handler_escape(gchar *text) {
 	GString *s;
 	gchar *src;
 
+	if (!text)
+		return NULL;
+
 	s = g_string_new(NULL);
 
 	for (src = text; *src != '\0'; src++) {
