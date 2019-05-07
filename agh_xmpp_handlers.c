@@ -4,6 +4,24 @@
 #include "agh_messages.h"
 #include "agh_commands.h"
 
+static char *agh_xmpp_escape(gchar *text) {
+	GString *s;
+	gchar *src;
+
+	s = g_string_new(NULL);
+
+	for (src = text; *src != '\0'; src++) {
+		if (*src < 32 || *src > 126) {
+				g_string_append_printf(s, "(0x%03x)", *src);
+		}
+		else {
+			g_string_append_c(s, *src);
+		}
+	}
+
+	return g_string_free(s, FALSE);
+}
+
 struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_message *m) {
 	struct agh_text_payload *csp;
 	struct agh_state *mstate;
@@ -38,7 +56,7 @@ struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_messag
 			return NULL;
 		}
 
-		textcopy_csp->text = g_strdup(csp->text);
+		textcopy_csp->text = agh_xmpp_escape(csp->text);
 
 		if (csp->source_id)
 			textcopy_csp->source_id = g_strdup(csp->source_id);

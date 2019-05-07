@@ -1053,6 +1053,9 @@ Description: returns the name of the ModemManager plugin used to handle this mod
 Subcommand name: primary_port
 Description: returns the name of the modem primary port; may be a cdc-wdm device in case of QMI, MBIM or NCM modems.
 
+Subcommand name: ports
+Description: returns modem ports with known functions, and modem network interfaces
+
 Subcommand name: device
 Description: returns the sysfs path of the USB device corresponding to this modem.
 	An example looks like:
@@ -1075,16 +1078,27 @@ Description: gets available unlock retries.
 Subcommand name: max_bearers
 Description: returns the maximum number of bearers supported by this modem (definable, and active)
 
+Subcommand name: bearers
+Description: returns bearers paths
+
 Subcommand name: numbers
 Description: gets the list of numbers (e.g. MSISDN in 3GPP) being currently handled by this SIM / modem.
 
 Subcommand name: get_modes
 Description: gets the list of supported mode combinations for this modem, and the currently selected allowed / preferred modes
 
+Subcommand name: set_modes
+Description: set modem modes
+	This command expects 2 arguments, the first one being the allowed modes, and the second one the preferred mode.
+	A set of allowed modes may be expressed as a comma-separated list of mode values.
+	an example may look like:
+	AT = (21, "modem", 0, "set_modes", "2g,3g,4g", "3g")
+	(some event messages are emitted in response to this command).
+
 Subcommand name: bands
 Description: gets the list of radio frequency and technology bands supported by the modem, and the ones the modem is currently using to connect to the network.
 	An example may look like:
-	AT = (21, "modem", 1, "bands")
+	AT = (21, "modem", 0, "bands")
 	Answer:
 	IH = ( 21, 200, "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41", "egsm dcs utran-1 utran-5 utran-8 eutran-1 eutran-3 eutran-5 eutran-7 eutran-8 eutran-20 eutran-38 eutran-40 eutran-41" )
 
@@ -1096,6 +1110,11 @@ Description: gets the signal quality value in percent (0 - 100) of the dominant 
 
 Subcommand name: access
 Description: gets the current network access technology used by the modem to communicate with the network.
+
+Subcommand name: operator_code
+Description: returns network operator code (e.g.: 22250 for Iliad, Italy)
+
+
 
 8.2. uBus related operations
 ===============================================================================
