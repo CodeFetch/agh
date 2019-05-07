@@ -812,6 +812,10 @@ on invalid commands, so a client may use this information to detect whether a me
 To prevent excessive traffic and login attempts, when AGH detects it's not able to get to a connected state, it will pause for
 a while. The current implementation of this mechanism is arguable...
 
+Note: AGH will try to avoid eemitting characters that may cause the XMPP stream to be closed. To this end, some characters are
+not reported in their original form. Their HEX numerical representation is used instead. See the agh_xmpp_handler_escape
+function in agh_xmpp_handlers.c.
+
 [1]: file: agh_xmpp.h
 #define AGH_XMPP_MAX_OUTGOING_QUEUED_MESSAGES 300
 
