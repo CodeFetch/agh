@@ -4,7 +4,7 @@
 #include "agh_messages.h"
 #include "agh_commands.h"
 
-static char *agh_xmpp_escape(gchar *text) {
+static char *agh_xmpp_handler_escape(gchar *text) {
 	GString *s;
 	gchar *src;
 
@@ -56,7 +56,7 @@ struct agh_message *xmpp_sendmsg_handle(struct agh_handler *h, struct agh_messag
 			return NULL;
 		}
 
-		textcopy_csp->text = agh_xmpp_escape(csp->text);
+		textcopy_csp->text = agh_xmpp_handler_escape(csp->text);
 
 		if (csp->source_id)
 			textcopy_csp->source_id = g_strdup(csp->source_id);
