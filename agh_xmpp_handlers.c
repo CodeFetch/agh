@@ -4,7 +4,7 @@
 #include "agh_messages.h"
 #include "agh_commands.h"
 
-static char *agh_xmpp_handler_escape(gchar *text) {
+static gchar *agh_xmpp_handler_escape(gchar *text) {
 	GString *s;
 	gchar *src;
 
@@ -14,11 +14,19 @@ static char *agh_xmpp_handler_escape(gchar *text) {
 	s = g_string_new(NULL);
 
 	for (src = text; *src != '\0'; src++) {
-		if (*src < 32 || *src > 126) {
-				g_string_append_printf(s, "(0x%03x)", *src);
-		}
-		else {
-			g_string_append_c(s, *src);
+		switch(*src) {
+			case 9:
+			case 10:
+			case 13:
+				g_string_append_c(s, *src);
+				break;
+			default:
+				if (*src < 32 || *src > 126)
+					g_string_append_printf(s, "(0x%03x)", *src);
+				else
+					g_string_append_c(s, *src);
+
+				break;
 		}
 	}
 
