@@ -1,5 +1,8 @@
 #!/bin/sh
 
+# Stores bearers state for usage by the AGH protocol handler (agh.proto).
+# This file is distributed under the GPL license, version 2.0 or, at your option, any later version.
+
 BEARERS_DESCRIPTIONS_BASE_DIR="/tmp/"
 BEARERS_DESCRIPTIONS_PATH="${BEARERS_DESCRIPTIONS_BASE_DIR}/bearers_data"
 CURRENT_BFILE=""

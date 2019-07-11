@@ -1,3 +1,4 @@
+# SPDX-License-Identifier: GPL-2.0-or-later
 CMAKE_MINIMUM_REQUIRED(VERSION 3.13)
 
 PROJECT(AGH C)

@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef __agh_modem_h__
 #define __agh_modem_h__
 

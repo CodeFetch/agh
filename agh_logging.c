@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
  * A lot of coe in here has been copied from GLib itself, under the terms of the LGPL. We wanted to preserve some useful
  * functionalities, like G_MESSAGES_DEBUG environment variable processing.

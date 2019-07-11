@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef __agh_mm_helpers_h__
 #define __agh_mm_helpers_h__
 

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include <glib-unix.h>
 #include <libubox/blobmsg_json.h>
 #include "agh_ubus.h"

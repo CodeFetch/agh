@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "agh_handlers.h"
 #include "agh_messages.h"
 #include "agh_commands.h"

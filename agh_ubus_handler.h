@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef __agh_ubus_handler_H__
 #define __agh_ubus_handler_H__
 #include "libubus.h"

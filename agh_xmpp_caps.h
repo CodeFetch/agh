@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef __agh_xmpp_caps_h__
 #define __agh_xmpp_caps_h__
 #include <strophe.h>

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
  * Much of the code in this file comes from the ubus software; but it may be present here in a modified form, or in a completely different one.
  * So, any bugs in this code should be reported to me, not the original author(s). Function names have been changed.

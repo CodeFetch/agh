@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "agh_ubus_logstream.h"
 #include "agh_ubus_helpers.h"
 #include "agh_commands.h"

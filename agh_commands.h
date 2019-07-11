@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 #ifndef __agh_commands_h__
 #include <glib.h>
 #define __agh_commands_h__

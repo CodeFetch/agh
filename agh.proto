@@ -1,4 +1,8 @@
 #!/bin/sh
+
+# The AGH protocol handler.
+# This file is distributed under the GPL license, version 2.0 or, at your option, any later version.
+# This file is distributed under the GPL license, version 2.0 or, at your option, any later version.
 # A lot of code found here has been copied from ModemManager OpenWRt integration package, found at
 # https://gitlab.freedesktop.org/mobile-broadband/mobile-broadband-openwrt
 # so, author(s)'s copyright applies.

@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include <libubox/blobmsg_json.h>
 #include "agh_handlers.h"
 #include "agh_logging.h"

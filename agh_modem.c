@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 /*
  * So here we are, for the second time: after the HDD breakage.
  * Subsequently, it got rewritten: the previous one wasn't so great.

@@ -1,6 +1,7 @@
 #!/bin/sh
 
 # uci-defaults script that creates an agh_mm interface in the network UCI package, and adds it to the wan zone of the firewall.
+# This file is distributed under the GPL license, version 2.0 or, at your option, any later version.
 
 . /lib/functions.sh
 

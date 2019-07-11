@@ -1,6 +1,6 @@
 # This is an OpenWrt package Makefile; to build AGH use CMake instead (see the README file).
 # Copyright (C) 2019 Enrico Mioso <mrkiko.rs@gmail.com>
-#
+# This file is distributed under the GPL license, version 2.0 or, at your option, any later version.
 
 include $(TOPDIR)/rules.mk
 

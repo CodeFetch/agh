@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include "agh_handlers.h"
 #include "agh_xmpp.h"
 #include "agh_xmpp_handlers.h"

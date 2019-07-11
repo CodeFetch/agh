@@ -1,6 +1,9 @@
 #!/bin/sh /etc/rc.common
+
+# AGH init.d script.
 # This script derives from ModemManager init script, which is
 # Copyright (C) 2016 Aleksander Morgado <aleksander@aleksander.es>
+# original license apply.
 
 USE_PROCD=1
 PROCD_DEBUG=1

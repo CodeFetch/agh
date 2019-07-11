@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0-or-later */
+
 /*
  * see agh_ubus_helpers.c for important Copyright and License informations.
 */

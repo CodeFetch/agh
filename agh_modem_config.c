@@ -1,3 +1,5 @@
+// SPDX-License-Identifier: GPL-2.0-or-later
+
 #include <glib.h>
 #include "agh.h"
 #include "agh_modem.h"
