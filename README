@@ -5,12 +5,14 @@ Welcome AGH, your management agent for OpenWrt systems, with support for cellula
 Copyright (C) 2018-2019 Meizo Networks.
 This software is distributed under the terms of the GPL license, version 2 or later, as published by the Free Software Foundation.
 
-This document aims to be an easy to read starting point, describing AGH.
-
 1. Introduction
 ===============================================================================
-AGH was conceived to be a control agent to be used on an OpenWrt based system, receiving commands over an XMPP connection.
-AGH should run on any hardware supported by OpenWrt (or, in other words, in any Linux distribution), provided enough storage and memory resources are available.
+AGH is an advanced cellular modem manager to be used on OpenWrt based systems.
+The configuration interface is simple and tightly integrated with UCI and uBus.
+AGH supports a TLS / SSL secured remote maintenance interface using XMPP to
+overcome restrictions of a firewall or NAT common to standard network setups.
+It is highly extensible and helps network administrators to easily automatize
+and monitor complex cellular modem setups.
 
 2. A quick overview
 ===============================================================================
